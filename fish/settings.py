@@ -6,16 +6,17 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
-# apps 폴더를 파이썬 경로에 등록
-sys.path.insert(0, str(BASE_DIR / 'apps'))
+# [수정] apps 폴더를 파이썬이 확실히 찾을 수 있게 절대 경로로 등록
+APPS_DIR = BASE_DIR / 'apps'
+sys.path.insert(0, str(APPS_DIR))
 
 # 2. .env에서 값 가져오기
-# SECRET_KEY가 .env에 없으면 임시 키를 사용하도록 설정했습니다.
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = ['*'] # 모든 호스트 허용 (배포 및 핸드폰 접속용)
+# Render에서는 환경변수로 DEBUG=False를 주겠지만, 기본값은 안전하게 설정
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
+ALLOWED_HOSTS = ['*'] 
 
-# 3. 앱 등록
+# 3. 앱 등록 (앱 이름만 적어도 찾을 수 있게 설정됨)
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,8 +35,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    # 배포(Render) 환경에서 정적 파일을 서빙하기 위해 유용합니다.
-    'whitenoise.middleware.WhiteNoiseMiddleware', 
+    'whitenoise.middleware.WhiteNoiseMiddleware', # 정적 파일 도우미
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -80,9 +80,12 @@ USE_TZ = True
 
 # 정적 파일 설정
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
-# 배포 시 수집될 정적 파일 경로
+# [수정] static 폴더가 없을 경우를 대비해 안전하게 설정
+STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# [추가] Whitenoise가 정적 파일을 압축해서 서빙하도록 설정
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -91,6 +94,4 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
-# 4. .env에서 Gemini API Key 가져오기 (수정 완료)
-# os.getenv('환경변수이름') 형태로 사용해야 합니다.
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
