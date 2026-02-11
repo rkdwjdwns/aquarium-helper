@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="py-6 max-w-7xl mx-auto px-4">
+    <div class="mb-12">
+        <div class="flex justify-between items-end mb-6 px-2">
+            <h2 class="text-2xl font-black text-gray-800 flex items-center">
+                <span class="mr-2 text-3xl">🐠</span> 내 어항 실시간 상태
+            </h2>
+            <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all text-xs">+ 어항 추가</a>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {% if user.is_authenticated %}
+                {% for tank in user.tanks.all %}
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-200/40 border border-gray-50 hover:border-blue-200 transition-all group">
+                    <div class="flex justify-between items-start mb-6">
+                        <h3 class="font-black text-2xl text-gray-800 group-hover:text-blue-600 transition-colors">{{ tank.name }}</h3>
+                        <span class="text-3xl">🐟</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-center">
+                        <div class="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-50">
+                            <span class="block text-[10px] text-blue-400 font-black mb-1 uppercase tracking-widest">Temperature</span>
+                            <span class="text-3xl font-black text-blue-700">{{ tank.readings.last.temperature|default:"--" }}<span class="text-lg ml-0.5">°C</span></span>
+                        </div>
+                        <div class="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-50">
+                            <span class="block text-[10px] text-indigo-400 font-black mb-1 uppercase tracking-widest">pH Level</span>
+                            <span class="text-3xl font-black text-indigo-700">{{ tank.readings.last.ph|default:"--" }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full py-16 bg-white border-2 border-dashed border-gray-100 rounded-[2.5rem] text-center">
+                    <p class="text-gray-400 font-bold text-sm">등록된 어항이 없습니다.</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-span-full py-16 bg-white border-2 border-dashed border-gray-100 rounded-[2.5rem] text-center">
+                    <p class="text-gray-400 font-bold text-sm">로그인 후 실시간 상태를 확인할 수 있습니다.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 px-2">
+        <a href="{% url 'monitoring:dashboard' %}" class="p-8 bg-white rounded-[2.5rem] shadow-sm border border-gray-50 hover:border-blue-200 hover:shadow-xl transition-all text-center group">
+            <div class="text-4xl mb-4 group-hover:scale-110 transition">📊</div>
+            <h3 class="font-black text-gray-800">대시보드</h3>
+        </a>
+        <a href="{% url 'monitoring:camera_view' %}" class="p-8 bg-white rounded-[2.5rem] shadow-sm border border-gray-50 hover:border-blue-200 hover:shadow-xl transition-all text-center group">
+            <div class="text-4xl mb-4 group-hover:scale-110 transition">📹</div>
+            <h3 class="font-black text-gray-800">카메라</h3>
+        </a>
+        <a href="{% url 'reports:report_list' %}" class="p-8 bg-white rounded-[2.5rem] shadow-sm border border-gray-50 hover:border-blue-200 hover:shadow-xl transition-all text-center group">
+            <div class="text-4xl mb-4 group-hover:scale-110 transition">📝</div>
+            <h3 class="font-black text-gray-800">AI 리포트</h3>
+        </a>
+        <a href="{% url 'monitoring:logs' %}" class="p-8 bg-white rounded-[2.5rem] shadow-sm border border-gray-50 hover:border-blue-200 hover:shadow-xl transition-all text-center group">
+            <div class="text-4xl mb-4 group-hover:scale-110 transition">📜</div>
+            <h3 class="font-black text-gray-800">실시간 로그</h3>
+        </a>
+    </div>
+</div>
+{% endblock %}

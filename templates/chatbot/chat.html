@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto h-[80vh] flex shadow-2xl rounded-[2rem] overflow-hidden border border-gray-100 bg-white my-4">
+    
+    <div class="hidden md:flex w-1/3 border-r border-gray-100 flex-col bg-gray-50/50">
+        <div class="p-6 bg-white border-b border-gray-100">
+            <h2 class="text-xl font-black text-gray-800">채팅</h2>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+            {% for room in chat_rooms %}
+            <div class="flex items-center p-4 hover:bg-white cursor-pointer transition-all border-b border-gray-50 group">
+                <div class="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-xl mr-3 group-hover:scale-110 transition">
+                    {{ room.name|slice:":1" }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-baseline">
+                        <h3 class="font-bold text-gray-800 truncate">{{ room.name }}</h3>
+                        <span class="text-[10px] text-gray-400 font-medium">오후 2:30</span>
+                    </div>
+                    <p class="text-xs text-gray-500 truncate mt-1">{{ room.last_msg }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col bg-[#BACEE0]"> 
+        <div class="p-4 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center justify-between">
+            <span class="font-black text-gray-700">🤖 AI 물생활 비서</span>
+            <span class="text-gray-400 text-xl cursor-pointer">🔍</span>
+        </div>
+
+        <div id="chat-window" class="flex-1 overflow-y-auto p-6 space-y-6">
+            <div class="flex items-start gap-2">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0">AI</div>
+                <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm text-sm font-medium max-w-[70%] text-gray-800 leading-relaxed">
+                    안녕하세요! <strong>{{ user.username }}</strong>님 🐠<br>
+                    저는 어항 관리를 돕는 <strong>'어항 도우미'</strong>입니다. 무엇이든 물어보세요!
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 bg-white">
+            <form id="chat-form" class="flex gap-2">
+                {% csrf_token %}
+                <input type="text" id="user-input" placeholder="메시지 입력" 
+                    class="flex-1 bg-gray-100 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-yellow-400 transition-all text-sm font-medium outline-none">
+                <button type="submit" class="bg-[#FEE500] text-[#3A1D1D] px-5 py-3 rounded-xl font-black text-sm hover:bg-yellow-400 transition shadow-sm shrink-0">
+                    전송
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const chatForm = document.getElementById('chat-form');
+    const chatWindow = document.getElementById('chat-window');
+    const userInput = document.getElementById('user-input');
+
+    chatForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const message = userInput.value.trim();
+        if (!message) return;
+
+        // 사용자 메시지 추가
+        appendMessage('user', message);
+        userInput.value = '';
+
+        // 로딩 메시지 추가
+        const loadingId = 'loading-' + Date.now();
+        appendMessage('ai', '생각 중...', loadingId);
+
+        fetch("{% url 'chatbot:ask' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `message=${encodeURIComponent(message)}`
+        })
+        .then(res => res.json())
+        .then(data => {
+            const loadingBubble = document.getElementById(loadingId);
+            if (data.status === 'success') {
+                // 줄바꿈 적용하여 텍스트 넣기
+                loadingBubble.innerHTML = data.message.replace(/\n/g, '<br>');
+            } else {
+                loadingBubble.innerText = "죄송합니다. 오류가 발생했어요: " + data.message;
+                loadingBubble.classList.add('text-red-500');
+            }
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        })
+        .catch(err => {
+            console.error(err);
+        });
+    });
+
+    function appendMessage(sender, text, id = null) {
+        const div = document.createElement('div');
+        div.className = sender === 'user' ? 'flex justify-end' : 'flex items-start gap-2';
+        
+        if (sender === 'user') {
+            div.innerHTML = `<div class="bg-[#FEE500] p-3 rounded-2xl rounded-tr-none shadow-sm text-sm font-bold max-w-[70%] text-[#3A1D1D] animate-fade-in">${text}</div>`;
+        } else {
+            div.innerHTML = `
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0">AI</div>
+                <div id="${id || ''}" class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm text-sm font-medium max-w-[70%] text-gray-800 leading-relaxed animate-fade-in">${text}</div>
+            `;
+        }
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+</script>
+
+<style>
+    @keyframes fade-in {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fade-in 0.3s ease-out; }
+    #chat-window::-webkit-scrollbar { width: 4px; }
+    #chat-window::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.1); border-radius: 10px; }
+</style>
+{% endblock %}

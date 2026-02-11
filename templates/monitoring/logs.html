@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto py-10 px-4">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+        <div>
+            <h2 class="text-4xl font-black text-gray-900 tracking-tight italic flex items-center gap-3">
+                <span class="not-italic">📜</span> 실시간 이벤트 로그
+            </h2>
+            <p class="text-gray-500 text-sm mt-2 font-medium">어항의 모든 상태 변화와 AI 진단 기록을 실시간으로 확인합니다.</p>
+        </div>
+        <button onclick="location.reload()" class="bg-white border-2 border-gray-100 text-gray-700 px-6 py-3 rounded-2xl text-sm font-bold hover:bg-gray-50 hover:border-blue-200 transition-all shadow-sm flex items-center gap-2">
+            🔄 기록 새로고침
+        </button>
+    </div>
+
+    <div class="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-gray-50/80 border-b border-gray-100">
+                    <tr>
+                        <th class="px-8 py-6 text-xs font-black text-gray-400 uppercase tracking-widest">발생 시간</th>
+                        <th class="px-8 py-6 text-xs font-black text-gray-400 uppercase tracking-widest">해당 어항</th>
+                        <th class="px-8 py-6 text-xs font-black text-gray-400 uppercase tracking-widest">상태 레벨</th>
+                        <th class="px-8 py-6 text-xs font-black text-gray-400 uppercase tracking-widest">상세 메시지</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for log in logs %}
+                    <tr class="hover:bg-blue-50/30 transition-colors">
+                        <td class="px-8 py-6 text-sm text-gray-400 font-mono">{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+                        <td class="px-8 py-6 text-sm font-black text-gray-700">
+                            <span class="bg-gray-100 px-3 py-1 rounded-lg">{{ log.tank.name|default:"기본 수조" }}</span>
+                        </td>
+                        <td class="px-8 py-6">
+                            {% if log.level == 'DANGER' %}
+                                <span class="px-4 py-1.5 bg-red-100 text-red-600 text-[10px] font-black rounded-xl border border-red-200">위험</span>
+                            {% elif log.level == 'WARNING' %}
+                                <span class="px-4 py-1.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-xl border border-orange-200">경고</span>
+                            {% else %}
+                                <span class="px-4 py-1.5 bg-blue-100 text-blue-600 text-[10px] font-black rounded-xl border border-blue-200">정보</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-8 py-6 text-sm text-gray-600 font-bold leading-relaxed">{{ log.message }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-8 py-32 text-center">
+                            <div class="text-6xl mb-6">🏜️</div>
+                            <p class="text-gray-400 font-black text-lg">아직 기록된 시스템 로그가 없습니다.</p>
+                            <p class="text-gray-300 text-sm mt-2">센서 데이터가 수집되면 로그가 자동으로 생성됩니다.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}  

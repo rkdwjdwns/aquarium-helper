@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold text-gray-800 mb-2">🐠 어종 호환성 체크</h2>
+        <p class="text-gray-500">새로운 식구를 들이기 전, AI에게 미리 물어보세요!</p>
+    </div>
+
+    <div class="bg-white p-8 rounded-3xl shadow-xl border border-blue-50">
+        <div class="mb-6">
+            <label class="block text-sm font-bold text-gray-700 mb-2">함께 키울 어종들</label>
+            <input type="text" id="fish-input" placeholder="예: 구피, 네온테트라, 베타" 
+                class="w-full px-4 py-3 rounded-xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 outline-none transition-all">
+        </div>
+        
+        <button onclick="checkFish()" id="check-btn" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
+            호환성 분석 시작
+        </button>
+
+        <div id="result-area" class="mt-8 hidden animate-fade-in">
+            <div class="p-6 rounded-2xl bg-blue-50 border border-blue-100">
+                <h4 class="font-bold text-blue-800 mb-2">📋 분석 결과</h4>
+                <div id="ai-response" class="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                    </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function checkFish() {
+    const fishList = document.getElementById('fish-input').value;
+    const btn = document.getElementById('check-btn');
+    const resultArea = document.getElementById('result-area');
+    const responseDiv = document.getElementById('ai-response');
+
+    if(!fishList) return alert("어종을 입력해주세요!");
+
+    // 로딩 상태
+    btn.disabled = true;
+    btn.innerText = "AI 분석 중...";
+    resultArea.classList.add('hidden');
+
+    fetch("{% url 'chatbot:check_compatibility' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `fish_list=${encodeURIComponent(fishList)}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            responseDiv.innerText = data.result;
+            resultArea.classList.remove('hidden');
+        } else {
+            alert("에러: " + data.message);
+        }
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerText = "호환성 분석 시작";
+    });
+}
+</script>
+{% endblock %}

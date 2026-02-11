@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-12">
+    <h2 class="text-4xl font-black text-slate-800 tracking-tight mb-2">📊 실시간 대시보드</h2>
+    <p class="text-slate-500 font-medium ml-1">지능형 수질 분석 시스템이 작동 중입니다.</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+    {% for item in tank_data %}
+    <div class="group relative bg-white/70 backdrop-blur-xl rounded-[3rem] shadow-[0_20px_50px_rgba(0,119,255,0.08)] border border-white p-8 transition-all hover:shadow-[0_30px_60px_rgba(0,119,255,0.15)] hover:-translate-y-2 
+        {% if item.status == 'DANGER' %}ring-4 ring-red-500/20 animate-pulse{% elif item.status == 'WARNING' %}ring-4 ring-yellow-400/20{% endif %}">
+        
+        <div class="flex justify-between items-start mb-8">
+            <div>
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 mb-1 block">Aquarium Unit</span>
+                <h3 class="text-2xl font-black text-slate-800">{{ item.tank.name }}</h3>
+            </div>
+            <span class="px-4 py-1.5 rounded-full text-xs font-black shadow-sm
+                {% if item.status == 'DANGER' %}bg-red-500 text-white
+                {% elif item.status == 'WARNING' %}bg-yellow-400 text-white
+                {% else %}bg-gradient-to-r from-blue-500 to-cyan-400 text-white{% endif %}">
+                {{ item.status }}
+            </span>
+        </div>
+
+        {% if item.alerts %}
+        <div class="mb-8 p-5 bg-red-50/50 backdrop-blur-sm rounded-2xl border border-red-100/50">
+            {% for alert in item.alerts %}
+                <p class="text-red-600 text-[11px] font-black mb-1.5 flex items-center">
+                    <span class="mr-2 text-base">⚠️</span> {{ alert }}
+                </p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-3 gap-4 mb-8">
+            <div class="bg-white/50 border border-white p-5 rounded-[2rem] text-center shadow-inner transition-transform group-hover:scale-105">
+                <p class="text-[10px] text-blue-500 mb-2 font-black uppercase tracking-widest">Temp</p>
+                <p class="text-2xl font-black text-slate-800">{{ item.latest.temperature|default:"--" }}<span class="text-sm">°C</span></p>
+                <div class="mt-2 w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                    <div class="bg-blue-500 h-full" style="width: 75%"></div>
+                </div>
+            </div>
+            <div class="bg-white/50 border border-white p-5 rounded-[2rem] text-center shadow-inner transition-transform group-hover:scale-105" style="transition-delay: 50ms;">
+                <p class="text-[10px] text-purple-500 mb-2 font-black uppercase tracking-widest">pH</p>
+                <p class="text-2xl font-black text-slate-800">{{ item.latest.ph|default:"--" }}</p>
+                <div class="mt-2 w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                    <div class="bg-purple-500 h-full" style="width: 60%"></div>
+                </div>
+            </div>
+            <div class="bg-white/50 border border-white p-5 rounded-[2rem] text-center shadow-inner transition-transform group-hover:scale-105" style="transition-delay: 100ms;">
+                <p class="text-[10px] text-cyan-500 mb-2 font-black uppercase tracking-widest">Level</p>
+                <p class="text-2xl font-black text-slate-800">{{ item.latest.water_level|default:"--" }}<span class="text-sm">%</span></p>
+                <div class="mt-2 w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                    <div class="bg-cyan-500 h-full" style="width: 90%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-8 border-t border-slate-100 pt-8">
+            <div class="flex gap-4">
+                <button onclick="controlDevice('{{ item.tank.id }}', 'LIGHT')" id="btn-LIGHT-{{ item.tank.id }}"
+                    class="flex-1 py-4 rounded-[1.5rem] border-2 transition-all flex flex-col items-center justify-center
+                    {% if item.light_on %}bg-gradient-to-br from-yellow-400 to-orange-400 border-transparent text-white shadow-lg shadow-yellow-100
+                    {% else %}bg-slate-50 border-slate-100 text-slate-400 hover:bg-slate-100{% endif %}">
+                    <span class="text-2xl mb-1">💡</span><span class="text-[11px] font-black">조명</span>
+                </button>
+                <button onclick="controlDevice('{{ item.tank.id }}', 'FILTER')" id="btn-FILTER-{{ item.tank.id }}"
+                    class="flex-1 py-4 rounded-[1.5rem] border-2 transition-all flex flex-col items-center justify-center
+                    {% if item.filter_on %}bg-gradient-to-br from-blue-500 to-cyan-400 border-transparent text-white shadow-lg shadow-blue-100
+                    {% else %}bg-slate-50 border-slate-100 text-slate-400 hover:bg-slate-100{% endif %}">
+                    <span class="text-2xl mb-1">🌀</span><span class="text-[11px] font-black">여과기</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-slate-50/50 rounded-3xl p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest italic">Live Activity</h4>
+                <a href="{% url 'monitoring:logs' %}" class="text-[10px] font-black text-blue-500 hover:text-blue-700 transition-colors bg-white px-3 py-1 rounded-full shadow-sm">View All</a>
+            </div>
+            <ul class="space-y-3">
+                {% for log in item.logs %}
+                <li class="text-[11px] flex justify-between items-center group/item">
+                    <div class="flex items-center">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-400 mr-2 group-hover/item:scale-150 transition-transform"></span>
+                        <span class="text-slate-600 font-bold tracking-tight">{{ log.message }}</span>
+                    </div>
+                    <span class="text-[9px] font-black text-slate-300">{{ log.created_at|date:"H:i" }}</span>
+                </li>
+                {% empty %}
+                <li class="text-[11px] text-slate-300 text-center py-2 font-bold tracking-tighter">아직 기록된 활동이 없습니다.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full py-24 bg-white/50 backdrop-blur-md rounded-[4rem] border-4 border-dashed border-blue-100 flex flex-col items-center justify-center">
+        <div class="text-6xl mb-6 opacity-40">🌊</div>
+        <p class="text-slate-400 mb-8 font-black text-lg">아직 등록된 어항이 없습니다.</p>
+        <a href="{% url 'monitoring:add_tank' %}" class="bg-gradient-to-r from-blue-600 to-blue-400 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-100 hover:scale-105 active:scale-95 transition-all">
+            첫 어항 등록하기
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+// 장비 제어 AJAX 함수
+function controlDevice(tankId, deviceType) {
+    fetch(`/monitoring/toggle-device/${tankId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `device_type=${deviceType}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            location.reload(); // 상태 변화 반영을 위한 새로고침
+        }
+    });
+}
+</script>
+{% endblock %}
