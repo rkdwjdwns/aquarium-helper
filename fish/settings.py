@@ -104,5 +104,10 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
-# 8. AI 설정 (Gemini API KEY)
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+# 8. AI 설정 (Gemini API KEY 멀티 설정)
+GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
+GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
+GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
+
+# 하위 호환성을 위해 기본 키도 유지 (필요 시)
+GEMINI_API_KEY = GEMINI_API_KEY_1
