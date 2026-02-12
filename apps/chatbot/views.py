@@ -7,6 +7,14 @@ from django.contrib.auth.decorators import login_required
 from .models import ChatMessage
 import traceback
 
+# 1. 채팅 화면을 보여주는 뷰
+@login_required
+def chatbot_home(request):
+    # 최신 대화 내역 50개를 가져와서 화면에 전달
+    history = ChatMessage.objects.filter(user=request.user).order_by('-created_at')[:50]
+    return render(request, 'chatbot/chat.html', {'history': reversed(list(history))})
+
+# 2. AI에게 질문을 보내는 뷰 (주인님이 올리신 핵심 코드)
 @login_required
 def ask_chatbot(request):
     if request.method == "POST":
@@ -18,12 +26,10 @@ def ask_chatbot(request):
             if not settings.GEMINI_API_KEY:
                 raise ValueError("API 키가 설정되지 않았습니다.")
 
-            # 1. 클라이언트 생성 (최신 라이브러리 방식)
+            # 클라이언트 생성
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             
-            # 2. 모델 ID 설정 
-            # 최신 google-genai SDK에서는 "gemini-1.5-flash"만 써도 작동하지만, 
-            # 에러가 난다면 다시 한번 "gemini-1.5-flash"로 시도해 봅니다.
+            # 모델 ID 설정 (models/ 없이 사용)
             model_id = "gemini-1.5-flash" 
             
             config = types.GenerateContentConfig(
@@ -37,16 +43,16 @@ def ask_chatbot(request):
                 max_output_tokens=1000,
             )
             
-            # 3. 답변 생성
+            # 답변 생성
             response = client.models.generate_content(
                 model=model_id,
-                contents=user_message,  # contents=user_message 형식을 유지합니다.
+                contents=user_message,
                 config=config
             )
             
             bot_response = response.text
 
-            # 4. DB 저장
+            # DB 저장
             ChatMessage.objects.create(
                 user=request.user, 
                 message=user_message, 
@@ -60,13 +66,12 @@ def ask_chatbot(request):
             print(traceback.format_exc()) 
             error_msg = str(e).lower()
             
-            # 에러 메시지에 '404'나 'not found'가 포함되면 출력
             if "429" in error_msg:
                 friendly_msg = "현재 요청이 너무 많아 구글이 잠시 쉬고 있어요. 잠시 후 다시 시도해 주세요! 🐠"
             elif "404" in error_msg or "not found" in error_msg:
-                friendly_msg = f"모델 인식 오류가 발생했습니다. (에러내용: {error_msg[:50]})"
+                friendly_msg = "모델 인식 오류가 발생했습니다. (gemini-1.5-flash)"
             else:
-                friendly_msg = "AI와 통신 중 문제가 발생했습니다. API 키와 설정을 확인해주세요."
+                friendly_msg = "AI와 통신 중 문제가 발생했습니다. API 키를 확인해주세요."
                 
             return JsonResponse({'status': 'error', 'message': friendly_msg}, status=500)
     
