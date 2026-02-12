@@ -10,55 +10,40 @@
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     
     <style>
-        /* 기본 폰트 및 흔들림 방지 */
+        /* 노트북 및 PC 브라우저 흔들림 방지 */
+        html { overflow-y: scroll; height: 100%; }
         body { 
             font-family: "Pretendard", sans-serif; 
             -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
-            width: 100%;
-            position: relative;
-            touch-action: manipulation; /* 더블탭 확대 방지 */
+            overflow-x: hidden; width: 100%; position: relative; touch-action: manipulation;
         }
 
-        /* 아이폰 터치 잔상 제거 */
+        /* 클릭 시 파란 테두리 제거 */
+        button:focus, a:focus, input:focus, textarea:focus { outline: none !important; box-shadow: none !important; }
         * { -webkit-tap-highlight-color: transparent; }
 
+        /* 챗봇 사이드바 설정 */
         #chatbot-sidebar { 
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(15px);
-            background-color: rgba(255, 255, 255, 0.95);
-            width: 380px;
-            height: 600px;
-            position: fixed;
-            bottom: 100px;
-            right: 30px;
-            border-radius: 2rem;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
-            display: flex;
-            flex-direction: column;
-            z-index: 50;
-            will-change: transform;
+            backdrop-filter: blur(15px); background-color: rgba(255, 255, 255, 0.95);
+            width: 380px; height: 600px; position: fixed; bottom: 100px; right: 30px;
+            border-radius: 2rem; border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column; z-index: 50; will-change: transform;
         }
 
         @media (max-width: 768px) { 
-            #chatbot-sidebar { 
-                width: 100%; height: 75vh; right: 0; bottom: 0; border-radius: 2rem 2rem 0 0; 
-            }
-            .chat-open #chatbot-toggle-btn {
-                opacity: 0;
-                transform: scale(0);
-                pointer-events: none;
-            }
+            #chatbot-sidebar { width: 100%; height: 75vh; right: 0; bottom: 0; border-radius: 2rem 2rem 0 0; }
+            .chat-open #chatbot-toggle-btn { opacity: 0; transform: scale(0); pointer-events: none; }
+            /* 모바일에서 메뉴 글자 크기 및 간격 미세 조정 (줄바꿈 방지) */
+            .nav-menu-text { font-size: 0.8rem; letter-spacing: -0.05rem; }
+            .nav-container { padding-left: 0.75rem; padding-right: 0.75rem; }
         }
 
-        /* 말풍선 디자인 */
         .chat-bubble-ai { border-radius: 1.2rem 1.2rem 1.2rem 0.2rem; }
         .chat-bubble-user { border-radius: 1.2rem 1.2rem 0.2rem 1.2rem; }
         #side-chat-window::-webkit-scrollbar { width: 4px; }
         #side-chat-window::-webkit-scrollbar-thumb { background: rgba(0, 119, 255, 0.1); border-radius: 10px; }
         
-        /* 배경 및 애니메이션 */
         .ocean-bg { background: linear-gradient(180deg, #f0f7ff 0%, #e0efff 100%); min-height: 100vh; }
         .bubble { position: absolute; background: rgba(255, 255, 255, 0.4); border-radius: 50%; pointer-events: none; animation: rise 10s infinite ease-in; }
         @keyframes rise {
@@ -67,11 +52,13 @@
             100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
         }
 
-        /* 클릭 애니메이션 안정화 */
-        .active-stable:active {
-            transform: scale(0.97);
-            transition: transform 0.1s;
-        }
+        .active-stable:active { transform: scale(0.98); transition: transform 0.1s; }
+
+        /* 로딩 애니메이션 */
+        .typing-dots span { width: 4px; height: 4px; background: #3b82f6; border-radius: 50%; display: inline-block; animation: blink 1.4s infinite both; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
     </style>
 </head>
 <body class="ocean-bg flex flex-col min-h-screen">
@@ -80,40 +67,31 @@
     <div class="bubble w-6 h-6 left-[70%]" style="animation-delay: 4s;"></div>
 
     <nav class="sticky top-4 z-40 mx-auto w-[95%] max-w-6xl">
-        <div class="bg-white/70 backdrop-blur-md border border-white/40 shadow-xl rounded-2xl px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-8">
-                <a href="{% url 'home' %}" class="text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent tracking-tighter">
+        <div class="bg-white/70 backdrop-blur-md border border-white/40 shadow-xl rounded-2xl px-4 md:px-6 py-4 flex justify-between items-center nav-container">
+            <div class="flex items-center space-x-3 md:space-x-8">
+                <a href="{% url 'home' %}" class="text-xl md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent tracking-tighter shrink-0">
                     🐠 어항 도우미
                 </a>
                 {% if user.is_authenticated %}
-                <div class="hidden lg:flex items-center space-x-6 text-sm font-bold text-slate-500">
-                    <a href="{% url 'monitoring:dashboard' %}" class="hover:text-blue-600 transition-colors">대시보드</a>
-                    <a href="{% url 'monitoring:logs' %}" class="hover:text-blue-600 transition-colors">활동로그</a>
-                    <a href="{% url 'monitoring:add_tank' %}" class="hover:text-blue-600 transition-colors">어항추가</a>
+                <div class="flex items-center space-x-3 md:space-x-6 text-sm font-bold text-slate-500 nav-menu-text">
+                    <a href="{% url 'monitoring:dashboard' %}" class="hover:text-blue-600 transition-colors shrink-0">대시보드</a>
+                    <a href="{% url 'monitoring:logs' %}" class="hover:text-blue-600 transition-colors shrink-0">로그</a>
+                    <a href="{% url 'monitoring:add_tank' %}" class="hover:text-blue-600 transition-colors shrink-0 whitespace-nowrap">어항추가</a>
                 </div>
                 {% endif %}
             </div>
 
-            <div class="flex items-center space-x-6 text-sm font-bold text-slate-600">
+            <div class="flex items-center space-x-2 md:space-x-6 text-sm font-bold text-slate-600">
                 {% if user.is_authenticated %}
                     <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" @click.away="open = false" class="flex items-center bg-blue-50 px-4 py-2 rounded-xl text-blue-700 hover:bg-blue-100 transition-all group active-stable">
-                            <span class="mr-2">👤</span>
-                            <span>{{ user.nickname|default:user.username }}님</span>
-                            <svg class="w-4 h-4 ml-1 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        <button @click="open = !open" @click.away="open = false" class="flex items-center bg-blue-50 px-3 py-2 md:px-4 rounded-xl text-blue-700 active-stable text-xs md:text-sm">
+                            <span class="hidden md:inline mr-2">👤</span>
+                            <span class="truncate max-w-[60px] md:max-w-none">{{ user.nickname|default:user.username }}님</span>
                         </button>
-                        <div x-show="open" x-transition class="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50">
-                            <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">내 정보</a>
-                            <hr class="my-1 border-slate-50">
-                            <form action="{% url 'accounts:logout' %}" method="post">
-                                {% csrf_token %}
-                                <button type="submit" class="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50 transition-colors">로그아웃</button>
-                            </form>
-                        </div>
                     </div>
                 {% else %}
-                    <a href="{% url 'accounts:login' %}" class="hover:text-blue-600 transition-colors">로그인</a>
-                    <a href="{% url 'accounts:signup' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-200 hover:scale-105 active-stable transition-all">시작하기</a>
+                    <a href="{% url 'accounts:login' %}" class="hover:text-blue-600 transition-colors text-xs md:text-sm">로그인</a>
+                    <a href="{% url 'accounts:signup' %}" class="bg-blue-600 text-white px-3 py-2 md:px-5 md:py-2.5 rounded-xl text-xs md:text-sm active-stable transition-all">시작</a>
                 {% endif %}
             </div>
         </div>
@@ -151,7 +129,7 @@
         <div class="p-4 bg-white border-t border-slate-100 shrink-0">
             <form id="side-chat-form" enctype="multipart/form-data" class="flex items-center gap-2">
                 {% csrf_token %}
-                <label class="flex-shrink-0 w-10 h-10 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-all shadow-sm">
+                <label class="flex-shrink-0 w-10 h-10 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-all">
                     <input type="file" name="image" id="side-image-input" accept="image/*" class="hidden">
                     <span class="text-xl">📷</span>
                 </label>
@@ -159,7 +137,7 @@
                     <input type="text" id="side-user-input" autocomplete="off" placeholder="메시지 입력..." 
                         class="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-blue-400 outline-none">
                 </div>
-                <button type="submit" class="flex-shrink-0 px-3 h-10 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md active-stable">보내기</button>
+                <button type="submit" class="flex-shrink-0 px-3 h-10 bg-blue-600 text-white text-xs font-bold rounded-xl active-stable">보내기</button>
             </form>
         </div>
     </div>
@@ -169,29 +147,52 @@
             const sidebar = document.getElementById('chatbot-sidebar');
             const body = document.body;
             const isOpen = sidebar.style.transform === 'translateX(0px)';
-            
-            if (isOpen) {
-                sidebar.style.transform = 'translateX(150%)';
-                body.classList.remove('chat-open');
-            } else {
-                sidebar.style.transform = 'translateX(0px)';
-                body.classList.add('chat-open');
-            }
+            sidebar.style.transform = isOpen ? 'translateX(150%)' : 'translateX(0px)';
+            isOpen ? body.classList.remove('chat-open') : body.classList.add('chat-open');
         }
 
         const sideChatForm = document.getElementById('side-chat-form');
         const sideChatWindow = document.getElementById('side-chat-window');
         const sideUserInput = document.getElementById('side-user-input');
 
-        sideChatForm.addEventListener('submit', function(e) {
+        sideChatForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             const message = sideUserInput.value.trim();
-            if (!message && !document.getElementById('side-image-input').files[0]) return;
+            const imageFile = document.getElementById('side-image-input').files[0];
+            
+            if (!message && !imageFile) return;
+
             appendSideMessage('user', message || "이미지 분석 요청 📸");
             sideUserInput.value = '';
             
-            // 전송 후 입력창 포커스 유지 (아이폰 키보드 내려감 방지)
-            sideUserInput.focus();
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'ai-loading';
+            loadingDiv.className = 'flex items-start gap-2';
+            loadingDiv.innerHTML = `<div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">AI</div><div class="bg-white p-3 chat-bubble-ai shadow-sm border border-blue-50 text-sm typing-dots"><span></span> <span></span> <span></span></div>`;
+            sideChatWindow.appendChild(loadingDiv);
+            sideChatWindow.scrollTop = sideChatWindow.scrollHeight;
+
+            const formData = new FormData();
+            formData.append('message', message);
+            if (imageFile) formData.append('image', imageFile);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            try {
+                const response = await fetch('/chat/', { method: 'POST', body: formData });
+                if (document.getElementById('ai-loading')) document.getElementById('ai-loading').remove();
+
+                if (response.ok) {
+                    const data = await response.json();
+                    appendSideMessage('ai', data.reply || "다시 말씀해 주시겠어요? 🫧");
+                } else {
+                    appendSideMessage('ai', "앗, 잠시 어항 물을 갈고 있어요! 🫧 잠시 후에 다시 대화해요.");
+                    console.error('Server Error:', response.status);
+                }
+            } catch (error) {
+                if (document.getElementById('ai-loading')) document.getElementById('ai-loading').remove();
+                appendSideMessage('ai', "물결이 조금 불안정하네요. 🌊 연결을 확인해 주세요!");
+                console.error('Fetch Error:', error);
+            }
         });
 
         function appendSideMessage(sender, text) {
