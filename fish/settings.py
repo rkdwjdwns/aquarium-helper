@@ -14,7 +14,14 @@ sys.path.insert(0, str(APPS_DIR))
 # 2. 보안 및 환경 설정
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+# 모바일 및 외부 접속을 위해 모든 호스트 허용
 ALLOWED_HOSTS = ['*'] 
+
+# CSRF 신뢰할 수 있는 도메인 설정 (모바일 로그인 해결의 핵심!)
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.onrender.com',
+]
 
 # 3. 앱 등록
 INSTALLED_APPS = [
@@ -81,12 +88,11 @@ TIME_ZONE = 'Asia/Seoul'
 USE_I18N = True
 USE_TZ = True
 
-# 6. 정적 파일 및 Whitenoise 설정 (Django 5.x 호환)
+# 6. 정적 파일 및 Whitenoise 설정
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Django 5.1.x에서는 아래 설정을 권장합니다.
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -104,10 +110,17 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
+# --- 모바일 로그인 보안 설정 추가 ---
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SAMESITE = 'None'
+
 # 8. AI 설정 (Gemini API KEY 멀티 설정)
 GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
 GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
 GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
 
-# 하위 호환성을 위해 기본 키도 유지 (필요 시)
+# 기본 키 설정 (1번 키를 기본으로 사용)
 GEMINI_API_KEY = GEMINI_API_KEY_1
