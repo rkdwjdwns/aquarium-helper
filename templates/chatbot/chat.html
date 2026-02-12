@@ -53,9 +53,13 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                    <label class="group relative flex items-center justify-center w-12 h-12 bg-blue-50 rounded-2xl cursor-pointer hover:bg-blue-100 transition-all shadow-sm">
+                    <label class="group relative flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-gray-50 to-gray-100 border-2 border-blue-100 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-white transition-all shadow-sm">
                         <input type="file" id="image-input" name="image" accept="image/*" class="hidden">
-                        <span class="text-2xl group-hover:scale-110 transition-transform">📸</span>
+                        <span class="text-2xl group-hover:scale-125 transition-transform">📷</span>
+                        <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                        </span>
                     </label>
 
                     <div class="flex-1 relative">
@@ -63,10 +67,8 @@
                             class="w-full bg-gray-50 border-2 border-transparent focus:border-blue-300 focus:bg-white rounded-2xl px-5 py-3.5 outline-none text-sm font-medium transition-all shadow-inner">
                     </div>
 
-                    <button type="submit" class="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 text-white rounded-2xl shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 active:scale-95 transition-all group">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 group-hover:rotate-12 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
+                    <button type="submit" class="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl shadow-lg shadow-blue-200 hover:shadow-blue-400 hover:-translate-y-1 active:scale-95 transition-all group">
+                        <span class="text-3xl group-hover:rotate-12 transition-transform">🐠</span>
                     </button>
                 </div>
             </form>
@@ -82,7 +84,6 @@
     const imagePreview = document.getElementById('image-preview');
     const fileNameDisp = document.getElementById('file-name');
 
-    // 파일 선택 시 이벤트
     imageInput.addEventListener('change', function() {
         if (this.files && this.files[0]) {
             fileNameDisp.innerText = this.files[0].name;
@@ -107,7 +108,7 @@
         resetImage();
 
         const loadingId = 'loading-' + Date.now();
-        appendMessage('ai', '물고기를 진찰하고 있습니다...', loadingId);
+        appendMessage('ai', '물고기를 진찰하고 있습니다...🫧', loadingId);
 
         fetch("{% url 'chatbot:ask' %}", {
             method: 'POST',
@@ -116,8 +117,11 @@
         })
         .then(res => res.json())
         .then(data => {
-            const loadingBubbleContainer = document.getElementById(loadingId).parentElement.parentElement;
-            loadingBubbleContainer.remove();
+            const loadingBubble = document.getElementById(loadingId);
+            if (loadingBubble) {
+                const container = loadingBubble.closest('.flex');
+                if (container) container.remove();
+            }
             
             if (data.status === 'success') {
                 appendMessage('ai', data.message);
@@ -149,7 +153,7 @@
         }
 
         if (sender === 'user') {
-            div.innerHTML = `<div class="bg-blue-500 text-white p-4 rounded-2xl rounded-tr-none shadow-md text-sm font-bold max-w-[75%] animate-fade-in">${text}</div>`;
+            div.innerHTML = `<div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none shadow-md text-sm font-bold max-w-[75%] animate-fade-in">${text}</div>`;
         } else {
             div.innerHTML = `
                 <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white text-xs font-black shadow-lg shrink-0">AI</div>
