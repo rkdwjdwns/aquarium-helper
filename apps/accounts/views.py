@@ -47,13 +47,14 @@ def logout_view(request):
     messages.success(request, "로그아웃 되었습니다.")
     return redirect('home')
 
-# --- 4. LangChain 챗봇 기능 (2.0 모델 적용) ---
+# --- 4. LangChain 챗봇 기능 (안정적인 1.5 모델로 통일) ---
 def chat_view(request):
     if request.method == 'POST':
         user_message = request.POST.get('message')
         try:
+            # [중요] 404 및 429 에러 방지를 위해 gemini-1.5-flash를 사용합니다.
             llm = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash", 
+                model="gemini-1.5-flash", 
                 google_api_key=settings.GEMINI_API_KEY,
                 temperature=0.7
             )
@@ -63,13 +64,24 @@ def chat_view(request):
             ])
             chain = prompt | llm
             response = chain.invoke({"input": user_message})
+            
             return JsonResponse({
                 'reply': response.content,
                 'message': response.content,
                 'status': 'success'
             })
         except Exception as e:
+            # 터미널 로그에 에러 상세 내용 출력
             print(f"LangChain Error: {e}")
-            return JsonResponse({'reply': "서비스 연결에 문제가 발생했습니다.", 'message': str(e)}, status=500)
+            
+            error_msg = str(e)
+            if "429" in error_msg:
+                friendly_msg = "현재 질문이 너무 많아 구글이 잠시 쉬고 있어요. 1분만 기다려 주세요! 🐠"
+            elif "404" in error_msg:
+                friendly_msg = "AI 모델 경로를 찾을 수 없습니다. (404 에러)"
+            else:
+                friendly_msg = "챗봇 서비스에 일시적인 문제가 발생했습니다."
+                
+            return JsonResponse({'reply': friendly_msg, 'message': friendly_msg}, status=500)
             
     return render(request, 'accounts/chat.html')

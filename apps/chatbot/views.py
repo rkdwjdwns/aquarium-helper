@@ -20,22 +20,22 @@ def ask_chatbot(request):
             return JsonResponse({'status': 'error', 'message': "메시지를 입력해주세요."}, status=400)
         
         try:
-            # 1. 클라이언트 생성
+            # [수정 포인트] 클라이언트 생성 시점 점검
+            if not settings.GEMINI_API_KEY:
+                raise ValueError("API KEY가 설정되지 않았습니다.")
+
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             
-            # 2. 설정 구성
-            config = types.GenerateContentConfig(
-                system_instruction="당신은 물물박사 '어항 도우미'입니다. 친절하게 답하세요.",
-                temperature=0.7,
-            )
-            
-            # 3. 답변 생성 (가장 중요한 부분: 모델명을 "gemini-1.5-flash"로 직접 기입)
-            # 만약 404가 계속 나면 "models/gemini-1.5-flash"로 바꿔야 할 수도 있지만, 
-            # 최신 라이브러리에서는 아래 형식이 기본입니다.
+            # [수정 포인트] 모델명을 'gemini-1.5-flash'로 고정
+            # 404가 계속 발생한다면 구글 서버가 v1beta에서 이 모델명을 못 찾는 것이므로
+            # 가장 범용적인 'gemini-1.5-flash'를 사용합니다.
             response = client.models.generate_content(
                 model="gemini-1.5-flash", 
                 contents=user_message,
-                config=config
+                config=types.GenerateContentConfig(
+                    system_instruction="당신은 물물박사 '어항 도우미'입니다. 친절하게 답하세요.",
+                    temperature=0.7,
+                )
             )
             
             bot_response = response.text
@@ -54,13 +54,13 @@ def ask_chatbot(request):
             print(traceback.format_exc())
             error_msg = str(e)
             
-            # 404 에러 시 사용자에게 보여줄 메시지
+            # 404 에러 대응 로직 강화
             if "404" in error_msg:
-                friendly_msg = "구글 AI 모델 인식에 문제가 있습니다. 관리자에게 문의하세요."
+                friendly_msg = "구글 서버에서 모델을 찾을 수 없습니다(404). API 키 설정을 확인해주세요."
             elif "429" in error_msg:
-                friendly_msg = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+                friendly_msg = "요청이 너무 많습니다(429). 1분 뒤에 다시 시도해주세요."
             else:
-                friendly_msg = "AI와 통신 중 문제가 발생했습니다."
+                friendly_msg = f"에러 발생: {error_msg}"
                 
             return JsonResponse({'status': 'error', 'message': friendly_msg}, status=500)
     
