@@ -1,4 +1,52 @@
-# accounts/views.py 하단 챗봇 부분 수정
+from django.shortcuts import render, redirect
+from django.contrib.auth import login as auth_login, logout as auth_logout
+from django.contrib import messages
+from .forms import CustomUserCreationForm
+from django.contrib.auth.forms import AuthenticationForm
+from django.http import JsonResponse
+from django.conf import settings
+
+# LangChain 관련 임포트
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+
+# --- 1. 회원가입/로그인 기능 (기존 기능 복구) ---
+
+def signup_view(request):
+    if request.user.is_authenticated:
+        return redirect('home')
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f"{user.nickname}님, 가입을 축하합니다! 로그인을 해주세요.")
+            return redirect('accounts:login')
+    else:
+        form = CustomUserCreationForm()
+    return render(request, 'accounts/signup.html', {'form': form})
+
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('home')
+    if request.method == 'POST':
+        form = AuthenticationForm(data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            auth_login(request, user)
+            messages.info(request, f"{user.nickname}님, 환영합니다!")
+            return redirect('home')
+        else:
+            messages.error(request, "아이디 또는 비밀번호가 틀렸습니다.")
+    else:
+        form = AuthenticationForm()
+    return render(request, 'accounts/login.html', {'form': form})
+
+def logout_view(request):
+    auth_logout(request)
+    messages.success(request, "로그아웃 되었습니다.")
+    return redirect('home')
+
+# --- 2. 챗봇 기능 (Gemini 1.5-flash 적용) ---
 
 def chat_view(request):
     """
@@ -8,9 +56,9 @@ def chat_view(request):
         user_message = request.POST.get('message')
         
         try:
-            # 1. Gemini 모델 설정 (1.5-flash 모델로 명시)
+            # 1. Gemini 모델 설정 (1.5-flash 명시)
             llm = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash", # <--- 여기가 1.5인지 다시 확인!
+                model="gemini-1.5-flash",
                 google_api_key=settings.GEMINI_API_KEY,
                 temperature=0.7
             )
@@ -25,8 +73,7 @@ def chat_view(request):
             chain = prompt | llm
             response = chain.invoke({"input": user_message})
             
-            # ⚠️ 프론트엔드 자바스크립트가 'reply'를 받는지 'message'를 받는지 확인이 필요해요.
-            # 일단 'reply'와 'message' 둘 다 보내주는 게 안전합니다.
+            # 프론트엔드 호환성을 위해 reply와 message 모두 반환
             return JsonResponse({
                 'reply': response.content,
                 'message': response.content,
