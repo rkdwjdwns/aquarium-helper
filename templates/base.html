@@ -10,19 +10,28 @@
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     
     <style>
-        /* 노트북 및 PC 브라우저 흔들림 방지 */
-        html { overflow-y: scroll; height: 100%; }
+        /* [중요] 스크롤바 중복 및 화면 흔들림 방지 설정 */
+        html { 
+            overflow-y: scroll; /* 스크롤바 공간을 항상 확보해서 화면 밀림 방지 */
+            height: 100%;
+        }
+
         body { 
             font-family: "Pretendard", sans-serif; 
             -webkit-font-smoothing: antialiased;
-            overflow-x: hidden; width: 100%; position: relative; touch-action: manipulation;
+            overflow-x: hidden; /* 가로 스크롤 절대 방지 */
+            width: 100%; 
+            min-height: 100%;
+            position: relative; 
+            touch-action: manipulation;
+            margin: 0;
         }
 
-        /* 클릭 시 파란 테두리 제거 */
+        /* 텐션 있는 클릭 효과 */
         button:focus, a:focus, input:focus, textarea:focus { outline: none !important; box-shadow: none !important; }
         * { -webkit-tap-highlight-color: transparent; }
 
-        /* 챗봇 사이드바 설정 */
+        /* 챗봇 사이드바 */
         #chatbot-sidebar { 
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             backdrop-filter: blur(15px); background-color: rgba(255, 255, 255, 0.95);
@@ -34,13 +43,14 @@
         @media (max-width: 768px) { 
             #chatbot-sidebar { width: 100%; height: 75vh; right: 0; bottom: 0; border-radius: 2rem 2rem 0 0; }
             .chat-open #chatbot-toggle-btn { opacity: 0; transform: scale(0); pointer-events: none; }
-            /* 모바일에서 메뉴 글자 크기 및 간격 미세 조정 (줄바꿈 방지) */
             .nav-menu-text { font-size: 0.8rem; letter-spacing: -0.05rem; }
-            .nav-container { padding-left: 0.75rem; padding-right: 0.75rem; }
+            .nav-container { padding-left: 0.5rem; padding-right: 0.5rem; }
         }
 
         .chat-bubble-ai { border-radius: 1.2rem 1.2rem 1.2rem 0.2rem; }
         .chat-bubble-user { border-radius: 1.2rem 1.2rem 0.2rem 1.2rem; }
+        
+        /* 채팅창 내부 스크롤바만 허용 */
         #side-chat-window::-webkit-scrollbar { width: 4px; }
         #side-chat-window::-webkit-scrollbar-thumb { background: rgba(0, 119, 255, 0.1); border-radius: 10px; }
         
@@ -61,19 +71,19 @@
         @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
     </style>
 </head>
-<body class="ocean-bg flex flex-col min-h-screen">
+<body class="ocean-bg flex flex-col">
     <div class="bubble w-4 h-4 left-[10%]" style="animation-delay: 0s;"></div>
     <div class="bubble w-8 h-8 left-[30%]" style="animation-delay: 2s;"></div>
     <div class="bubble w-6 h-6 left-[70%]" style="animation-delay: 4s;"></div>
 
-    <nav class="sticky top-4 z-40 mx-auto w-[95%] max-w-6xl">
+    <nav class="sticky top-4 z-[60] mx-auto w-[95%] max-w-6xl">
         <div class="bg-white/70 backdrop-blur-md border border-white/40 shadow-xl rounded-2xl px-4 md:px-6 py-4 flex justify-between items-center nav-container">
             <div class="flex items-center space-x-3 md:space-x-8">
                 <a href="{% url 'home' %}" class="text-xl md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent tracking-tighter shrink-0">
                     🐠 어항 도우미
                 </a>
                 {% if user.is_authenticated %}
-                <div class="flex items-center space-x-3 md:space-x-6 text-sm font-bold text-slate-500 nav-menu-text">
+                <div class="flex items-center space-x-2 md:space-x-6 text-sm font-bold text-slate-500 nav-menu-text">
                     <a href="{% url 'monitoring:dashboard' %}" class="hover:text-blue-600 transition-colors shrink-0">대시보드</a>
                     <a href="{% url 'monitoring:logs' %}" class="hover:text-blue-600 transition-colors shrink-0">로그</a>
                     <a href="{% url 'monitoring:add_tank' %}" class="hover:text-blue-600 transition-colors shrink-0 whitespace-nowrap">어항추가</a>
@@ -84,10 +94,20 @@
             <div class="flex items-center space-x-2 md:space-x-6 text-sm font-bold text-slate-600">
                 {% if user.is_authenticated %}
                     <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" @click.away="open = false" class="flex items-center bg-blue-50 px-3 py-2 md:px-4 rounded-xl text-blue-700 active-stable text-xs md:text-sm">
+                        <button @click="open = !open" @click.away="open = false" type="button" class="flex items-center bg-blue-50 px-3 py-2 md:px-4 rounded-xl text-blue-700 active-stable text-xs md:text-sm transition-all hover:bg-blue-100">
                             <span class="hidden md:inline mr-2">👤</span>
-                            <span class="truncate max-w-[60px] md:max-w-none">{{ user.nickname|default:user.username }}님</span>
+                            <span class="truncate max-w-[65px] md:max-w-none">{{ user.nickname|default:user.username }}님</span>
+                            <svg class="w-4 h-4 ml-1 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </button>
+                        
+                        <div x-show="open" x-transition class="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-[70]">
+                            <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">내 정보</a>
+                            <hr class="my-1 border-slate-50">
+                            <form action="{% url 'accounts:logout' %}" method="post" class="m-0">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50 transition-colors">로그아웃</button>
+                            </form>
+                        </div>
                     </div>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="hover:text-blue-600 transition-colors text-xs md:text-sm">로그인</a>
@@ -185,13 +205,11 @@
                     const data = await response.json();
                     appendSideMessage('ai', data.reply || "다시 말씀해 주시겠어요? 🫧");
                 } else {
-                    appendSideMessage('ai', "앗, 잠시 어항 물을 갈고 있어요! 🫧 잠시 후에 다시 대화해요.");
-                    console.error('Server Error:', response.status);
+                    appendSideMessage('ai', "앗, 잠시 어항 물을 갈고 있어요! 🫧");
                 }
             } catch (error) {
                 if (document.getElementById('ai-loading')) document.getElementById('ai-loading').remove();
-                appendSideMessage('ai', "물결이 조금 불안정하네요. 🌊 연결을 확인해 주세요!");
-                console.error('Fetch Error:', error);
+                appendSideMessage('ai', "연결이 조금 불안정해요. 🌊");
             }
         });
 
