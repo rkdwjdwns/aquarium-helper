@@ -11,20 +11,41 @@
         #chatbot-sidebar { 
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             backdrop-filter: blur(15px);
-            background-color: rgba(255, 255, 255, 0.95);
+            background-color: rgba(255, 255, 255, 0.8);
         }
         .chat-bubble-ai { border-radius: 1.5rem 1.5rem 1.5rem 0.2rem; }
         .chat-bubble-user { border-radius: 1.5rem 1.5rem 0.2rem 1.5rem; }
         #side-chat-window::-webkit-scrollbar { width: 5px; }
         #side-chat-window::-webkit-scrollbar-thumb { background: rgba(0, 119, 255, 0.2); border-radius: 10px; }
-        .ocean-bg { background: linear-gradient(180deg, #f0f7ff 0%, #e0efff 100%); }
+        .ocean-bg {
+            background: linear-gradient(180deg, #f0f7ff 0%, #e0efff 100%);
+            overflow-x: hidden;
+        }
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: rise 10s infinite ease-in;
+        }
+        @keyframes rise {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            50% { opacity: 0.5; }
+            100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+        }
     </style>
 </head>
 <body class="ocean-bg flex flex-col min-h-screen relative">
+    <div class="bubble w-4 h-4 left-[10%]" style="animation-delay: 0s;"></div>
+    <div class="bubble w-8 h-8 left-[30%]" style="animation-delay: 2s;"></div>
+    <div class="bubble w-6 h-6 left-[70%]" style="animation-delay: 4s;"></div>
+
     <nav class="sticky top-4 z-40 mx-auto w-[95%] max-w-6xl">
         <div class="bg-white/70 backdrop-blur-md border border-white/40 shadow-xl rounded-2xl px-6 py-4 flex justify-between items-center">
             <div class="flex items-center space-x-8">
-                <a href="{% url 'home' %}" class="text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent tracking-tighter">🐠 어항 도우미</a>
+                <a href="{% url 'home' %}" class="text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent tracking-tighter">
+                    🐠 어항 도우미
+                </a>
                 {% if user.is_authenticated %}
                 <div class="hidden lg:flex items-center space-x-6 text-sm font-bold text-slate-500">
                     <a href="{% url 'monitoring:dashboard' %}" class="hover:text-blue-600 transition-colors">대시보드</a>
@@ -33,13 +54,20 @@
                 </div>
                 {% endif %}
             </div>
+
             <div class="flex items-center space-x-6 text-sm font-bold text-slate-600">
                 {% if user.is_authenticated %}
-                <span class="text-blue-700">👤 {{ user.nickname|default:user.username }}님</span>
-                <form action="{% url 'accounts:logout' %}" method="post" class="inline">{% csrf_token %}<button type="submit">로그아웃</button></form>
+                    <div class="hidden md:flex items-center bg-blue-50 px-3 py-1.5 rounded-full text-blue-700">
+                        <span class="mr-1">👤</span>
+                        <span>{{ user.nickname|default:user.username }}님</span>
+                    </div>
+                    <form action="{% url 'accounts:logout' %}" method="post" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="hover:text-red-500 transition-colors">로그아웃</button>
+                    </form>
                 {% else %}
-                <a href="{% url 'accounts:login' %}">로그인</a>
-                <a href="{% url 'accounts:signup' %}" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl">시작하기</a>
+                    <a href="{% url 'accounts:login' %}" class="hover:text-blue-600 transition-colors">로그인</a>
+                    <a href="{% url 'accounts:signup' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-200 hover:scale-105 transition-all">시작하기</a>
                 {% endif %}
             </div>
         </div>
@@ -49,32 +77,58 @@
         {% block content %}{% endblock %}
     </main>
 
-    <button onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 rounded-full shadow-2xl flex items-center justify-center text-3xl z-40 hover:scale-110 transition-all border-4 border-white">💬</button>
+    <button onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-[0_10px_40px_rgba(0,119,255,0.4)] flex items-center justify-center text-3xl z-40 hover:scale-110 active:scale-95 transition-all border-4 border-white">
+        🐠
+    </button>
 
-    <div id="chatbot-sidebar" class="fixed top-0 right-0 w-full md:w-[420px] h-full shadow-2xl z-50 transform translate-x-full flex flex-col border-l border-white/50">
-        <div class="p-6 bg-blue-600 flex justify-between items-center text-white">
-            <h2 class="font-black">어항 도우미 AI</h2>
-            <button onclick="toggleChat()" class="text-2xl">×</button>
+    <div id="chatbot-sidebar" class="fixed top-0 right-0 w-full md:w-[420px] h-full shadow-[0_0_50px_rgba(0,0,0,0.1)] z-50 transform translate-x-full flex flex-col border-l border-white/50">
+        <div class="p-6 bg-gradient-to-r from-blue-600 to-cyan-500 flex justify-between items-center text-white shadow-lg">
+            <div class="flex items-center">
+                <div class="w-12 h-12 bg-white/20 backdrop-blur-lg rounded-2xl flex items-center justify-center text-2xl mr-4 border border-white/30 shadow-inner">🐠</div>
+                <div>
+                    <h2 class="font-black text-lg leading-tight">어항 도우미</h2>
+                    <div class="flex items-center">
+                        <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></span>
+                        <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">AI Expert Online</p>
+                    </div>
+                </div>
+            </div>
+            <button onclick="toggleChat()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-all text-2xl">×</button>
         </div>
-        <div id="side-chat-window" class="flex-1 overflow-y-auto p-6 space-y-6 bg-white/50">
-            <div class="bg-white p-4 chat-bubble-ai shadow-sm text-sm border border-blue-50">안녕하세요! 🫧 사진(📷)을 보내주시면 진찰해 드려요!</div>
+
+        <div id="side-chat-window" class="flex-1 overflow-y-auto p-6 space-y-6 bg-transparent">
+            <div class="flex items-start">
+                <div class="bg-white p-4 chat-bubble-ai shadow-xl shadow-blue-50 text-sm font-medium text-slate-700 max-w-[85%] leading-relaxed border border-blue-50">
+                    안녕하세요! 🫧<br>
+                    <strong>{% if user.is_authenticated %}{{ user.nickname|default:user.username }}{% else %}손님{% endif %}</strong>님, 어떤 물고기가 궁금하신가요? 사진을 보여주셔도 좋습니다!
+                </div>
+            </div>
         </div>
-        <div class="p-6 bg-white border-t">
+
+        <div class="p-6 bg-white/50 backdrop-blur-xl border-t border-white/50">
             <form id="side-chat-form" enctype="multipart/form-data" class="flex items-center gap-2">
                 {% csrf_token %}
-                <label class="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center cursor-pointer hover:bg-gray-200">
+                <label class="flex-shrink-0 w-11 h-11 bg-white border border-blue-100 rounded-xl flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-all shadow-sm">
                     <input type="file" name="image" id="side-image-input" accept="image/*" class="hidden">
                     <span class="text-xl">📷</span>
                 </label>
-                <input type="text" id="side-user-input" placeholder="질문하기..." class="flex-1 bg-gray-50 rounded-xl px-4 py-2 text-sm outline-none">
-                <button type="submit" class="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center"><span class="text-xl">🐠</span></button>
+                <div class="flex-1 relative">
+                    <input type="text" id="side-user-input" autocomplete="off" placeholder="질문하기..." 
+                        class="w-full bg-white border-2 border-blue-50 rounded-xl px-4 py-3 text-sm focus:border-blue-400 outline-none shadow-inner">
+                </div>
+                <button type="submit" class="bg-blue-600 text-white w-11 h-11 rounded-xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-md">
+                    <span class="text-lg">🐠</span>
+                </button>
             </form>
         </div>
     </div>
 
     <script>
-        function toggleChat() { document.getElementById('chatbot-sidebar').classList.toggle('translate-x-full'); }
-        // ... 사이드바 통신 스크립트 생략 (기존 로직 동일) ...
+        function toggleChat() {
+            const sidebar = document.getElementById('chatbot-sidebar');
+            sidebar.classList.toggle('translate-x-full');
+        }
+        // (기존 통신 스크립트 로직 유지...)
     </script>
 </body>
 </html>
