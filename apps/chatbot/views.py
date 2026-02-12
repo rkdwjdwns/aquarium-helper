@@ -20,17 +20,14 @@ def ask_chatbot(request):
             return JsonResponse({'status': 'error', 'message': "메시지를 입력해주세요."}, status=400)
         
         try:
-            # [수정 포인트] 클라이언트 생성 시점 점검
             if not settings.GEMINI_API_KEY:
                 raise ValueError("API KEY가 설정되지 않았습니다.")
 
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             
-            # [수정 포인트] 모델명을 'gemini-1.5-flash'로 고정
-            # 404가 계속 발생한다면 구글 서버가 v1beta에서 이 모델명을 못 찾는 것이므로
-            # 가장 범용적인 'gemini-1.5-flash'를 사용합니다.
+            # [핵심 수정] 모델명을 'gemini-1.5-flash-latest'로 변경
             response = client.models.generate_content(
-                model="gemini-1.5-flash", 
+                model="gemini-1.5-flash-latest",  # ← 여기가 핵심!
                 contents=user_message,
                 config=types.GenerateContentConfig(
                     system_instruction="당신은 물물박사 '어항 도우미'입니다. 친절하게 답하세요.",
@@ -54,9 +51,8 @@ def ask_chatbot(request):
             print(traceback.format_exc())
             error_msg = str(e)
             
-            # 404 에러 대응 로직 강화
             if "404" in error_msg:
-                friendly_msg = "구글 서버에서 모델을 찾을 수 없습니다(404). API 키 설정을 확인해주세요."
+                friendly_msg = "구글 서버에서 모델을 찾을 수 없습니다(404). 모델명을 확인해주세요."
             elif "429" in error_msg:
                 friendly_msg = "요청이 너무 많습니다(429). 1분 뒤에 다시 시도해주세요."
             else:

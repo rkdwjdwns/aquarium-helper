@@ -52,9 +52,9 @@ def chat_view(request):
     if request.method == 'POST':
         user_message = request.POST.get('message')
         try:
-            # [중요] 404 및 429 에러 방지를 위해 gemini-1.5-flash를 사용합니다.
+            # [수정] gemini-1.5-flash-latest로 변경하여 404 에러 방지
             llm = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash", 
+                model="gemini-1.5-flash-latest", 
                 google_api_key=settings.GEMINI_API_KEY,
                 temperature=0.7
             )
