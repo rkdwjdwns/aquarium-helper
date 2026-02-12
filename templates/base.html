@@ -1,15 +1,28 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="h-full">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fish Manager - 어항 도우미</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    
     <style>
-        body { font-family: "Pretendard", sans-serif; }
-        
+        /* 기본 폰트 및 흔들림 방지 */
+        body { 
+            font-family: "Pretendard", sans-serif; 
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            width: 100%;
+            position: relative;
+            touch-action: manipulation; /* 더블탭 확대 방지 */
+        }
+
+        /* 아이폰 터치 잔상 제거 */
+        * { -webkit-tap-highlight-color: transparent; }
+
         #chatbot-sidebar { 
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             backdrop-filter: blur(15px);
@@ -24,36 +37,44 @@
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
             display: flex;
             flex-direction: column;
-            z-index: 50; /* 채팅창은 50 */
+            z-index: 50;
+            will-change: transform;
         }
 
         @media (max-width: 768px) { 
             #chatbot-sidebar { 
-                width: 100%; height: 70vh; right: 0; bottom: 0; border-radius: 2rem 2rem 0 0; 
+                width: 100%; height: 75vh; right: 0; bottom: 0; border-radius: 2rem 2rem 0 0; 
             }
-            /* 모바일에서 채팅방이 열리면 버튼 숨기기 */
             .chat-open #chatbot-toggle-btn {
                 opacity: 0;
-                pointer-events: none;
                 transform: scale(0);
+                pointer-events: none;
             }
         }
 
+        /* 말풍선 디자인 */
         .chat-bubble-ai { border-radius: 1.2rem 1.2rem 1.2rem 0.2rem; }
         .chat-bubble-user { border-radius: 1.2rem 1.2rem 0.2rem 1.2rem; }
         #side-chat-window::-webkit-scrollbar { width: 4px; }
         #side-chat-window::-webkit-scrollbar-thumb { background: rgba(0, 119, 255, 0.1); border-radius: 10px; }
         
-        .ocean-bg { background: linear-gradient(180deg, #f0f7ff 0%, #e0efff 100%); overflow-x: hidden; }
+        /* 배경 및 애니메이션 */
+        .ocean-bg { background: linear-gradient(180deg, #f0f7ff 0%, #e0efff 100%); min-height: 100vh; }
         .bubble { position: absolute; background: rgba(255, 255, 255, 0.4); border-radius: 50%; pointer-events: none; animation: rise 10s infinite ease-in; }
         @keyframes rise {
             0% { transform: translateY(100vh) scale(0); opacity: 0; }
             50% { opacity: 0.5; }
             100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
         }
+
+        /* 클릭 애니메이션 안정화 */
+        .active-stable:active {
+            transform: scale(0.97);
+            transition: transform 0.1s;
+        }
     </style>
 </head>
-<body class="ocean-bg flex flex-col min-h-screen relative">
+<body class="ocean-bg flex flex-col min-h-screen">
     <div class="bubble w-4 h-4 left-[10%]" style="animation-delay: 0s;"></div>
     <div class="bubble w-8 h-8 left-[30%]" style="animation-delay: 2s;"></div>
     <div class="bubble w-6 h-6 left-[70%]" style="animation-delay: 4s;"></div>
@@ -76,7 +97,7 @@
             <div class="flex items-center space-x-6 text-sm font-bold text-slate-600">
                 {% if user.is_authenticated %}
                     <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" @click.away="open = false" class="flex items-center bg-blue-50 px-4 py-2 rounded-xl text-blue-700 hover:bg-blue-100 transition-all group">
+                        <button @click="open = !open" @click.away="open = false" class="flex items-center bg-blue-50 px-4 py-2 rounded-xl text-blue-700 hover:bg-blue-100 transition-all group active-stable">
                             <span class="mr-2">👤</span>
                             <span>{{ user.nickname|default:user.username }}님</span>
                             <svg class="w-4 h-4 ml-1 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -92,7 +113,7 @@
                     </div>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="hover:text-blue-600 transition-colors">로그인</a>
-                    <a href="{% url 'accounts:signup' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-200 hover:scale-105 transition-all">시작하기</a>
+                    <a href="{% url 'accounts:signup' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-200 hover:scale-105 active-stable transition-all">시작하기</a>
                 {% endif %}
             </div>
         </div>
@@ -102,11 +123,11 @@
         {% block content %}{% endblock %}
     </main>
 
-    <button id="chatbot-toggle-btn" onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-2xl flex items-center justify-center text-3xl z-[45] hover:scale-110 active:scale-95 transition-all border-4 border-white">
+    <button id="chatbot-toggle-btn" onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-2xl flex items-center justify-center text-3xl z-[45] hover:scale-110 active-stable transition-all border-4 border-white">
         🐠
     </button>
 
-    <div id="chatbot-sidebar" class="transform translate-x-[150%] overflow-hidden">
+    <div id="chatbot-sidebar" class="transform translate-x-[150%]">
         <div class="p-5 bg-gradient-to-r from-blue-600 to-cyan-500 flex justify-between items-center text-white shrink-0">
             <div class="flex items-center">
                 <div class="w-10 h-10 bg-white/20 backdrop-blur-lg rounded-xl flex items-center justify-center text-xl mr-3 border border-white/30">🐠</div>
@@ -138,7 +159,7 @@
                     <input type="text" id="side-user-input" autocomplete="off" placeholder="메시지 입력..." 
                         class="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-blue-400 outline-none">
                 </div>
-                <button type="submit" class="flex-shrink-0 px-3 h-10 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md active:scale-95">보내기</button>
+                <button type="submit" class="flex-shrink-0 px-3 h-10 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md active-stable">보내기</button>
             </form>
         </div>
     </div>
@@ -147,13 +168,14 @@
         function toggleChat() {
             const sidebar = document.getElementById('chatbot-sidebar');
             const body = document.body;
+            const isOpen = sidebar.style.transform === 'translateX(0px)';
             
-            if (sidebar.style.transform === 'translateX(0px)') {
+            if (isOpen) {
                 sidebar.style.transform = 'translateX(150%)';
-                body.classList.remove('chat-open'); // 버튼 다시 보이게
+                body.classList.remove('chat-open');
             } else {
                 sidebar.style.transform = 'translateX(0px)';
-                body.classList.add('chat-open'); // 버튼 숨기기
+                body.classList.add('chat-open');
             }
         }
 
@@ -167,6 +189,9 @@
             if (!message && !document.getElementById('side-image-input').files[0]) return;
             appendSideMessage('user', message || "이미지 분석 요청 📸");
             sideUserInput.value = '';
+            
+            // 전송 후 입력창 포커스 유지 (아이폰 키보드 내려감 방지)
+            sideUserInput.focus();
         });
 
         function appendSideMessage(sender, text) {
