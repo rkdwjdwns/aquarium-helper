@@ -48,16 +48,20 @@ def logout_view(request):
     messages.success(request, "로그아웃 되었습니다.")
     return redirect('home')
 
-# --- 4. 내 정보 관리 기능 (추가) ---
+# --- 4. 내 정보 관리 기능 (안정성 강화) ---
 @login_required
 def profile_view(request):
+    user = request.user
     if request.method == 'POST':
-        user = request.user
-        user.nickname = request.POST.get('nickname')
-        user.birthday = request.POST.get('birthday')
-        user.email = request.POST.get('email')
+        # 필드가 모델에 실제로 존재하는지 확인하며 안전하게 업데이트
+        if hasattr(user, 'nickname'):
+            user.nickname = request.POST.get('nickname', user.nickname)
+        if hasattr(user, 'birthday'):
+            user.birthday = request.POST.get('birthday') or None
+        user.email = request.POST.get('email', user.email)
+        
         user.save()
-        messages.success(request, "개인정보가 성공적으로 수정되었습니다.")
+        messages.success(request, "개인정보가 성공적으로 수정되었습니다. ✨")
         return redirect('accounts:profile')
     return render(request, 'accounts/profile.html')
 

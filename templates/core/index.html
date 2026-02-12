@@ -1,71 +1,83 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="py-6 max-w-6xl mx-auto px-4">
-    <div class="mb-12">
-        <div class="flex justify-between items-center mb-6 px-2">
+<div class="py-8 max-w-6xl mx-auto px-4">
+    <div class="mb-14">
+        <div class="flex justify-between items-end mb-8 px-2">
             <div>
-                <h2 class="text-2xl font-black text-gray-800 flex items-center tracking-tighter">
-                    <span class="mr-2 text-3xl">🐠</span> 실시간 내 어항
+                <h2 class="text-3xl font-black text-gray-800 flex items-center tracking-tighter">
+                    <span class="mr-3 text-4xl">🐠</span> 실시간 내 어항
                 </h2>
+                <p class="text-slate-400 font-bold text-sm mt-1 ml-1">우리 물고기들의 환경을 실시간으로 감시 중입니다.</p>
             </div>
-            <a href="{% url 'monitoring:add_tank' %}" class="bg-white text-blue-600 px-4 py-2 rounded-xl font-bold border border-blue-100 shadow-sm hover:bg-blue-50 transition-all text-xs">
-                + 어항 추가
+            <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black shadow-xl shadow-blue-100 hover:scale-105 transition-all text-sm">
+                + 어항 추가하기
             </a>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             {% if user.is_authenticated %}
                 {% for tank in user.tanks.all %}
-                <div class="bg-white p-7 rounded-[2.2rem] shadow-lg shadow-gray-200/40 border border-white hover:border-blue-200 transition-all group relative overflow-hidden">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="font-black text-xl text-gray-800">{{ tank.name }}</h3>
-                        <span class="text-3xl opacity-30 group-hover:opacity-100 transition-opacity">🐟</span>
+                <div class="bg-white p-9 rounded-[2.8rem] shadow-xl shadow-gray-200/50 border border-white hover:border-blue-300 transition-all group relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-8 relative z-10">
+                        <div>
+                            <span class="bg-blue-100 text-blue-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-2 inline-block">Live Monitoring</span>
+                            <h3 class="font-black text-2xl text-gray-800">{{ tank.name }}</h3>
+                        </div>
+                        <span class="text-5xl drop-shadow-md group-hover:scale-110 transition-transform">🐟</span>
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-blue-50/50 p-5 rounded-3xl text-center border border-blue-50">
-                            <span class="block text-[10px] text-blue-400 font-black mb-1 uppercase tracking-widest">Temp</span>
-                            <span class="text-2xl font-black text-blue-700">{{ tank.readings.last.temperature|default:"--" }}°C</span>
+                    <div class="grid grid-cols-2 gap-6 relative z-10">
+                        <div class="bg-gradient-to-b from-blue-50/50 to-white p-7 rounded-[2.2rem] border border-blue-50 shadow-inner text-center">
+                            <span class="block text-[11px] text-blue-400 font-black mb-2 uppercase tracking-widest">Temperature</span>
+                            <span class="text-3xl font-black text-blue-700 tracking-tighter">
+                                {{ tank.readings.last.temperature|default:"--" }}<span class="text-lg ml-1">°C</span>
+                            </span>
                         </div>
-                        <div class="bg-indigo-50/50 p-5 rounded-3xl text-center border border-indigo-50">
-                            <span class="block text-[10px] text-indigo-400 font-black mb-1 uppercase tracking-widest">pH Level</span>
-                            <span class="text-2xl font-black text-indigo-700">{{ tank.readings.last.ph|default:"--" }}</span>
+                        <div class="bg-gradient-to-b from-indigo-50/50 to-white p-7 rounded-[2.2rem] border border-indigo-50 shadow-inner text-center">
+                            <span class="block text-[11px] text-indigo-400 font-black mb-2 uppercase tracking-widest">pH Level</span>
+                            <span class="text-3xl font-black text-indigo-700 tracking-tighter">
+                                {{ tank.readings.last.ph|default:"--" }}
+                            </span>
                         </div>
                     </div>
                 </div>
                 {% empty %}
-                <div class="col-span-full py-16 bg-white/50 border-2 border-dashed border-gray-100 rounded-[2.5rem] text-center">
-                    <p class="text-gray-400 font-bold text-sm">등록된 어항이 없습니다.</p>
+                <div class="col-span-full py-20 bg-white/50 border-4 border-dashed border-gray-100 rounded-[3rem] text-center">
+                    <p class="text-gray-400 font-black text-lg text-center">등록된 어항이 없습니다.</p>
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="col-span-full py-16 bg-white/50 border-2 border-dashed border-gray-100 rounded-[2.5rem] text-center">
-                    <p class="text-gray-400 font-bold text-sm">로그인 후 실시간 상태를 확인할 수 있습니다.</p>
+                <div class="col-span-full py-20 bg-white/50 border-4 border-dashed border-gray-100 rounded-[3rem] text-center">
+                    <p class="text-gray-400 font-black text-lg">로그인 후 실시간 상태를 확인할 수 있습니다.</p>
                 </div>
             {% endif %}
         </div>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 px-2">
-        <a href="{% url 'monitoring:dashboard' %}" class="p-6 bg-white rounded-[1.8rem] shadow-sm border border-slate-50 hover:shadow-md hover:-translate-y-1 transition-all text-center group">
-            <div class="text-3xl mb-3 group-hover:scale-110 transition">📊</div>
-            <h3 class="font-bold text-gray-700 text-sm">대시보드</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 px-2">
+        <a href="{% url 'monitoring:dashboard' %}" class="p-9 bg-white rounded-[2.5rem] shadow-xl shadow-gray-100 border border-transparent hover:border-blue-200 hover:-translate-y-2 transition-all text-center group">
+            <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 group-hover:scale-110 transition-transform shadow-inner">📊</div>
+            <h3 class="font-black text-lg text-gray-800">대시보드</h3>
+            <p class="text-[10px] text-slate-400 mt-1 font-bold uppercase">Statistics</p>
         </a>
 
-        <a href="{% url 'monitoring:camera_view' %}" class="p-6 bg-white rounded-[1.8rem] shadow-sm border border-slate-50 hover:shadow-md hover:-translate-y-1 transition-all text-center group">
-            <div class="text-3xl mb-3 group-hover:scale-110 transition">📹</div>
-            <h3 class="font-bold text-gray-700 text-sm">카메라</h3>
+        <a href="{% url 'monitoring:camera_view' %}" class="p-9 bg-white rounded-[2.5rem] shadow-xl shadow-gray-100 border border-transparent hover:border-cyan-200 hover:-translate-y-2 transition-all text-center group">
+            <div class="w-16 h-16 bg-cyan-50 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 group-hover:scale-110 transition-transform shadow-inner">📹</div>
+            <h3 class="font-black text-lg text-gray-800">카메라</h3>
+            <p class="text-[10px] text-slate-400 mt-1 font-bold uppercase">AI Vision</p>
         </a>
 
-        <a href="{% url 'reports:report_list' %}" class="p-6 bg-white rounded-[1.8rem] shadow-sm border border-slate-50 hover:shadow-md hover:-translate-y-1 transition-all text-center group">
-            <div class="text-3xl mb-3 group-hover:scale-110 transition">📝</div>
-            <h3 class="font-bold text-gray-700 text-sm">AI 리포트</h3>
+        <a href="{% url 'reports:report_list' %}" class="p-9 bg-white rounded-[2.5rem] shadow-xl shadow-gray-100 border border-transparent hover:border-purple-200 hover:-translate-y-2 transition-all text-center group">
+            <div class="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 group-hover:scale-110 transition-transform shadow-inner">📝</div>
+            <h3 class="font-black text-lg text-gray-800">AI 리포트</h3>
+            <p class="text-[10px] text-slate-400 mt-1 font-bold uppercase">Analysis</p>
         </a>
 
-        <a href="{% url 'monitoring:logs' %}" class="p-6 bg-white rounded-[1.8rem] shadow-sm border border-slate-50 hover:shadow-md hover:-translate-y-1 transition-all text-center group">
-            <div class="text-3xl mb-3 group-hover:scale-110 transition">📜</div>
-            <h3 class="font-bold text-gray-700 text-sm">실시간 로그</h3>
+        <a href="{% url 'monitoring:logs' %}" class="p-9 bg-white rounded-[2.5rem] shadow-xl shadow-gray-100 border border-transparent hover:border-orange-200 hover:-translate-y-2 transition-all text-center group">
+            <div class="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 group-hover:scale-110 transition-transform shadow-inner">📜</div>
+            <h3 class="font-black text-lg text-gray-800">실시간 로그</h3>
+            <p class="text-[10px] text-slate-400 mt-1 font-bold uppercase">Activity</p>
         </a>
     </div>
 </div>
