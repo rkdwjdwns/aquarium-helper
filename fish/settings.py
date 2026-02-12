@@ -1,6 +1,7 @@
 import os, sys
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url  # 1. DB 연결을 위해 추가
 
 # 1. 경로 설정 및 .env 로드
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -63,11 +64,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fish.wsgi.application'
 
+# 4. 데이터베이스 설정 (SQLite -> PostgreSQL 교체)
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        # Render 환경 변수 DATABASE_URL을 읽어옵니다. 없으면 로컬 sqlite 사용.
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600
+    )
 }
 
 AUTH_PASSWORD_VALIDATORS = []
