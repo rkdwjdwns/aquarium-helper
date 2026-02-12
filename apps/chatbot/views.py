@@ -11,28 +11,23 @@ def ask_chatbot(request):
     if request.method == "POST":
         user_message = request.POST.get('message')
         try:
-            # 1. API 키 설정
+            # 1. API 설정
             api_key = settings.GEMINI_API_KEY.strip()
             genai.configure(api_key=api_key)
             
-            # [디버깅] 현재 이 키로 사용할 수 있는 모델 목록을 로그에 출력합니다.
-            print("\n=== [어항 도우미] 사용 가능한 모델 목록 ===")
-            available_models = []
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    print(f"사용 가능 모델: {m.name}")
-                    available_models.append(m.name)
-            print("=========================================\n")
-
-            # 2. 모델 선택 (가장 표준적인 이름으로 시도)
-            # 만약 목록에 다른 이름이 있다면 그 이름을 써야 합니다.
-            model_name = "gemini-1.5-flash" 
+            # 2. 검증된 모델로 변경 (목록에 있던 바로 그 이름!)
+            # 2026년형 최신 모델인 2.0-flash를 사용합니다.
+            model_name = "gemini-2.0-flash" 
             model = genai.GenerativeModel(model_name)
             
             # 3. 답변 생성
-            response = model.generate_content(user_message)
+            # 시스템 메시지를 프롬프트에 직접 녹여서 전달합니다.
+            prompt = f"당신은 물물박사 '어항 도우미'입니다. 친절하고 전문적으로 답하세요.\n\n질문: {user_message}"
+            response = model.generate_content(prompt)
+            
             bot_response = response.text
 
+            # DB 저장
             ChatMessage.objects.create(
                 user=request.user, 
                 message=user_message, 
@@ -42,11 +37,10 @@ def ask_chatbot(request):
             return JsonResponse({'status': 'success', 'message': bot_response})
             
         except Exception as e:
-            print(f"\n[!] 어항 도우미 긴급 디버깅:\n{traceback.format_exc()}")
-            # 에러 메시지에 모델 목록 정보를 살짝 섞어서 띄워줍니다.
+            print(f"\n[!] 어항 도우미 최종 디버깅:\n{traceback.format_exc()}")
             return JsonResponse({
                 'status': 'error', 
-                'message': f"통신 실패(404). API 키가 모델에 접근할 수 없습니다. AI Studio에서 새 프로젝트 키를 생성했는지 확인해주세요."
+                'message': f"통신 성공했으나 답변 생성 중 오류: {str(e)}"
             }, status=500)
     
     return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
