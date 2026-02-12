@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login as auth_login, logout as auth_logout
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.conf import settings
 from .forms import CustomUserCreationForm
@@ -47,12 +48,24 @@ def logout_view(request):
     messages.success(request, "로그아웃 되었습니다.")
     return redirect('home')
 
-# --- 4. LangChain 챗봇 기능 (안정적인 1.5 모델로 통일) ---
+# --- 4. 내 정보 관리 기능 (추가) ---
+@login_required
+def profile_view(request):
+    if request.method == 'POST':
+        user = request.user
+        user.nickname = request.POST.get('nickname')
+        user.birthday = request.POST.get('birthday')
+        user.email = request.POST.get('email')
+        user.save()
+        messages.success(request, "개인정보가 성공적으로 수정되었습니다.")
+        return redirect('accounts:profile')
+    return render(request, 'accounts/profile.html')
+
+# --- 5. LangChain 챗봇 기능 ---
 def chat_view(request):
     if request.method == 'POST':
         user_message = request.POST.get('message')
         try:
-            # [수정] LangChain은 models/ 접두사 불필요
             llm = ChatGoogleGenerativeAI(
                 model="gemini-1.5-flash", 
                 google_api_key=settings.GEMINI_API_KEY,
@@ -71,17 +84,8 @@ def chat_view(request):
                 'status': 'success'
             })
         except Exception as e:
-            # 터미널 로그에 에러 상세 내용 출력
             print(f"LangChain Error: {e}")
-            
-            error_msg = str(e)
-            if "429" in error_msg:
-                friendly_msg = "현재 질문이 너무 많아 구글이 잠시 쉬고 있어요. 1분만 기다려 주세요! 🐠"
-            elif "404" in error_msg:
-                friendly_msg = "AI 모델 경로를 찾을 수 없습니다. (404 에러)"
-            else:
-                friendly_msg = "챗봇 서비스에 일시적인 문제가 발생했습니다."
-                
+            friendly_msg = "현재 서비스가 원활하지 않습니다. 잠시 후 다시 시도해주세요."
             return JsonResponse({'reply': friendly_msg, 'message': friendly_msg}, status=500)
             
     return render(request, 'accounts/chat.html')

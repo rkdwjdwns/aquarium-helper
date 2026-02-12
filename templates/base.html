@@ -5,33 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fish Manager - 어항 도우미</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <style>
         body { font-family: "Pretendard", sans-serif; }
         
-        /* [핵심 수정] 사이드바 크기 및 위치 조절 */
         #chatbot-sidebar { 
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             backdrop-filter: blur(15px);
             background-color: rgba(255, 255, 255, 0.95);
-            width: 380px;            /* 가로: 카톡 사이즈 */
-            height: 600px;           /* 세로: 너무 높지 않게 고정 */
+            width: 380px;
+            height: 600px;
             position: fixed;
-            bottom: 100px;           /* 하단에서 띄움 */
-            right: 30px;            /* 우측에서 띄움 */
-            border-radius: 2rem;     /* 모서리 둥글게 */
+            bottom: 100px;
+            right: 30px;
+            border-radius: 2rem;
             border: 1px solid rgba(0, 0, 0, 0.05);
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
             display: flex;
             flex-direction: column;
-            z-index: 50;
+            z-index: 50; /* 채팅창은 50 */
         }
 
-        /* 모바일 대응: 모바일에서는 화면 아래쪽에 붙도록 */
         @media (max-width: 768px) { 
             #chatbot-sidebar { 
                 width: 100%; height: 70vh; right: 0; bottom: 0; border-radius: 2rem 2rem 0 0; 
-            } 
+            }
+            /* 모바일에서 채팅방이 열리면 버튼 숨기기 */
+            .chat-open #chatbot-toggle-btn {
+                opacity: 0;
+                pointer-events: none;
+                transform: scale(0);
+            }
         }
 
         .chat-bubble-ai { border-radius: 1.2rem 1.2rem 1.2rem 0.2rem; }
@@ -70,14 +75,21 @@
 
             <div class="flex items-center space-x-6 text-sm font-bold text-slate-600">
                 {% if user.is_authenticated %}
-                    <div class="hidden md:flex items-center bg-blue-50 px-3 py-1.5 rounded-full text-blue-700">
-                        <span class="mr-1">👤</span>
-                        <span>{{ user.nickname|default:user.username }}님</span>
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" @click.away="open = false" class="flex items-center bg-blue-50 px-4 py-2 rounded-xl text-blue-700 hover:bg-blue-100 transition-all group">
+                            <span class="mr-2">👤</span>
+                            <span>{{ user.nickname|default:user.username }}님</span>
+                            <svg class="w-4 h-4 ml-1 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div x-show="open" x-transition class="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50">
+                            <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">내 정보</a>
+                            <hr class="my-1 border-slate-50">
+                            <form action="{% url 'accounts:logout' %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50 transition-colors">로그아웃</button>
+                            </form>
+                        </div>
                     </div>
-                    <form action="{% url 'accounts:logout' %}" method="post" class="inline">
-                        {% csrf_token %}
-                        <button type="submit" class="hover:text-red-500 transition-colors">로그아웃</button>
-                    </form>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="hover:text-blue-600 transition-colors">로그인</a>
                     <a href="{% url 'accounts:signup' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-200 hover:scale-105 transition-all">시작하기</a>
@@ -90,7 +102,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    <button onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-2xl flex items-center justify-center text-3xl z-[60] hover:scale-110 active:scale-95 transition-all border-4 border-white">
+    <button id="chatbot-toggle-btn" onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-2xl flex items-center justify-center text-3xl z-[45] hover:scale-110 active:scale-95 transition-all border-4 border-white">
         🐠
     </button>
 
@@ -122,15 +134,11 @@
                     <input type="file" name="image" id="side-image-input" accept="image/*" class="hidden">
                     <span class="text-xl">📷</span>
                 </label>
-                
                 <div class="flex-1">
                     <input type="text" id="side-user-input" autocomplete="off" placeholder="메시지 입력..." 
                         class="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-blue-400 outline-none">
                 </div>
-
-                <button type="submit" class="flex-shrink-0 px-3 h-10 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md active:scale-95">
-                    보내기
-                </button>
+                <button type="submit" class="flex-shrink-0 px-3 h-10 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md active:scale-95">보내기</button>
             </form>
         </div>
     </div>
@@ -138,15 +146,17 @@
     <script>
         function toggleChat() {
             const sidebar = document.getElementById('chatbot-sidebar');
-            // 열려있으면 우측으로 숨기고, 닫혀있으면 제자리(0)로
+            const body = document.body;
+            
             if (sidebar.style.transform === 'translateX(0px)') {
                 sidebar.style.transform = 'translateX(150%)';
+                body.classList.remove('chat-open'); // 버튼 다시 보이게
             } else {
                 sidebar.style.transform = 'translateX(0px)';
+                body.classList.add('chat-open'); // 버튼 숨기기
             }
         }
 
-        // 기존 채팅 스크립트 로직 동일 유지...
         const sideChatForm = document.getElementById('side-chat-form');
         const sideChatWindow = document.getElementById('side-chat-window');
         const sideUserInput = document.getElementById('side-user-input');
@@ -157,7 +167,6 @@
             if (!message && !document.getElementById('side-image-input').files[0]) return;
             appendSideMessage('user', message || "이미지 분석 요청 📸");
             sideUserInput.value = '';
-            // 서버 통신 fetch 생략 (기존 코드와 동일)
         });
 
         function appendSideMessage(sender, text) {
