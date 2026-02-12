@@ -1,7 +1,7 @@
 import os, sys
 from pathlib import Path
 from dotenv import load_dotenv
-import dj_database_url  # 1. DB 연결을 위해 추가
+import dj_database_url  # DB 연결을 위해 필수
 
 # 1. 경로 설정 및 .env 로드
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,7 +35,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # 정적 파일 서빙 최적화
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -64,10 +64,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fish.wsgi.application'
 
-# 4. 데이터베이스 설정 (SQLite -> PostgreSQL 교체)
+# 4. 데이터베이스 설정 (Render PostgreSQL 연동)
 DATABASES = {
     'default': dj_database_url.config(
-        # Render 환경 변수 DATABASE_URL을 읽어옵니다. 없으면 로컬 sqlite 사용.
+        # Render 환경 변수 DATABASE_URL을 자동으로 읽어옵니다.
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600
     )
@@ -75,24 +75,34 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = []
 
+# 5. 국제화 설정
 LANGUAGE_CODE = 'ko-kr'
 TIME_ZONE = 'Asia/Seoul'
 USE_I18N = True
 USE_TZ = True
 
-# 정적 파일 및 Whitenoise 설정
+# 6. 정적 파일 및 Whitenoise 설정 (Django 5.x 호환)
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Django 5.1.x에서는 아래 설정을 권장합니다.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# 로그인/로그아웃 경로
+# 7. 유저 모델 및 로그인 설정
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
-# --- [AI 설정] Gemini API KEY ---
+# 8. AI 설정 (Gemini API KEY)
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
