@@ -6,7 +6,7 @@
     <p class="text-slate-500 font-medium ml-1">지능형 수질 분석 및 환수 관리 시스템이 작동 중입니다.</p>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+<div class="grid grid-cols-1 {% if tank_data|length > 1 %}lg:grid-cols-2{% endif %} gap-10">
     {% for item in tank_data %}
     <div class="group relative bg-white/70 backdrop-blur-xl rounded-[3rem] shadow-[0_20px_50px_rgba(0,119,255,0.08)] border border-white p-8 transition-all hover:shadow-[0_30px_60px_rgba(0,119,255,0.15)] hover:-translate-y-2 
         {% if item.status == 'DANGER' %}ring-4 ring-red-500/20 animate-pulse{% elif item.status == 'WARNING' %}ring-4 ring-yellow-400/20{% endif %}">
@@ -34,7 +34,7 @@
         </div>
         {% endif %}
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 {% if tank_data|length == 1 %}max-w-4xl{% endif %}">
             <div class="bg-white/50 border border-white p-4 rounded-[2rem] text-center shadow-inner transition-transform group-hover:scale-105">
                 <p class="text-[9px] text-blue-500 mb-1 font-black uppercase tracking-widest">Temp</p>
                 <p class="text-xl font-black text-slate-800">{{ item.latest.temperature|default:"--" }}<span class="text-xs">°C</span></p>
@@ -62,7 +62,7 @@
         </div>
 
         <div class="mb-8 border-t border-slate-100 pt-8">
-            <div class="flex gap-4">
+            <div class="flex gap-4 {% if tank_data|length == 1 %}max-w-2xl{% endif %}">
                 <button onclick="controlDevice('{{ item.tank.id }}', 'LIGHT')" id="btn-LIGHT-{{ item.tank.id }}"
                     class="flex-1 py-4 rounded-[1.5rem] border-2 transition-all flex flex-col items-center justify-center
                     {% if item.light_on %}bg-gradient-to-br from-yellow-400 to-orange-400 border-transparent text-white shadow-lg shadow-yellow-100
@@ -101,6 +101,10 @@
                 {% endfor %}
             </ul>
         </div>
+
+        {% if tank_data|length == 1 %}
+        <div class="absolute right-8 bottom-8 text-[120px] opacity-[0.02] select-none pointer-events-none group-hover:rotate-12 transition-transform">🐠</div>
+        {% endif %}
     </div>
     {% empty %}
     <div class="col-span-full py-24 bg-white/50 backdrop-blur-md rounded-[4rem] border-4 border-dashed border-blue-100 flex flex-col items-center justify-center">
@@ -114,7 +118,6 @@
 </div>
 
 <script>
-// 장비 제어 AJAX 함수
 function controlDevice(tankId, deviceType) {
     fetch(`/monitoring/toggle-device/${tankId}/`, {
         method: 'POST',
@@ -132,7 +135,6 @@ function controlDevice(tankId, deviceType) {
     });
 }
 
-// [추가] 환수 완료 AJAX 함수
 function performWaterChange(tankId) {
     if(!confirm('오늘 환수를 완료하셨나요?')) return;
     
