@@ -28,7 +28,7 @@ def ask_chatbot(request):
             
             # 2. 모델명 수정 (여기가 범인입니다! 2.0이 아니라 1.5로!)
             response = client.models.generate_content(
-                model="gemini-1.5-flash",  # <--- 반드시 이 이름이어야 합니다.
+                model="gemini-1.5-flash-8b",  # <--- 반드시 이 이름이어야 합니다.
                 contents=user_message,
                 config=types.GenerateContentConfig(
                     system_instruction="당신은 물물박사 '어항 도우미'입니다. 친절하게 답하세요.",
