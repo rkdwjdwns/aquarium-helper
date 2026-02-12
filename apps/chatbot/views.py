@@ -20,14 +20,15 @@ def ask_chatbot(request):
             return JsonResponse({'status': 'error', 'message': "메시지를 입력해주세요."}, status=400)
         
         try:
+            # 1. API 키 확인
             if not settings.GEMINI_API_KEY:
                 raise ValueError("API KEY가 설정되지 않았습니다.")
 
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             
-            # [핵심 수정] gemini-2.0-flash-exp 사용 (v1beta 호환)
+            # 2. 모델명 수정 (여기가 범인입니다! 2.0이 아니라 1.5로!)
             response = client.models.generate_content(
-                model="gemini-2.0-flash-exp",
+                model="gemini-1.5-flash",  # <--- 반드시 이 이름이어야 합니다.
                 contents=user_message,
                 config=types.GenerateContentConfig(
                     system_instruction="당신은 물물박사 '어항 도우미'입니다. 친절하게 답하세요.",
@@ -51,13 +52,15 @@ def ask_chatbot(request):
             print(traceback.format_exc())
             error_msg = str(e)
             
+            # 에러 메시지 처리
             if "404" in error_msg:
-                friendly_msg = "구글 서버에서 모델을 찾을 수 없습니다(404). API 키를 확인해주세요."
+                friendly_msg = "모델을 찾을 수 없습니다. (gemini-1.5-flash인지 확인 필요)"
             elif "429" in error_msg:
-                friendly_msg = "요청이 너무 많습니다(429). 1분 뒤에 다시 시도해주세요."
+                friendly_msg = "요청이 너무 많습니다. 잠시만 기다려주세요."
             else:
-                friendly_msg = f"에러 발생: {error_msg}"
+                friendly_msg = f"에러가 발생했습니다: {error_msg}"
                 
             return JsonResponse({'status': 'error', 'message': friendly_msg}, status=500)
     
     return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
+# Final Build Version: 1.5-flash-fixed
