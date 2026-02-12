@@ -20,15 +20,18 @@ def ask_chatbot(request):
             return JsonResponse({'status': 'error', 'message': "메시지를 입력해주세요."}, status=400)
         
         try:
-            # 1.5 버전으로 강제 지정 (무료 할당량이 훨씬 많음)
+            # 1. 클라이언트 생성
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             
+            # 2. 설정 구성
             config = types.GenerateContentConfig(
-                system_instruction="당신은 어항 전문가 '어항 도우미'입니다. 친절하게 답하세요.",
+                system_instruction="당신은 물물박사 '어항 도우미'입니다. 친절하게 답하세요.",
                 temperature=0.7,
             )
             
-            # 여기서 gemini-1.5-flash로 명확히 써야 합니다.
+            # 3. 답변 생성 (가장 중요한 부분: 모델명을 "gemini-1.5-flash"로 직접 기입)
+            # 만약 404가 계속 나면 "models/gemini-1.5-flash"로 바꿔야 할 수도 있지만, 
+            # 최신 라이브러리에서는 아래 형식이 기본입니다.
             response = client.models.generate_content(
                 model="gemini-1.5-flash", 
                 contents=user_message,
@@ -36,14 +39,29 @@ def ask_chatbot(request):
             )
             
             bot_response = response.text
-            ChatMessage.objects.create(user=request.user, message=user_message, response=bot_response)
+
+            # DB 저장
+            ChatMessage.objects.create(
+                user=request.user, 
+                message=user_message, 
+                response=bot_response
+            )
+            
             return JsonResponse({'status': 'success', 'message': bot_response})
             
         except Exception as e:
-            print(traceback.format_exc()) 
+            print(f"\n[!] 어항 도우미 디버깅:")
+            print(traceback.format_exc())
             error_msg = str(e)
-            if "429" in error_msg:
-                return JsonResponse({'status': 'error', 'message': "구글 무료 할당량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요!"}, status=500)
-            return JsonResponse({'status': 'error', 'message': error_msg}, status=500)
+            
+            # 404 에러 시 사용자에게 보여줄 메시지
+            if "404" in error_msg:
+                friendly_msg = "구글 AI 모델 인식에 문제가 있습니다. 관리자에게 문의하세요."
+            elif "429" in error_msg:
+                friendly_msg = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+            else:
+                friendly_msg = "AI와 통신 중 문제가 발생했습니다."
+                
+            return JsonResponse({'status': 'error', 'message': friendly_msg}, status=500)
     
     return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
