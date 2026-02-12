@@ -2,26 +2,40 @@
 {% block content %}
 <div class="max-w-xl mx-auto py-10">
     <div class="bg-white rounded-[2.5rem] shadow-xl p-10 border border-slate-50">
-        <h2 class="text-2xl font-black text-slate-800 mb-8">👤 내 정보 관리</h2>
+        <div class="flex items-center justify-between mb-8">
+            <h2 class="text-2xl font-black text-slate-800">👤 내 정보 관리</h2>
+            <span class="text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest">Settings</span>
+        </div>
         
         <form method="post" class="space-y-6">
             {% csrf_token %}
             <div>
                 <label class="block text-xs font-black text-slate-400 uppercase ml-1 mb-2">이름 (닉네임)</label>
-                <input type="text" name="nickname" value="{{ user.nickname }}" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-400 outline-none font-bold">
+                <input type="text" name="nickname" value="{{ user.nickname|default:'' }}" 
+                    class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-400 outline-none font-bold text-slate-700">
             </div>
+            
             <div>
                 <label class="block text-xs font-black text-slate-400 uppercase ml-1 mb-2">생년월일</label>
-                <input type="date" name="birthday" value="{{ user.birthday|date:'Y-m-d' }}" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-400 outline-none font-bold">
+                <input type="date" name="birthday" value="{{ user.birthday|date:'Y-m-d' }}" 
+                    class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-400 outline-none font-bold text-slate-700">
             </div>
+            
             <div>
                 <label class="block text-xs font-black text-slate-400 uppercase ml-1 mb-2">이메일 주소</label>
-                <input type="email" name="email" value="{{ user.email }}" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-400 outline-none font-bold">
+                <input type="email" name="email" value="{{ user.email }}" 
+                    class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-400 outline-none font-bold text-slate-700">
             </div>
 
-            <div class="pt-4 space-y-3">
-                <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">정보 수정하기</button>
-                <a href="{% url 'accounts:password_change' %}" class="block text-center w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold hover:bg-slate-200 transition-all">비밀번호 변경</a>
+            <div class="pt-6 space-y-4">
+                <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5 transition-all">
+                    정보 수정하기
+                </button>
+                
+                <a href="{% url 'accounts:password_change' %}" 
+                   class="block text-center w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold hover:bg-slate-200 transition-all">
+                    🔒 비밀번호 변경
+                </a>
             </div>
         </form>
     </div>

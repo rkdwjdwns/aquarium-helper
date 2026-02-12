@@ -57,7 +57,10 @@ def profile_view(request):
         if hasattr(user, 'nickname'):
             user.nickname = request.POST.get('nickname', user.nickname)
         if hasattr(user, 'birthday'):
-            user.birthday = request.POST.get('birthday') or None
+            # 생일 값이 비어있으면 None(NULL)으로 처리
+            birthday_val = request.POST.get('birthday')
+            user.birthday = birthday_val if birthday_val else None
+        
         user.email = request.POST.get('email', user.email)
         
         user.save()
