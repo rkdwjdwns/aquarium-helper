@@ -18,7 +18,7 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 # 모바일 및 외부 접속을 위해 모든 호스트 허용
 ALLOWED_HOSTS = ['*'] 
 
-# CSRF 신뢰할 수 있는 도메인 설정 (모바일 로그인 해결의 핵심!)
+# CSRF 신뢰할 수 있는 도메인 설정
 CSRF_TRUSTED_ORIGINS = [
     'https://*.onrender.com',
 ]
@@ -74,7 +74,6 @@ WSGI_APPLICATION = 'fish.wsgi.application'
 # 4. 데이터베이스 설정 (Render PostgreSQL 연동)
 DATABASES = {
     'default': dj_database_url.config(
-        # Render 환경 변수 DATABASE_URL을 자동으로 읽어옵니다.
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600
     )
@@ -110,17 +109,23 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
-# --- 모바일 로그인 보안 설정 추가 ---
+# --- 사파리 및 모바일 보안 설정 최적화 ---
 if not DEBUG:
+    # 사파리는 HTTPS가 아니면 쿠키를 거부하므로 필수 설정
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    
+    # SameSite 설정을 None으로 하여 모바일 브라우저 호환성 확보
     SESSION_COOKIE_SAMESITE = 'None'
     CSRF_COOKIE_SAMESITE = 'None'
+    
+    # Render와 같은 프록시 환경에서 HTTPS 인식을 위한 설정
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True # 모든 HTTP 요청을 HTTPS로 강제 전환
 
 # 8. AI 설정 (Gemini API KEY 멀티 설정)
 GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
 GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
 GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
 
-# 기본 키 설정 (1번 키를 기본으로 사용)
 GEMINI_API_KEY = GEMINI_API_KEY_1
