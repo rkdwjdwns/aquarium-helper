@@ -7,4 +7,5 @@ urlpatterns = [
     path('signup/', views.signup_view, name='signup'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+    path('chat/', views.chat_view, name='chat'), # 챗봇 페이지 경로 추가!
 ]
