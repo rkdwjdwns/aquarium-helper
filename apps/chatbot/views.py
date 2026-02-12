@@ -7,14 +7,11 @@ from django.contrib.auth.decorators import login_required
 from .models import ChatMessage
 import traceback
 
-# 1. 채팅 화면을 보여주는 뷰
 @login_required
 def chatbot_home(request):
-    # 최신 대화 내역 50개를 가져와서 화면에 전달
     history = ChatMessage.objects.filter(user=request.user).order_by('-created_at')[:50]
     return render(request, 'chatbot/chat.html', {'history': reversed(list(history))})
 
-# 2. AI에게 질문을 보내는 뷰 (주인님이 올리신 핵심 코드)
 @login_required
 def ask_chatbot(request):
     if request.method == "POST":
@@ -26,33 +23,22 @@ def ask_chatbot(request):
             if not settings.GEMINI_API_KEY:
                 raise ValueError("API 키가 설정되지 않았습니다.")
 
-            # 클라이언트 생성
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             
-            # 모델 ID 설정 (models/ 없이 사용)
-            model_id = "gemini-1.5-flash" 
-            
             config = types.GenerateContentConfig(
-                system_instruction=(
-                    "당신은 물물박사 '어항 도우미'입니다. "
-                    "1. 사용자가 어종에 대해 물어보면 적정 수온, pH, 사육 난이도를 친절히 설명하세요. "
-                    "2. 여러 어종을 나열하며 '합사'나 '같이 키우기'를 물어보면 호환성(공격성, 활동영역 등)을 분석하세요. "
-                    "3. 답변 마지막 줄에는 반드시 이 형식을 포함하세요: [추천 세팅: 어종명 / 온도: OO.O / pH: O.O]"
-                ),
+                system_instruction="당신은 물물박사 '어항 도우미'입니다. 친절하게 답하세요.",
                 temperature=0.7,
-                max_output_tokens=1000,
             )
             
-            # 답변 생성
+            # 모델명을 변수 대신 직접 "gemini-1.5-flash" 라고 넣었습니다.
             response = client.models.generate_content(
-                model=model_id,
+                model="gemini-1.5-flash", 
                 contents=user_message,
                 config=config
             )
             
             bot_response = response.text
 
-            # DB 저장
             ChatMessage.objects.create(
                 user=request.user, 
                 message=user_message, 
@@ -62,17 +48,7 @@ def ask_chatbot(request):
             return JsonResponse({'status': 'success', 'message': bot_response})
             
         except Exception as e:
-            print(f"\n[!] 어항 도우미 긴급 디버깅 로그:")
             print(traceback.format_exc()) 
-            error_msg = str(e).lower()
-            
-            if "429" in error_msg:
-                friendly_msg = "현재 요청이 너무 많아 구글이 잠시 쉬고 있어요. 잠시 후 다시 시도해 주세요! 🐠"
-            elif "404" in error_msg or "not found" in error_msg:
-                friendly_msg = "모델 인식 오류가 발생했습니다. (gemini-1.5-flash)"
-            else:
-                friendly_msg = "AI와 통신 중 문제가 발생했습니다. API 키를 확인해주세요."
-                
-            return JsonResponse({'status': 'error', 'message': friendly_msg}, status=500)
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     
     return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
