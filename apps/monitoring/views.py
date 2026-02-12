@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from .models import Tank, EventLog, DeviceControl
+from datetime import date, timedelta
 
 @login_required 
 def dashboard(request):
@@ -14,8 +15,8 @@ def dashboard(request):
         status = "정상"
         alerts = []
 
+        # 1. 수질 분석 로직
         if latest:
-            # 1. 수질 분석 로직
             temp_diff = abs(latest.temperature - tank.target_temp)
             if temp_diff >= 2.0:
                 status = "DANGER"
@@ -30,11 +31,16 @@ def dashboard(request):
                 alerts.append(msg)
                 EventLog.objects.get_or_create(tank=tank, level='WARNING', message=msg)
         
-        # 2. 장비 상태 가져오기 (없으면 자동 생성)
+        # 2. 환수 D-Day 계산 로직 [추가]
+        d_day = None
+        if tank.last_water_change:
+            next_change = tank.last_water_change + timedelta(days=tank.water_change_period)
+            d_day = (next_change - date.today()).days
+
+        # 3. 장비 상태 가져오기
         light, _ = DeviceControl.objects.get_or_create(tank=tank, type='LIGHT')
         filter_dev, _ = DeviceControl.objects.get_or_create(tank=tank, type='FILTER')
 
-        # 최근 로그 5개
         logs = EventLog.objects.filter(tank=tank).order_by('-created_at')[:5]
         
         tank_data.append({
@@ -45,9 +51,26 @@ def dashboard(request):
             'alerts': alerts,
             'light_on': light.is_on,
             'filter_on': filter_dev.is_on,
+            'd_day': d_day, # 화면에 전달
         })
         
     return render(request, 'monitoring/dashboard.html', {'tank_data': tank_data})
+
+@login_required
+def perform_water_change(request, tank_id):
+    """[추가] 환수 완료 처리 뷰"""
+    if request.method == "POST":
+        tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+        tank.last_water_change = date.today()
+        tank.save()
+        
+        EventLog.objects.create(
+            tank=tank,
+            level='INFO',
+            message="환수를 완료했습니다. 물이 깨끗해졌어요! 🌊"
+        )
+        return JsonResponse({'status': 'success', 'last_date': str(date.today())})
+    return JsonResponse({'status': 'error'}, status=400)
 
 @login_required
 def toggle_device(request, tank_id):
@@ -65,7 +88,6 @@ def toggle_device(request, tank_id):
             level='INFO',
             message=f"{device.get_type_display()}를 {action}"
         )
-        
         return JsonResponse({'status': 'success', 'is_on': device.is_on})
     return JsonResponse({'status': 'error'}, status=400)
 
@@ -80,11 +102,13 @@ def add_tank(request):
         name = request.POST.get('name', '').strip()
         if name:
             Tank.objects.create(
-                user=request.user, name=name, 
+                user=request.user, 
+                name=name, 
                 capacity=request.POST.get('capacity', 0.0),
                 fish_species=request.POST.get('fish_species', ""),
                 target_temp=request.POST.get('target_temp', 25.0),
-                target_ph=request.POST.get('target_ph', 7.0)
+                target_ph=request.POST.get('target_ph', 7.0),
+                water_change_period=request.POST.get('water_change_period', 7) # 추가
             )
             messages.success(request, f"'{name}' 어항이 성공적으로 등록되었습니다!")
             return redirect('monitoring:dashboard')

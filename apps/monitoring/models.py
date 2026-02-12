@@ -12,10 +12,13 @@ class Tank(models.Model):
     capacity = models.FloatField(help_text="Liters", default=0.0, null=True, blank=True)
     fish_species = models.CharField(max_length=200, blank=True, null=True)
     
-    # --- [수정] 어종별 권장 환경 기준치 ---
-    # 가이드라인 및 위험 알림의 기준이 됩니다.
+    # 어종별 권장 환경 기준치
     target_temp = models.FloatField(default=25.0, help_text="권장 온도")
     target_ph = models.FloatField(default=7.0, help_text="권장 pH")
+    
+    # --- [추가] 환수 관리 필드 ---
+    last_water_change = models.DateField(null=True, blank=True, help_text="마지막 환수 날짜")
+    water_change_period = models.IntegerField(default=7, help_text="환수 주기(일)")
     
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -33,7 +36,6 @@ class SensorReading(models.Model):
     def __str__(self):
         return f"{self.tank.name} - {self.created_at}"
 
-# 다른 앱(reports 등)과의 호환성을 위한 별칭
 Reading = SensorReading
 
 class EventLog(models.Model):
@@ -52,7 +54,7 @@ class EventLog(models.Model):
         return f"[{self.level}] {self.message}"
 
 class DeviceControl(models.Model):
-    """[추가] 장비 원격 제어 시뮬레이션용 모델"""
+    """장비 원격 제어 시뮬레이션용 모델"""
     DEVICE_TYPES = (
         ('LIGHT', '조명'),
         ('FILTER', '여과기'),
