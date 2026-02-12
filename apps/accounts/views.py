@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
 from django.http import JsonResponse
 from django.conf import settings
-from .forms import CustomUserCreationForm  # forms.py가 같은 폴더에 있어야 합니다.
+from .forms import CustomUserCreationForm
 
 # LangChain 관련 임포트
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -52,7 +52,7 @@ def chat_view(request):
     if request.method == 'POST':
         user_message = request.POST.get('message')
         try:
-            # [수정] LangChain은 models/ 접두사 불필요, gemini-1.5-flash만 사용
+            # [수정] LangChain은 models/ 접두사 불필요
             llm = ChatGoogleGenerativeAI(
                 model="gemini-1.5-flash", 
                 google_api_key=settings.GEMINI_API_KEY,

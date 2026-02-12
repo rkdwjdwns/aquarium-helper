@@ -25,9 +25,9 @@ def ask_chatbot(request):
 
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             
-            # [핵심 수정] models/ 접두사 추가
+            # [핵심 수정] gemini-2.0-flash-exp 사용 (v1beta 호환)
             response = client.models.generate_content(
-                model="models/gemini-1.5-flash",  # ← 여기 수정!
+                model="gemini-2.0-flash-exp",
                 contents=user_message,
                 config=types.GenerateContentConfig(
                     system_instruction="당신은 물물박사 '어항 도우미'입니다. 친절하게 답하세요.",
