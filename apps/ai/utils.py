@@ -1,10 +1,12 @@
-import google.generativeai as genai
+from google import genai  # 수정됨
 from django.conf import settings
 
 def generate_aquarium_report(tank_name, sensor_data):
-    # API 키 설정 (settings.py에 GEMINI_API_KEY를 추가해야 합니다)
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # 1. 최신 방식의 클라이언트 생성
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    
+    # 2. 모델명 설정
+    model_id = "gemini-1.5-flash"
 
     # AI에게 보낼 프롬프트 구성
     prompt = f"""
@@ -19,5 +21,10 @@ def generate_aquarium_report(tank_name, sensor_data):
     세 가지 항목으로 나누어 친절하게 리포트를 작성해 주세요. 한국어로 작성해 주세요.
     """
     
-    response = model.generate_content(prompt)
+    # 3. 최신 방식의 호출 (generate_content)
+    response = client.models.generate_content(
+        model=model_id,
+        contents=prompt
+    )
+    
     return response.text
