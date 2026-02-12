@@ -9,7 +9,7 @@ import traceback
 @login_required
 def ask_chatbot(request):
     """
-    사용자의 질문(일반 질문 or 어종 호환성)을 받아 Gemini AI 응답을 생성하는 뷰
+    사용자의 질문을 받아 Gemini AI 응답을 생성하는 뷰 (1.5-flash 모델 사용)
     """
     if request.method == "POST":
         if not request.user.is_authenticated:
@@ -24,11 +24,11 @@ def ask_chatbot(request):
             return JsonResponse({'status': 'error', 'message': "메시지를 입력해주세요."})
         
         try:
-            # 1. 클라이언트 설정
+            # 1. 클라이언트 설정 (settings에 등록된 API 키 사용)
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             
-            # 2. 모델 ID 및 설정 (호환성 체크 로직 강화)
-            model_id = "gemini-2.0-flash" 
+            # 2. 모델 설정 (할당량이 넉넉한 1.5-flash로 변경)
+            model_id = "gemini-1.5-flash" 
             
             config = types.GenerateContentConfig(
                 system_instruction=(
@@ -64,21 +64,20 @@ def ask_chatbot(request):
             
         except Exception as e:
             print(f"\n[!] 어항 도우미 긴급 디버깅 로그:")
-            print(f"에러 메시지: {str(e)}")
+            print(traceback.format_exc()) # 상세 에러 로그 출력
             
             error_msg = str(e)
             
-            # 에러 종류별 친절한 메시지 분기
             if "429" in error_msg:
-                friendly_msg = "현재 요청이 너무 많습니다. 1분만 기다려 주세요! 🐠"
+                friendly_msg = "현재 질문이 너무 많아 구글이 잠시 쉬고 있어요. 1분만 기다려 주세요! 🐠"
             elif "401" in error_msg or "403" in error_msg:
-                friendly_msg = "API 키 인증에 문제가 발생했습니다. 관리자에게 문의하세요."
+                friendly_msg = "API 키 인증에 문제가 발생했습니다. Render의 Environment 설정을 확인해주세요."
             else:
                 friendly_msg = "AI와 통신 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
 
             return JsonResponse({
                 'status': 'error', 
                 'message': friendly_msg
-            })
+            }, status=500)
     
-    return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."})
+    return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
