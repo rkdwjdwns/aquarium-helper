@@ -11,17 +11,24 @@ def ask_chatbot(request):
     if request.method == "POST":
         user_message = request.POST.get('message')
         try:
-            # 1. API 설정
-            genai.configure(api_key=settings.GEMINI_API_KEY)
+            # 1. API 키가 제대로 설정되어 있는지 다시 확인 (가장 기초적인 단계)
+            api_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else None
+            if not api_key:
+                return JsonResponse({'status': 'error', 'message': "API 키가 설정되지 않았습니다."}, status=500)
+
+            genai.configure(api_key=api_key)
             
-            # 2. 모델 설정 (가장 기본형으로 호출)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            # 2. 'latest'를 붙여서 최신 통로를 강제로 타게 합니다.
+            # 이 이름은 v1beta와 v1 모두에서 가장 잘 인식됩니다.
+            model = genai.GenerativeModel("gemini-1.5-flash-latest")
             
-            # 3. 답변 생성 (시스템 메시지 없이 순수하게 질문만 전달)
-            # 시스템 메시지는 질문 앞에 텍스트로 붙여서 보냅니다.
-            prompt = f"당신은 어항 도우미입니다. 질문에 답하세요: {user_message}"
-            response = model.generate_content(prompt)
+            # 3. 답변 생성
+            response = model.generate_content(user_message)
             
+            # 응답이 비어있을 경우 예외 처리
+            if not response.text:
+                raise ValueError("AI가 빈 답변을 보냈습니다.")
+                
             bot_response = response.text
 
             # DB 저장
@@ -34,7 +41,8 @@ def ask_chatbot(request):
             return JsonResponse({'status': 'success', 'message': bot_response})
             
         except Exception as e:
-            print(f"\n[!] 어항 도우미 긴급 디버깅:\n{traceback.format_exc()}")
-            return JsonResponse({'status': 'error', 'message': f"구글 API 응답 에러가 발생했습니다."}, status=500)
+            print(f"\n[!] 어항 도우미 최종 디버깅:\n{traceback.format_exc()}")
+            # 실제 에러 메시지를 사용자에게 보여주어 원인을 파악합니다.
+            return JsonResponse({'status': 'error', 'message': f"통신 실패: {str(e)}"}, status=500)
     
     return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
