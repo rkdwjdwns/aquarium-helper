@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -16,7 +17,6 @@ def index(request):
 
     tank_data = []
     for tank in page_obj:
-        # related_name이 'readings'라고 가정
         latest = tank.readings.order_by('-created_at').first()
         status = "NORMAL"
         
@@ -29,7 +29,7 @@ def index(request):
             except (ValueError, TypeError): 
                 pass
 
-        d_day = None
+        d_day = 7
         if tank.last_water_change:
             try:
                 period = int(tank.water_change_period or 7)
@@ -49,6 +49,12 @@ def index(request):
         'tank_data': tank_data,
         'page_obj': page_obj
     })
+
+@login_required
+def ai_report_list(request):
+    """AI 리포트 목록 페이지"""
+    tanks = Tank.objects.filter(user=request.user)
+    return render(request, 'reports/report_list.html', {'tanks': tanks})
 
 @login_required
 def dashboard(request, tank_id=None):
@@ -72,7 +78,8 @@ def dashboard(request, tank_id=None):
             period = int(tank.water_change_period or 7)
             next_change = tank.last_water_change + timedelta(days=period)
             d_day = (next_change - date.today()).days
-        except: pass
+        except:
+            pass
 
     return render(request, 'monitoring/dashboard.html', {
         'tank': tank,
@@ -112,35 +119,27 @@ def edit_tank(request, tank_id):
         try:
             tank.name = request.POST.get('name', tank.name)
             tank.fish_species = request.POST.get('fish_species', tank.fish_species)
-            tank.target_temp = float(request.POST.get('target_temp') or tank.target_temp)
-            tank.target_ph = float(request.POST.get('target_ph') or tank.target_ph)
+            t_temp = request.POST.get('target_temp')
+            t_ph = request.POST.get('target_ph')
+            if t_temp: tank.target_temp = float(t_temp)
+            if t_ph: tank.target_ph = float(t_ph)
             tank.save()
+            messages.success(request, "수정되었습니다.")
             return redirect('monitoring:tank_list')
-        except ValueError:
-            pass
+        except (ValueError, TypeError):
+            messages.error(request, "수치 형식이 올바르지 않습니다.")
     return render(request, 'monitoring/tank_form.html', {'tank': tank})
 
 @login_required
 @require_POST
 def delete_tank(request, tank_id):
-    """단일 어항 삭제"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     tank.delete()
     return redirect('monitoring:tank_list')
 
 @login_required
 @require_POST
-def delete_tanks(request):
-    """다중 어항 삭제"""
-    tank_ids = request.POST.getlist('tank_ids[]')
-    if tank_ids:
-        Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
-    return redirect('monitoring:tank_list')
-
-@login_required
-@require_POST
 def toggle_device(request, tank_id):
-    """장치 제어 API"""
     device_type = request.POST.get('device_type')
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     device, _ = DeviceControl.objects.get_or_create(tank=tank, type=device_type)
@@ -153,12 +152,21 @@ def toggle_device(request, tank_id):
 @login_required
 @require_POST
 def perform_water_change(request, tank_id):
-    """환수 완료 처리"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     tank.last_water_change = date.today()
     tank.save()
-    EventLog.objects.create(tank=tank, message="환수 완료 기록")
+    EventLog.objects.create(tank=tank, message="환수 완료가 기록되었습니다.")
     return JsonResponse({'status': 'success'})
+
+@login_required
+@require_POST
+def chat_api(request):
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '')
+        return JsonResponse({'reply': f"'{user_message}'에 대한 분석 결과, 수질이 양호합니다!"})
+    except:
+        return JsonResponse({'reply': '오류가 발생했습니다.'}, status=400)
 
 @login_required
 def tank_list(request):

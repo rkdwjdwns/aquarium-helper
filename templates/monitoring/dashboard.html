@@ -53,17 +53,18 @@
         <div class="grid grid-cols-3 gap-6 mb-12">
             <button onclick="controlDevice('LIGHT')" 
                     class="flex flex-col items-center justify-center gap-3 py-8 rounded-[2rem] transition-all border-2 
-                    {% if light_on %}bg-white border-yellow-400 shadow-xl shadow-yellow-50{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
+                    {% if light_on %}bg-white border-yellow-400 shadow-xl shadow-yellow-50 text-yellow-600{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
                 <span class="text-3xl">💡</span>
                 <span class="font-black text-xs">조명</span>
             </button>
             <button onclick="controlDevice('FILTER')" 
                     class="flex flex-col items-center justify-center gap-3 py-8 rounded-[2rem] transition-all border-2 
-                    {% if filter_on %}bg-white border-blue-400 shadow-xl shadow-blue-50{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
+                    {% if filter_on %}bg-white border-blue-400 shadow-xl shadow-blue-50 text-blue-600{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
                 <span class="text-3xl">🌀</span>
                 <span class="font-black text-xs">여과기</span>
             </button>
-            <button class="flex flex-col items-center justify-center gap-3 py-8 rounded-[2rem] bg-white border-2 border-blue-500 shadow-xl shadow-blue-50">
+            <button onclick="completeWaterChange()" 
+                    class="flex flex-col items-center justify-center gap-3 py-8 rounded-[2rem] bg-white border-2 border-blue-500 shadow-xl shadow-blue-50 hover:bg-blue-50 transition-colors">
                 <span class="text-3xl">🗑️</span>
                 <span class="font-black text-xs text-blue-600">환수완료</span>
             </button>
@@ -75,16 +76,16 @@
                 <a href="{% url 'monitoring:logs' %}" class="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-lg text-slate-500">View All</a>
             </div>
             <div class="space-y-4">
-                {% for log in logs|slice:":1" %}
+                {% for log in logs|slice:":3" %}
                 <div class="flex justify-between items-center bg-white">
                     <p class="text-sm font-bold text-slate-700 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                        {{ log.message }} 🌊
+                        {{ log.message }}
                     </p>
                     <span class="text-[10px] font-black text-slate-300">{{ log.created_at|date:"H:i" }}</span>
                 </div>
                 {% empty %}
-                <p class="text-sm font-bold text-slate-300 italic">최근 활동 기록이 없습니다.</p>
+                <p class="text-sm font-bold text-slate-300 italic">기록이 없습니다.</p>
                 {% endfor %}
             </div>
         </div>
@@ -96,6 +97,7 @@
 </div>
 
 <script>
+// 장치 제어
 function controlDevice(deviceType) {
     fetch(`/monitoring/toggle-device/{{ tank.id }}/`, {
         method: 'POST',
@@ -109,6 +111,26 @@ function controlDevice(deviceType) {
     .then(data => {
         if(data.status === 'success') location.reload();
     });
+}
+
+// 환수 완료 처리
+function completeWaterChange() {
+    if(!confirm('오늘 환수를 완료하셨습니까?')) return;
+    
+    fetch(`/monitoring/water-change/{{ tank.id }}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            alert('환수 기록이 업데이트되었습니다!');
+            location.reload();
+        }
+    })
+    .catch(err => alert('오류가 발생했습니다.'));
 }
 </script>
 {% endblock %}
