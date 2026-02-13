@@ -1,14 +1,14 @@
 from django.urls import path
 from . import views
 
-# 앱 이름 설정
+# 앱 이름 설정 (템플릿에서 'monitoring:URL이름'으로 호출할 때 사용)
 app_name = 'monitoring'
 
 urlpatterns = [
-    # 1. 메인 대시보드 (로고 클릭 시 이동)
+    # 1. 메인 대시보드
     path('dashboard/', views.dashboard, name='dashboard'),
     
-    # 2. 어항 목록 관리 센터 (체크박스 및 개별 관리)
+    # 2. 어항 목록 관리 센터
     path('tanks/', views.tank_list, name='tank_list'),
     
     # 3. 어항 추가/수정/삭제 관련
@@ -23,7 +23,7 @@ urlpatterns = [
     # 5. 카메라 및 AI 비전
     path('camera/', views.camera_view, name='camera_view'),
     
-    # 6. 하드웨어 제어 API
+    # 6. 하드웨어 제어 API (JSON 응답용)
     path('toggle-device/<int:tank_id>/', views.toggle_device, name='toggle_device'),
     path('water-change/<int:tank_id>/', views.perform_water_change, name='perform_water_change'),
     path('apply-recommendation/', views.apply_recommendation, name='apply_recommendation'),

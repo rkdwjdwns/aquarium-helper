@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-10 text-center">
+        <h2 class="text-4xl font-black text-slate-800 tracking-tight mb-3">🛠️ 어항 설정 수정</h2>
+        <p class="text-slate-500 font-medium">현재 어항의 목표 수치와 기본 정보를 변경합니다.</p>
+    </div>
+
+    <div class="bg-white/70 backdrop-blur-xl rounded-[3rem] shadow-[0_20px_50px_rgba(0,119,255,0.08)] border border-white p-10">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            <div>
+                <label class="block text-sm font-black text-slate-700 mb-2 ml-1">어항 이름</label>
+                <input type="text" name="name" value="{{ tank.name }}" required
+                    class="w-full px-6 py-4 bg-slate-50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-blue-400 transition-all font-bold text-slate-800">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-black text-slate-700 mb-2 ml-1">수조 용량 (L)</label>
+                    <input type="number" step="0.1" name="capacity" value="{{ tank.capacity }}"
+                        class="w-full px-6 py-4 bg-slate-50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-blue-400 transition-all font-bold text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-sm font-black text-slate-700 mb-2 ml-1">주요 사육 어종</label>
+                    <input type="text" name="fish_species" value="{{ tank.fish_species }}"
+                        class="w-full px-6 py-4 bg-slate-50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-blue-400 transition-all font-bold text-slate-800">
+                </div>
+            </div>
+
+            <hr class="border-slate-100 my-8">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-[11px] font-black text-blue-500 uppercase tracking-widest mb-2 ml-1">목표 온도 (°C)</label>
+                    <input type="number" step="0.1" name="target_temp" value="{{ tank.target_temp }}"
+                        class="w-full px-6 py-4 bg-blue-50/50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-blue-400 transition-all font-black text-slate-800 text-center">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-black text-purple-500 uppercase tracking-widest mb-2 ml-1">목표 pH</label>
+                    <input type="number" step="0.1" name="target_ph" value="{{ tank.target_ph }}"
+                        class="w-full px-6 py-4 bg-purple-50/50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-purple-400 transition-all font-black text-slate-800 text-center">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-black text-cyan-500 uppercase tracking-widest mb-2 ml-1">환수 주기 (일)</label>
+                    <input type="number" name="water_change_period" value="{{ tank.water_change_period }}"
+                        class="w-full px-6 py-4 bg-cyan-50/50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-cyan-400 transition-all font-black text-slate-800 text-center">
+                </div>
+            </div>
+
+            <div class="flex gap-4 pt-6">
+                <a href="{% url 'monitoring:tank_list' %}" 
+                   class="flex-1 py-5 bg-slate-100 text-slate-500 rounded-[2rem] font-black text-center hover:bg-slate-200 transition-all active-stable">
+                    취소
+                </a>
+                <button type="submit" 
+                        class="flex-[2] py-5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[2rem] font-black shadow-xl shadow-blue-100 hover:scale-[1.02] active:scale-95 transition-all">
+                    설정 저장하기 💾
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
