@@ -4,9 +4,7 @@ from . import views
 app_name = 'monitoring'
 
 urlpatterns = [
-    # 1. 메인 관리 센터 (주인님이 로고 누르면 바로 오는 곳!)
-    # 만약 최상위 URL(fish/urls.py)에서 여기를 바로 보게 하고 싶다면 
-    # 아래 name='tank_list' 경로를 프로젝트 메인으로 잡으면 됩니다.
+    # 1. 메인 관리 센터 (로고 클릭 시 도착지)
     path('tanks/', views.tank_list, name='tank_list'),
     
     # 2. 실시간 상세 데이터 대시보드
