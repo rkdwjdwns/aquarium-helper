@@ -58,7 +58,11 @@ ROOT_URLCONF = 'fish.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        # DIRS를 아래와 같이 확실하게 지정해 주세요.
+        'DIRS': [
+            BASE_DIR / 'templates',
+            BASE_DIR / 'apps' / 'monitoring' / 'templates', # 추가
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -130,3 +134,5 @@ GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
 GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
 GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
 GEMINI_API_KEY = GEMINI_API_KEY_1 or GEMINI_API_KEY_2 or GEMINI_API_KEY_3 or ""
+
+CSRF_TRUSTED_ORIGINS = ['https://aquarium-helper.onrender.com']

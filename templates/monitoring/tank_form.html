@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-[85vh] flex items-center justify-center p-4">
+    <div class="max-w-lg w-full bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/50 overflow-hidden animate-fade-in my-8">
+        
+        <div class="p-6 bg-gradient-to-r from-blue-600 to-cyan-500 text-white flex items-center gap-4 shadow-md">
+            <div class="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-inner text-2xl">
+                {% if tank %}⚙️{% else %}🌊{% endif %}
+            </div>
+            <div>
+                <h2 class="font-black text-xl leading-tight">
+                    {% if tank %}어항 정보 수정{% else %}새 어항 등록{% endif %}
+                </h2>
+                <p class="text-[11px] font-bold opacity-80 uppercase tracking-[0.2em] mt-0.5">Tank Management Center</p>
+            </div>
+        </div>
+
+        <div class="p-8">
+            {% if error %}
+            <div class="mb-6 p-4 bg-red-50/50 backdrop-blur-sm border-l-4 border-red-500 text-red-700 text-sm font-bold rounded-r-2xl animate-pulse">
+                ⚠️ {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="POST" class="space-y-6">
+                {% csrf_token %}
+                
+                <div class="space-y-2">
+                    <label class="block text-xs font-black text-blue-600 uppercase tracking-widest ml-1">어항 이름</label>
+                    <div class="relative">
+                        <input type="text" name="name" value="{{ tank.name|default:'' }}" placeholder="예: 거실 구피항" required
+                            class="w-full bg-slate-50/50 border-none focus:ring-2 focus:ring-blue-300 rounded-2xl px-5 py-4 outline-none text-sm font-semibold transition-all shadow-inner placeholder:text-slate-300">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="block text-xs font-black text-blue-600 uppercase tracking-widest ml-1">주요 키우는 물고기</label>
+                    <div class="relative">
+                        <input type="text" name="fish_species" value="{{ tank.fish_species|default:'' }}" placeholder="예: 구피, 네온테트라, 안시"
+                            class="w-full bg-slate-50/50 border-none focus:ring-2 focus:ring-blue-300 rounded-2xl px-5 py-4 outline-none text-sm font-semibold transition-all shadow-inner placeholder:text-slate-300">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="block text-xs font-black text-blue-600 uppercase tracking-widest ml-1">목표 온도 (°C)</label>
+                        <input type="number" step="0.1" name="target_temp" value="{{ tank.target_temp|default:'26.0' }}"
+                            class="w-full bg-slate-50/50 border-none focus:ring-2 focus:ring-blue-300 rounded-2xl px-5 py-4 outline-none text-sm font-bold transition-all shadow-inner">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-xs font-black text-blue-600 uppercase tracking-widest ml-1">환수 주기 (일)</label>
+                        <input type="number" name="water_change_period" value="{{ tank.water_change_period|default:'7' }}"
+                            class="w-full bg-slate-50/50 border-none focus:ring-2 focus:ring-blue-300 rounded-2xl px-5 py-4 outline-none text-sm font-bold transition-all shadow-inner">
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-6">
+                    <a href="{% url 'monitoring:tank_list' %}" 
+                       class="flex-1 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl text-center hover:bg-slate-200 active:scale-95 transition-all text-sm shadow-sm">
+                        취소
+                    </a>
+                    <button type="submit" 
+                        class="flex-[2] py-4 bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-black rounded-2xl shadow-lg shadow-blue-200 hover:scale-[1.03] active:scale-95 transition-all text-sm group">
+                        <span class="inline-block group-hover:rotate-12 transition-transform mr-1">🐠</span>
+                        {% if tank %}수정 완료{% else %}어항 등록하기{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes fade-in { 
+        from { opacity: 0; transform: translateY(30px); } 
+        to { opacity: 1; transform: translateY(0); } 
+    }
+    .animate-fade-in { animation: fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    
+    /* 입력창 포커스 시 배경색 살짝 변경 */
+    input:focus { background-color: white !important; }
+</style>
+{% endblock %}

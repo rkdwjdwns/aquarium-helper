@@ -17,6 +17,19 @@
     </div>
 
     <div id="chat-window" class="flex-1 overflow-y-auto p-5 space-y-6 bg-[#BACEE0]/30 scroll-smooth">
+        {% for chat in history %}
+        <div class="flex justify-end">
+            <div class="bg-blue-600 text-white p-4 rounded-3xl rounded-tr-none shadow-md text-sm font-bold max-w-[85%] animate-fade-in">
+                {{ chat.message }}
+            </div>
+        </div>
+        <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[10px] font-black shadow-lg shrink-0">AI</div>
+            <div class="bg-white p-4 rounded-3xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium text-slate-700 max-w-[85%] leading-relaxed animate-fade-in">
+                {{ chat.response|linebreaksbr }}
+            </div>
+        </div>
+        {% empty %}
         <div class="flex items-start gap-3">
             <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold shadow-lg shrink-0">AI</div>
             <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium max-w-[85%] text-slate-700 leading-relaxed">
@@ -24,6 +37,7 @@
                 무엇을 도와드릴까요? 사진(📷)을 보내주시면 더 자세한 상담이 가능해요!
             </div>
         </div>
+        {% endfor %}
     </div>
 
     <div class="p-5 bg-white border-t border-white shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
@@ -75,6 +89,12 @@
     const imagePreview = document.getElementById('image-preview');
     const fileNameDisp = document.getElementById('file-name');
 
+    // 채팅창 자동 스크롤 함수
+    function scrollToBottom() {
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+    window.onload = scrollToBottom;
+
     imageInput.addEventListener('change', function() {
         if (this.files && this.files[0]) {
             fileNameDisp.innerText = this.files[0].name;
@@ -109,22 +129,39 @@
         .then(data => {
             const lb = document.getElementById(loadingId);
             if (lb) lb.closest('.flex').remove();
-            appendMessage('ai', data.status === 'success' ? data.message : "에러: " + data.message);
+            
+            // [보완] data.message 또는 data.reply 중 있는 것을 선택 (undefined 방지)
+            const botMsg = data.message || data.reply;
+            
+            if (data.status === 'success') {
+                appendMessage('ai', botMsg);
+            } else {
+                appendMessage('ai', "에러: " + (botMsg || "연결에 실패했습니다."));
+            }
+        })
+        .catch(err => {
+            const lb = document.getElementById(loadingId);
+            if (lb) lb.closest('.flex').remove();
+            appendMessage('ai', "네트워크 오류가 발생했습니다.");
         });
     });
 
     function appendMessage(sender, text, id = null) {
         const div = document.createElement('div');
         div.className = sender === 'user' ? 'flex justify-end' : 'flex items-start gap-3';
+        
+        // 줄바꿈 처리를 위한 변환
+        const formattedText = text.replace(/\n/g, '<br>');
+
         if (sender === 'user') {
-            div.innerHTML = `<div class="bg-blue-600 text-white p-4 rounded-3xl rounded-tr-none shadow-md text-sm font-bold max-w-[85%] animate-fade-in">${text}</div>`;
+            div.innerHTML = `<div class="bg-blue-600 text-white p-4 rounded-3xl rounded-tr-none shadow-md text-sm font-bold max-w-[85%] animate-fade-in">${formattedText}</div>`;
         } else {
             div.innerHTML = `
                 <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[10px] font-black shadow-lg shrink-0">AI</div>
-                <div id="${id || ''}" class="bg-white p-4 rounded-3xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium text-slate-700 max-w-[85%] leading-relaxed animate-fade-in">${text.replace(/\n/g, '<br>')}</div>`;
+                <div id="${id || ''}" class="bg-white p-4 rounded-3xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium text-slate-700 max-w-[85%] leading-relaxed animate-fade-in">${formattedText}</div>`;
         }
         chatWindow.appendChild(div);
-        chatWindow.scrollTop = chatWindow.scrollHeight;
+        scrollToBottom();
     }
 </script>
 {% endblock %}
