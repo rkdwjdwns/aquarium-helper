@@ -7,36 +7,42 @@
             <p class="text-slate-400 font-bold text-sm mt-1">우리 물고기들의 환경을 감시 중입니다.</p>
         </div>
         <div class="flex gap-2">
-            <a href="{% url 'monitoring:tank_list' %}" class="bg-white border border-slate-200 text-slate-600 px-4 py-3 rounded-2xl font-black text-xs hover:bg-slate-50 shadow-sm">어항 편집</a>
-            <button @click="if(editMode && selectedTanks.length > 0) { if(confirm('삭제할까요?')) document.getElementById('delete-form').submit() }; editMode = !editMode"
-                    :class="editMode ? 'bg-red-500 text-white' : 'bg-white border-slate-200 text-slate-600'" 
-                    class="px-4 py-3 rounded-2xl font-black text-xs border shadow-sm">
+            <a href="{% url 'monitoring:tank_list' %}" class="bg-white border border-slate-200 text-slate-600 px-4 py-3 rounded-2xl font-black text-xs hover:bg-slate-50 shadow-sm transition-all">어항 편집</a>
+            <button @click="if(editMode && selectedTanks.length > 0) { if(confirm('선택한 어항을 삭제할까요?')) document.getElementById('delete-form').submit() }; editMode = !editMode"
+                    :class="editMode ? 'bg-red-500 text-white border-red-500' : 'bg-white border-slate-200 text-slate-600'" 
+                    class="px-4 py-3 rounded-2xl font-black text-xs border shadow-sm transition-all">
                 <span x-text="editMode ? (selectedTanks.length > 0 ? '선택 삭제' : '취소') : '어항 삭제'"></span>
             </button>
-            <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg text-xs">+ 어항 추가</a>
+            <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg text-xs hover:bg-blue-700 transition-all">+ 어항 추가</a>
         </div>
     </div>
 
     <form id="delete-form" action="{% url 'monitoring:delete_tanks' %}" method="POST" class="hidden">
         {% csrf_token %}
-        <template x-for="id in selectedTanks"><input type="hidden" name="tank_ids[]" :value="id"></template>
+        <template x-for="id in selectedTanks">
+            <input type="hidden" name="tank_ids[]" :value="id">
+        </template>
     </form>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
         {% for item in tank_data %}
-        <div class="bg-white p-9 rounded-[2.8rem] shadow-xl border border-white hover:border-blue-300 transition-all group relative">
-            <div x-show="editMode" class="absolute top-8 left-8 z-30">
-                <input type="checkbox" value="{{ item.tank.id }}" x-model="selectedTanks" class="w-8 h-8 rounded-xl border-red-200 text-red-500">
+        <div class="bg-white p-9 rounded-[2.8rem] shadow-xl border border-white hover:border-blue-300 transition-all group relative overflow-hidden">
+            <div x-show="editMode" x-cloak class="absolute top-8 left-8 z-30">
+                <input type="checkbox" value="{{ item.tank.id }}" x-model="selectedTanks" class="w-8 h-8 rounded-xl border-red-200 text-red-500 focus:ring-red-500 transition-all">
             </div>
 
             <div class="flex justify-between items-start mb-8" :class="editMode ? 'ml-12' : ''">
-                <div>
-                    <h3 class="font-black text-2xl text-gray-800 cursor-pointer" onclick="location.href='{% url 'monitoring:dashboard' item.tank.id %}'">{{ item.tank.name }}</h3>
+                <div class="cursor-pointer" onclick="location.href='{% url 'monitoring:dashboard' item.tank.id %}'">
+                    <h3 class="font-black text-2xl text-gray-800 group-hover:text-blue-600 transition-colors">{{ item.tank.name }}</h3>
                     {% if item.d_day is not None %}
-                    <span class="text-[11px] font-black {% if item.d_day <= 0 %}text-red-500{% else %}text-blue-400{% endif %}">환수 D-{{ item.d_day }}</span>
+                    <span class="text-[11px] font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-400{% endif %}">
+                        환수 D-{{ item.d_day }}
+                    </span>
                     {% endif %}
                 </div>
-                <span class="text-xs font-black px-3 py-1 rounded-full {% if item.status == 'DANGER' %}bg-red-500 text-white animate-pulse{% else %}bg-blue-500 text-white{% endif %}">{{ item.status }}</span>
+                <span class="text-xs font-black px-3 py-1 rounded-full {% if item.status == 'DANGER' %}bg-red-500 text-white animate-pulse{% else %}bg-blue-500 text-white{% endif %}">
+                    {{ item.status }}
+                </span>
             </div>
             
             <div class="grid grid-cols-2 gap-6 mb-8">
@@ -51,27 +57,59 @@
             </div>
 
             <div class="flex gap-3">
-                <button onclick="toggleDevice('{{ item.tank.id }}', 'LIGHT')" id="btn-light-{{ item.tank.id }}" class="flex-1 py-4 rounded-2xl font-black text-xs border transition-all {% if item.light_on %}bg-yellow-400 border-yellow-400 text-white{% else %}bg-white border-slate-100 text-slate-400{% endif %}">💡 조명</button>
-                <button onclick="toggleDevice('{{ item.tank.id }}', 'FILTER')" id="btn-filter-{{ item.tank.id }}" class="flex-1 py-4 rounded-2xl font-black text-xs border transition-all {% if item.filter_on %}bg-blue-500 border-blue-500 text-white{% else %}bg-white border-slate-100 text-slate-400{% endif %}">🌀 여과기</button>
+                <button onclick="toggleDevice('{{ item.tank.id }}', 'LIGHT')" 
+                        id="btn-light-{{ item.tank.id }}" 
+                        class="flex-1 py-4 rounded-2xl font-black text-xs border transition-all active:scale-95
+                        {% if item.light_on %}bg-yellow-400 border-yellow-400 text-white shadow-lg shadow-yellow-100{% else %}bg-white border-slate-100 text-slate-400{% endif %}">
+                    💡 조명
+                </button>
+                <button onclick="toggleDevice('{{ item.tank.id }}', 'FILTER')" 
+                        id="btn-filter-{{ item.tank.id }}" 
+                        class="flex-1 py-4 rounded-2xl font-black text-xs border transition-all active:scale-95
+                        {% if item.filter_on %}bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-100{% else %}bg-white border-slate-100 text-slate-400{% endif %}">
+                    🌀 여과기
+                </button>
             </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full py-20 text-center bg-white rounded-[2.8rem] border-4 border-dashed border-slate-50">
+            <p class="text-slate-300 font-black text-lg">아직 등록된 어항이 없습니다. 하하! 🐠</p>
         </div>
         {% endfor %}
     </div>
 
+    {% if page_obj.paginator.num_pages > 1 %}
     <div class="flex justify-center gap-2">
         {% for num in page_obj.paginator.page_range %}
-        <a href="?page={{ num }}" class="w-10 h-10 flex items-center justify-center rounded-xl font-bold {% if page_obj.number == num %}bg-blue-600 text-white shadow-lg shadow-blue-100{% else %}bg-white text-slate-400 border border-slate-100{% endif %}">{{ num }}</a>
+        <a href="?page={{ num }}" class="w-10 h-10 flex items-center justify-center rounded-xl font-bold transition-all {% if page_obj.number == num %}bg-blue-600 text-white shadow-lg shadow-blue-100{% else %}bg-white text-slate-400 border border-slate-100 hover:bg-slate-50{% endif %}">{{ num }}</a>
         {% endfor %}
     </div>
+    {% endif %}
 </div>
 
 <script>
 function toggleDevice(tankId, type) {
-    fetch(`/toggle-device/${tankId}/`, {
+    // [중요] URL 경로를 Django 템플릿 태그를 사용하거나 상대 경로로 수정
+    const url = `/monitoring/toggle-device/${tankId}/`; 
+    
+    fetch(url, {
         method: 'POST',
-        headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}', 
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
         body: `device_type=${type}`
-    }).then(res => res.json()).then(data => location.reload());
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('Network response was not ok');
+        return res.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload(); // 상태 반영을 위해 새로고침
+        }
+    })
+    .catch(err => console.error('Error:', err));
 }
 </script>
 {% endblock %}
