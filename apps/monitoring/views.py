@@ -9,7 +9,7 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.views.decorators.http import require_POST
-from django.apps import apps  # 모델 동적 로드를 위해 추가
+from django.apps import apps
 from datetime import date, timedelta
 
 # 현재 앱의 모델 임포트
@@ -18,7 +18,6 @@ from .models import Tank, EventLog, DeviceControl
 # ChatMessage 모델을 안전하게 가져오는 함수 (RuntimeError 방지)
 def get_chat_message_model():
     try:
-        # 프로젝트 구조에 따라 'chatbot' 또는 'apps.chatbot' 시도
         return apps.get_model('chatbot', 'ChatMessage')
     except (LookupError, ValueError):
         try:
@@ -30,7 +29,7 @@ def get_chat_message_model():
 
 @login_required 
 def index(request):
-    """메인 페이지: 어항 카드 목록 (Paginator 적용)"""
+    """메인 페이지: 어항 카드 목록"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 4) 
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -89,7 +88,7 @@ def dashboard(request, tank_id=None):
 @login_required
 @require_POST
 def chat_api(request):
-    """텍스트 + 이미지 분석 지원 챗봇 (멀티 API 키 순회)"""
+    """텍스트 + 이미지 분석 지원 (undefined 방지 보완)"""
     user_message = request.POST.get('message', '').strip()
     image_file = request.FILES.get('image') 
     
@@ -129,7 +128,7 @@ def chat_api(request):
             response = model.generate_content(content)
             bot_response = response.text.replace('*', '').replace('#', '').strip()
             
-            # 모델 저장 시도
+            # 모델 저장
             ChatMessage = get_chat_message_model()
             if ChatMessage:
                 ChatMessage.objects.create(
@@ -138,7 +137,8 @@ def chat_api(request):
                     response=bot_response
                 )
             
-            return JsonResponse({'status': 'success', 'reply': bot_response})
+            # undefined 방지를 위해 'reply'와 'message' 모두 응답
+            return JsonResponse({'status': 'success', 'reply': bot_response, 'message': bot_response})
             
         except Exception as e:
             if "429" in str(e) or "quota" in str(e).lower():
@@ -146,13 +146,13 @@ def chat_api(request):
             last_error = e
             continue
 
-    return JsonResponse({'status': 'error', 'message': f"물물박사가 현재 응답할 수 없습니다. (사유: {str(last_error)})"}, status=500)
+    return JsonResponse({'status': 'error', 'message': f"물물박사가 쉬고 있어요. ({str(last_error)})"}, status=500)
 
-# --- [어항 편집 및 관리 기능] ---
+# --- [어항 편집 및 관리 기능: 500 에러 방어] ---
 
 @login_required
 def tank_list(request):
-    """어항 관리 센터 (에러 방지 및 선택 삭제 대응)"""
+    """어항 관리 센터"""
     try:
         all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
         tank_data = [{'tank': t} for t in all_tanks]
@@ -166,51 +166,63 @@ def tank_list(request):
 @login_required
 @require_POST
 def delete_tanks(request):
-    """어항 선택 삭제 처리"""
+    """선택 삭제 처리"""
     tank_ids = request.POST.getlist('tank_ids[]')
     if tank_ids:
         deleted_count, _ = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
         messages.success(request, f"{deleted_count}개의 어항이 삭제되었습니다.")
-    else:
-        messages.warning(request, "삭제할 어항을 선택해주세요.")
     return redirect('monitoring:tank_list')
 
 @login_required
 def add_tank(request):
+    """어항 추가 (입력값 예외 처리 강화)"""
     if request.method == 'POST':
         try:
+            # 안전하게 데이터 파싱
+            name = request.POST.get('name', '새 어항').strip() or '새 어항'
+            species = request.POST.get('fish_species', '').strip()
+            temp = float(request.POST.get('target_temp') or 26.0)
+            period = int(request.POST.get('water_change_period') or 7)
+            
             tank = Tank.objects.create(
                 user=request.user,
-                name=request.POST.get('name', '새 어항'),
-                fish_species=request.POST.get('fish_species', ''),
-                target_temp=float(request.POST.get('target_temp') or 26.0),
-                water_change_period=int(request.POST.get('water_change_period') or 7),
+                name=name,
+                fish_species=species,
+                target_temp=temp,
+                water_change_period=period,
                 last_water_change=date.today()
             )
-            messages.success(request, f"'{tank.name}' 어항이 추가되었습니다.")
-            return redirect('monitoring:index')
+            messages.success(request, f"'{tank.name}' 어항이 생성되었습니다.")
+            return redirect('monitoring:tank_list')
         except Exception as e:
-            return render(request, 'monitoring/tank_form.html', {'error': str(e)})
-    return render(request, 'monitoring/tank_form.html')
+            # 500 에러 대신 입력 폼으로 에러 메시지와 함께 리턴
+            return render(request, 'monitoring/tank_form.html', {'error': f"입력값을 확인해주세요: {e}"})
+            
+    return render(request, 'monitoring/tank_form.html', {'title': '어항 등록'})
 
 @login_required
 def edit_tank(request, tank_id):
+    """어항 수정 (안전한 업데이트)"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     if request.method == 'POST':
-        tank.name = request.POST.get('name')
-        tank.fish_species = request.POST.get('fish_species')
-        tank.target_temp = float(request.POST.get('target_temp', 26.0))
-        tank.water_change_period = int(request.POST.get('water_change_period', 7))
-        tank.save()
-        messages.success(request, "수정되었습니다.")
-        return redirect('monitoring:dashboard', tank_id=tank.id)
-    return render(request, 'monitoring/tank_form.html', {'tank': tank})
+        try:
+            tank.name = request.POST.get('name', tank.name).strip()
+            tank.fish_species = request.POST.get('fish_species', tank.fish_species).strip()
+            tank.target_temp = float(request.POST.get('target_temp') or 26.0)
+            tank.water_change_period = int(request.POST.get('water_change_period') or 7)
+            tank.save()
+            messages.success(request, f"'{tank.name}' 정보가 수정되었습니다.")
+            return redirect('monitoring:tank_list')
+        except Exception as e:
+            return render(request, 'monitoring/tank_form.html', {'tank': tank, 'error': f"수정 실패: {e}"})
+            
+    return render(request, 'monitoring/tank_form.html', {'tank': tank, 'title': '어항 수정'})
 
 @login_required
 def delete_tank(request, tank_id):
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     tank.delete()
-    messages.success(request, "삭제되었습니다.")
+    messages.success(request, "어항이 삭제되었습니다.")
     return redirect('monitoring:tank_list')
 
 @login_required
