@@ -57,14 +57,12 @@
             </div>
 
             <div class="flex gap-3">
-                <button onclick="toggleDevice('{{ item.tank.id }}', 'LIGHT')" 
-                        id="btn-light-{{ item.tank.id }}" 
+                <button onclick="toggleDevice('{{ item.tank.id }}', 'LIGHT', '{% url 'monitoring:toggle_device' item.tank.id %}')" 
                         class="flex-1 py-4 rounded-2xl font-black text-xs border transition-all active:scale-95
                         {% if item.light_on %}bg-yellow-400 border-yellow-400 text-white shadow-lg shadow-yellow-100{% else %}bg-white border-slate-100 text-slate-400{% endif %}">
                     💡 조명
                 </button>
-                <button onclick="toggleDevice('{{ item.tank.id }}', 'FILTER')" 
-                        id="btn-filter-{{ item.tank.id }}" 
+                <button onclick="toggleDevice('{{ item.tank.id }}', 'FILTER', '{% url 'monitoring:toggle_device' item.tank.id %}')" 
                         class="flex-1 py-4 rounded-2xl font-black text-xs border transition-all active:scale-95
                         {% if item.filter_on %}bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-100{% else %}bg-white border-slate-100 text-slate-400{% endif %}">
                     🌀 여과기
@@ -73,7 +71,7 @@
         </div>
         {% empty %}
         <div class="col-span-full py-20 text-center bg-white rounded-[2.8rem] border-4 border-dashed border-slate-50">
-            <p class="text-slate-300 font-black text-lg">아직 등록된 어항이 없습니다. 하하! 🐠</p>
+            <p class="text-slate-300 font-black text-lg">아직 등록된 어항이 없습니다. 🐠</p>
         </div>
         {% endfor %}
     </div>
@@ -88,10 +86,10 @@
 </div>
 
 <script>
-function toggleDevice(tankId, type) {
-    // [중요] URL 경로를 Django 템플릿 태그를 사용하거나 상대 경로로 수정
-    const url = `/monitoring/toggle-device/${tankId}/`; 
-    
+/**
+ * AJAX를 이용한 장치 제어 함수
+ */
+function toggleDevice(tankId, type, url) {
     fetch(url, {
         method: 'POST',
         headers: {
@@ -101,15 +99,17 @@ function toggleDevice(tankId, type) {
         body: `device_type=${type}`
     })
     .then(res => {
-        if (!res.ok) throw new Error('Network response was not ok');
+        if (!res.ok) throw new Error('서버 응답 오류');
         return res.json();
     })
     .then(data => {
         if (data.status === 'success') {
-            location.reload(); // 상태 반영을 위해 새로고침
+            location.reload(); 
         }
     })
-    .catch(err => console.error('Error:', err));
+    .catch(err => {
+        console.error('Error:', err);
+    });
 }
 </script>
 {% endblock %}
