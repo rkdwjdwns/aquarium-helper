@@ -8,6 +8,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard_default'), 
     path('dashboard/<int:tank_id>/', views.dashboard, name='dashboard'), 
     path('tanks/', views.tank_list, name='tank_list'),
+    path('tanks/delete-multiple/', views.delete_tanks, name='delete_tanks'), # 추가됨
     path('add/', views.add_tank, name='add_tank'),
     path('edit/<int:tank_id>/', views.edit_tank, name='edit_tank'),
     path('delete/<int:tank_id>/', views.delete_tank, name='delete_tank'), 

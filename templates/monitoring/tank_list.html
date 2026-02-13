@@ -8,9 +8,9 @@
         </div>
         <div class="flex gap-2">
             <button @click="if(selectedTanks.length > 0 && confirm('정말 삭제하시겠습니까?')) document.getElementById('delete-form').submit()"
-                    :class="selectedTanks.length > 0 ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-300 cursor-not-allowed'"
-                    class="px-5 py-3 rounded-2xl font-black text-xs transition-all shadow-sm">
-                선택 삭제
+                    :class="selectedTanks.length > 0 ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-100 text-slate-300 cursor-not-allowed'"
+                    class="px-5 py-3 rounded-2xl font-black text-xs transition-all">
+                선택 삭제 <span x-show="selectedTanks.length > 0" x-text="selectedTanks.length"></span>
             </button>
             <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg text-xs hover:bg-blue-700 transition-all">
                 + 어항 추가
@@ -20,7 +20,7 @@
 
     <form id="delete-form" action="{% url 'monitoring:delete_tanks' %}" method="POST" class="hidden">
         {% csrf_token %}
-        <template x-for="id in selectedTanks">
+        <template x-for="id in selectedTanks" :key="id">
             <input type="hidden" name="tank_ids[]" :value="id">
         </template>
     </form>
@@ -29,7 +29,9 @@
         <table class="w-full text-left">
             <thead class="bg-slate-50 border-b border-slate-100">
                 <tr>
-                    <th class="p-6 w-16 text-center">✓</th>
+                    <th class="p-6 w-16 text-center">
+                        <input type="checkbox" @change="if($el.checked) { selectedTanks = [{% for item in tank_data %}'{{ item.tank.id }}',{% endfor %}] } else { selectedTanks = [] }" class="w-5 h-5 rounded-lg border-slate-300">
+                    </th>
                     <th class="p-6 font-black text-slate-500 text-sm">어항 이름</th>
                     <th class="p-6 font-black text-slate-500 text-sm">어종</th>
                     <th class="p-6 font-black text-slate-500 text-sm text-center">관리</th>
@@ -45,6 +47,12 @@
                     <td class="p-6 text-slate-500 font-medium">{{ item.tank.fish_species|default:"-" }}</td>
                     <td class="p-6 text-center">
                         <a href="{% url 'monitoring:edit_tank' item.tank.id %}" class="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl font-black text-xs hover:bg-slate-200">수정</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="p-20 text-center">
+                        <p class="text-slate-400 font-bold">등록된 어항이 없습니다. 새 어항을 추가해 보세요! 🐠</p>
                     </td>
                 </tr>
                 {% endfor %}
