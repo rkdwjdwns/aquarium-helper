@@ -1,4 +1,4 @@
-from django.urls import path, reverse_lazy # reverse_lazy 추가
+from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
 from . import views
 
@@ -9,13 +9,15 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('profile/', views.profile_view, name='profile'),
-    path('chat/', views.chat_view, name='chat'),
     
-    # 비밀번호 변경: 성공 시 'password_change_done'으로 가도록 명시
+    # [삭제] path('chat/', views.chat_view, name='chat'), 
+    # 위 줄을 삭제함으로써 챗봇 요청이 꼬이는 것을 원천 봉쇄합니다.
+
+    # 비밀번호 변경
     path('password_change/', 
          auth_views.PasswordChangeView.as_view(
              template_name='accounts/password_change.html',
-             success_url=reverse_lazy('accounts:password_change_done') # 이 줄 추가!
+             success_url=reverse_lazy('accounts:password_change_done')
          ), 
          name='password_change'),
          
