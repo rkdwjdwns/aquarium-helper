@@ -1,77 +1,53 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="mb-8">
-    <h2 class="text-4xl font-black text-slate-800 tracking-tight mb-2">🌊 어항 관리 센터</h2>
-    <p class="text-slate-500 font-medium ml-1">어항을 추가하거나 정보를 수정하고 삭제할 수 있습니다.</p>
-</div>
-
-<div class="grid grid-cols-3 gap-4 mb-10">
-    <a href="{% url 'monitoring:add_tank' %}" class="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] shadow-sm border border-white flex flex-col items-center justify-center group hover:bg-blue-600 transition-all active-stable">
-        <span class="text-3xl mb-2 group-hover:scale-110 transition-transform">➕</span>
-        <span class="text-[13px] font-black text-slate-600 group-hover:text-white uppercase">어항 추가</span>
-    </a>
-
-    <a href="{% url 'monitoring:tank_list' %}" class="bg-blue-600 p-6 rounded-[2rem] shadow-lg shadow-blue-100 border border-blue-400 flex flex-col items-center justify-center group transition-all active-stable">
-        <span class="text-3xl mb-2 scale-110">✏️</span>
-        <span class="text-[13px] font-black text-white uppercase">어항 편집</span>
-    </a>
-
-    <a href="#" onclick="alert('아래 각 어항 카드의 삭제 버튼을 이용해주세요!')" class="bg-white/80 backdrop-blur-md p-6 rounded-[2rem] shadow-sm border border-white flex flex-col items-center justify-center group hover:bg-red-500 transition-all active-stable">
-        <span class="text-3xl mb-2 group-hover:scale-110 transition-transform">🗑️</span>
-        <span class="text-[13px] font-black text-slate-600 group-hover:text-white uppercase">어항 삭제</span>
-    </a>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
-    {% for item in tank_data %}
-    <div class="bg-white/70 backdrop-blur-xl rounded-[3rem] shadow-[0_20px_50px_rgba(0,119,255,0.08)] border border-white p-8 transition-all hover:shadow-[0_30px_60px_rgba(0,119,255,0.15)]">
-        <div class="flex justify-between items-start mb-8">
-            <div>
-                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 mb-1 block">Management Mode</span>
-                <h3 class="text-2xl font-black text-slate-800">{{ item.tank.name }}</h3>
-                <p class="text-xs text-slate-400 font-bold mt-1">어종: {{ item.tank.fish_species|default:"미지정" }}</p>
-            </div>
-            
-            <a href="{% url 'monitoring:edit_tank' item.tank.id %}" class="flex items-center gap-2 bg-slate-100 text-slate-600 px-5 py-3 rounded-[1.2rem] text-sm font-black hover:bg-blue-100 hover:text-blue-600 transition-all active-stable">
-                <span>🛠️ 편집하기</span>
-            </a>
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-end mb-12">
+        <div>
+            <h2 class="text-4xl font-black text-slate-800 tracking-tight">🌊 어항 편집 센터</h2>
+            <p class="text-slate-500 font-medium mt-2">어항 정보를 수정하거나 시스템에서 삭제합니다.</p>
         </div>
-
-        <div class="grid grid-cols-3 gap-4 mb-8">
-            <div class="bg-slate-50/50 p-4 rounded-[1.8rem] text-center border border-white">
-                <p class="text-[9px] text-blue-500 font-black uppercase">Temp</p>
-                <p class="text-lg font-black text-slate-800">{{ item.latest.temperature|default:"--" }}°C</p>
-            </div>
-            <div class="bg-slate-50/50 p-4 rounded-[1.8rem] text-center border border-white">
-                <p class="text-[9px] text-purple-500 font-black uppercase">pH</p>
-                <p class="text-lg font-black text-slate-800">{{ item.latest.ph|default:"--" }}</p>
-            </div>
-            <div class="bg-slate-50/50 p-4 rounded-[1.8rem] text-center border border-white">
-                <p class="text-[9px] text-cyan-500 font-black uppercase">Capacity</p>
-                <p class="text-lg font-black text-slate-800">{{ item.tank.capacity|default:"0" }}L</p>
-            </div>
-        </div>
-
-        <div class="flex justify-end">
-            <form action="{% url 'monitoring:delete_tank' item.tank.id %}" method="post" onsubmit="return confirm('정말 삭제할까요?')">
-                {% csrf_token %}
-                <button type="submit" class="text-[11px] font-black text-red-400 hover:text-red-600 transition-colors">이 어항 영구 삭제 🗑️</button>
-            </form>
-        </div>
+        <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-blue-100 hover:scale-105 transition-all text-sm">
+            ➕ 새 어항 추가
+        </a>
     </div>
-    {% endfor %}
-</div>
 
-{% if page_obj.paginator.num_pages > 1 %}
-<div class="mt-16 flex justify-center items-center gap-3">
-    {% for num in page_obj.paginator.page_range %}
-        {% if page_obj.number == num %}
-            <span class="w-12 h-12 flex items-center justify-center rounded-2xl bg-blue-600 text-white font-black shadow-xl shadow-blue-100">{{ num }}</span>
-        {% else %}
-            <a href="?page={{ num }}" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-slate-600 font-bold hover:bg-blue-50 transition-all shadow-sm">{{ num }}</a>
-        {% endif %}
-    {% endfor %}
+    <div class="grid grid-cols-1 gap-6">
+        {% for item in tank_data %}
+        <div class="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-6">
+                <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl">🐠</div>
+                <div>
+                    <h3 class="text-2xl font-black text-slate-800">{{ item.tank.name }}</h3>
+                    <p class="text-sm text-slate-400 font-bold mt-1">
+                        어종: {{ item.tank.fish_species|default:"미지정" }} | 용량: {{ item.tank.capacity }}L
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="{% url 'monitoring:edit_tank' item.tank.id %}" class="bg-slate-100 text-slate-600 px-6 py-3 rounded-xl font-black hover:bg-blue-100 hover:text-blue-600 transition-all text-sm">
+                    🛠️ 수정하기
+                </a>
+                <form action="{% url 'monitoring:delete_tank' item.tank.id %}" method="post" onsubmit="return confirm('정말 삭제할까요?')">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-white border border-red-100 text-red-400 px-4 py-3 rounded-xl font-black hover:bg-red-50 hover:text-red-600 transition-all text-sm">
+                        🗑️ 삭제
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-white rounded-[3rem] p-20 text-center border-4 border-dashed border-slate-100">
+            <p class="text-slate-300 font-black text-xl">편집할 어항이 없습니다.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="mt-12 text-center">
+        <a href="{% url 'monitoring:dashboard' %}" class="text-slate-400 font-bold hover:text-blue-500 transition-colors">
+            ← 대시보드로 돌아가기
+        </a>
+    </div>
 </div>
-{% endif %}
 {% endblock %}
