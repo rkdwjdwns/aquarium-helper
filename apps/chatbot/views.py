@@ -18,13 +18,13 @@ def chatbot_home(request):
 @login_required
 def ask_chatbot(request):
     """
-    모델명 자동 감지 + 친절하고 간결한 답변 스타일 적용 버전
+    닉네임 호출 + 간결한 답변 + 특수기호 제거 버전
     """
     if request.method == "POST":
         user_message = ""
         image_file = None
 
-        # 1. 데이터 추출 (JSON 및 Form 데이터 모두 대응)
+        # 1. 데이터 추출
         if request.content_type == 'application/json':
             try:
                 data = json.loads(request.body)
@@ -35,11 +35,14 @@ def ask_chatbot(request):
             user_message = request.POST.get('message', '').strip()
             image_file = request.FILES.get('image')
 
-        # 질문이 아예 없는 경우 방어 로직
         if not user_message and not image_file:
             return JsonResponse({'status': 'error', 'message': "궁금한 점을 입력해 주세요! 🌊"}, status=400)
         
-        # 2. API 키 로드
+        # 2. 닉네임 가져오기 로직 (아이디 대신 표시될 이름)
+        user = request.user
+        display_name = getattr(user, 'nickname', user.first_name if user.first_name else user.username)
+        
+        # 3. API 키 로드
         api_keys = [
             getattr(settings, 'GEMINI_API_KEY_1', os.environ.get('GEMINI_API_KEY_1')),
             getattr(settings, 'GEMINI_API_KEY_2', os.environ.get('GEMINI_API_KEY_2')),
@@ -51,17 +54,15 @@ def ask_chatbot(request):
             return JsonResponse({'status': 'error', 'message': "API 키가 설정되지 않았습니다."}, status=500)
 
         last_error = None
-        nickname = request.user.username  # 로그인한 유저의 닉네임 가져오기
         
-        # 3. API 키 순회 및 모델 실행
+        # 4. API 키 순회 및 모델 실행
         for current_key in valid_keys:
             try:
                 genai.configure(api_key=current_key)
                 
-                # [404 에러 방지] 사용 가능한 모델 목록 직접 조회
+                # 사용 가능한 모델 목록 직접 조회 (404 방어)
                 available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                 
-                # 가장 성능 좋은 모델부터 순차적으로 매칭
                 target_model = None
                 for candidate in ['models/gemini-1.5-flash', 'models/gemini-pro', 'models/gemini-1.5-flash-latest']:
                     if candidate in available_models:
@@ -71,30 +72,30 @@ def ask_chatbot(request):
                 if not target_model:
                     target_model = available_models[0] if available_models else 'models/gemini-pro'
 
-                # 4. 시스템 인스트럭션 설정 (가독성 및 스타일 강제)
+                # 5. 시스템 인스트럭션 설정 (요구사항 반영)
                 model = genai.GenerativeModel(
                     model_name=target_model,
                     system_instruction=(
                         f"당신은 '어항 도우미'입니다. 다음 규칙을 엄격히 지키세요:\n"
-                        f"1. 첫 인사는 반드시 '안녕하세요 {nickname}님! 🌊 궁금한 점이 있다면 물어봐 주세요.'로 시작하세요.\n"
-                        f"2. 답변에서 별표(*), 대시(-), 해시태그(#) 같은 특수 기호는 절대 쓰지 마세요.\n"
-                        f"3. 아주 쉬운 말로 설명하고, 답변은 짧고 간결하게 핵심만 말하세요.\n"
-                        f"4. 가독성을 위해 줄바꿈을 아주 자주 하세요.\n"
+                        f"1. 첫 문장은 반드시 '{display_name}님! 🌊'으로 시작하세요.\n"
+                        f"2. 답변에서 별표(*), 대시(-), 해시태그(#) 같은 특수 기호는 절대 사용하지 마세요.\n"
+                        f"3. 누구나 이해하기 쉬운 아주 쉬운 말을 사용하고, 답변은 핵심만 짧게 하세요.\n"
+                        f"4. 가독성을 위해 줄바꿈을 매우 자주 하세요.\n"
                         f"5. 답변 끝에는 반드시 다음 형식을 포함하세요: [SETTING: temp=온도, ph=수치, cycle=환수주기]"
                     )
                 )
                 
-                # 5. 콘텐츠 생성 (텍스트 또는 이미지 포함)
+                # 6. 콘텐츠 생성
                 if image_file:
                     img = PIL.Image.open(image_file)
-                    response = model.generate_content([user_message or "이 사진 분석해줘", img])
+                    response = model.generate_content([user_message or "사진 분석해줘", img])
                 else:
                     response = model.generate_content(user_message)
                 
-                # 6. 응답 텍스트 정제 (특수문자 2차 제거)
+                # 7. 응답 텍스트 정제 (기호 완벽 제거)
                 bot_response = response.text.replace('*', '').replace('#', '').replace('-', ' ').strip()
                 
-                # 7. DB 저장 및 성공 응답
+                # 8. DB 저장 및 성공 응답
                 ChatMessage.objects.create(
                     user=request.user, 
                     message=user_message or "사진 분석 요청 📸", 
@@ -112,7 +113,6 @@ def ask_chatbot(request):
                 print(f"Gemini API Error: {traceback.format_exc()}")
                 continue
 
-        # 모든 키가 실패한 경우
         return JsonResponse({
             'status': 'error', 
             'message': "물물박사가 잠시 자리를 비웠어요. 잠시 후 다시 시도해 주세요!",

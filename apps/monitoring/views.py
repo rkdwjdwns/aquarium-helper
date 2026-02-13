@@ -60,11 +60,13 @@ def index(request):
 def dashboard(request, tank_id=None):
     """상세 대시보드"""
     user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
-    tank = get_object_or_404(Tank, id=tank_id, user=request.user) if tank_id else user_tanks.first()
     
-    if not tank:
+    # 어항이 하나도 없을 경우 추가 페이지로 리다이렉트
+    if not user_tanks.exists():
         return redirect('monitoring:add_tank')
 
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user) if tank_id else user_tanks.first()
+    
     latest = tank.readings.order_by('-created_at').first()
     logs = EventLog.objects.filter(tank=tank).order_by('-created_at')[:5]
     light, _ = DeviceControl.objects.get_or_create(tank=tank, type='LIGHT')
@@ -88,12 +90,15 @@ def dashboard(request, tank_id=None):
 @login_required
 @require_POST
 def chat_api(request):
-    """텍스트 + 이미지 분석 지원 (undefined 방지 보완)"""
+    """텍스트 + 이미지 분석 지원 (닉네임 인사말 적용)"""
     user_message = request.POST.get('message', '').strip()
     image_file = request.FILES.get('image') 
     
     if not user_message and not image_file:
-        return JsonResponse({'status': 'error', 'message': "메시지를 입력하거나 사진을 올려주세요."}, status=400)
+        return JsonResponse({'status': 'error', 'message': "궁금한 점을 입력해 주세요! 🌊"}, status=400)
+    
+    # 닉네임 가져오기
+    display_name = getattr(request.user, 'nickname', request.user.first_name if request.user.first_name else request.user.username)
     
     api_keys = [
         getattr(settings, 'GEMINI_API_KEY_1', os.environ.get('GEMINI_API_KEY_1')),
@@ -103,7 +108,7 @@ def chat_api(request):
     valid_keys = [k for k in api_keys if k]
     
     if not valid_keys:
-        return JsonResponse({'status': 'error', 'message': "설정된 API 키가 없습니다."}, status=500)
+        return JsonResponse({'status': 'error', 'message': "API 키가 설정되지 않았습니다."}, status=500)
 
     last_error = None
     for current_key in valid_keys:
@@ -112,12 +117,12 @@ def chat_api(request):
             model = genai.GenerativeModel(
                 model_name="gemini-1.5-flash",
                 system_instruction=(
-                    "당신은 물물박사 '어항 도우미'입니다. 답변 규칙:\n"
-                    "1. 별표(*), 대시(-), 해시태그(#) 같은 특수 기호는 절대 사용하지 마세요.\n"
-                    "2. 사용자가 물고기 사진을 올리면 외형을 분석해 질병 유무를 진단하고 치료법을 알려주세요.\n"
-                    "3. 답변은 간결하게 문장 단위로 줄바꿈하세요.\n"
-                    "4. 특정 물고기 환경 추천 시 답변 끝에 반드시 아래 형식을 붙이세요.\n"
-                    "[SETTING: temp=26.0, ph=7.0, cycle=7]"
+                    f"당신은 '어항 도우미'입니다. 다음 규칙을 엄격히 지키세요:\n"
+                    f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작하세요.\n"
+                    f"2. 답변에서 별표(*), 대시(-), 해시태그(#) 같은 특수 기호는 절대 쓰지 마세요.\n"
+                    f"3. 아주 쉬운 말로 설명하고, 답변은 짧고 간결하게 핵심만 말하세요.\n"
+                    f"4. 가독성을 위해 줄바꿈을 아주 자주 하세요.\n"
+                    f"5. 답변 끝에는 반드시 다음 형식을 포함하세요: [SETTING: temp=온도, ph=수치, cycle=환수주기]"
                 )
             )
             
@@ -126,18 +131,17 @@ def chat_api(request):
             if image_file: content.append(PIL.Image.open(image_file))
             
             response = model.generate_content(content)
-            bot_response = response.text.replace('*', '').replace('#', '').strip()
+            bot_response = response.text.replace('*', '').replace('#', '').replace('-', ' ').strip()
             
             # 모델 저장
             ChatMessage = get_chat_message_model()
             if ChatMessage:
                 ChatMessage.objects.create(
                     user=request.user, 
-                    message=user_message if user_message else "사진 분석 요청", 
+                    message=user_message if user_message else "사진 분석 요청 📸", 
                     response=bot_response
                 )
             
-            # undefined 방지를 위해 'reply'와 'message' 모두 응답
             return JsonResponse({'status': 'success', 'reply': bot_response, 'message': bot_response})
             
         except Exception as e:
@@ -146,7 +150,7 @@ def chat_api(request):
             last_error = e
             continue
 
-    return JsonResponse({'status': 'error', 'message': f"물물박사가 쉬고 있어요. ({str(last_error)})"}, status=500)
+    return JsonResponse({'status': 'error', 'message': "물물박사가 잠시 자리를 비웠어요. 잠시 후 다시 시도해 주세요!"}, status=500)
 
 # --- [어항 편집 및 관리 기능: 500 에러 방어] ---
 
@@ -175,10 +179,9 @@ def delete_tanks(request):
 
 @login_required
 def add_tank(request):
-    """어항 추가 (입력값 예외 처리 강화)"""
+    """어항 추가 (완료 후 메인 화면으로 이동)"""
     if request.method == 'POST':
         try:
-            # 안전하게 데이터 파싱
             name = request.POST.get('name', '새 어항').strip() or '새 어항'
             species = request.POST.get('fish_species', '').strip()
             temp = float(request.POST.get('target_temp') or 26.0)
@@ -193,16 +196,16 @@ def add_tank(request):
                 last_water_change=date.today()
             )
             messages.success(request, f"'{tank.name}' 어항이 생성되었습니다.")
-            return redirect('monitoring:tank_list')
+            # [수정] 메인 화면(index)으로 이동
+            return redirect('monitoring:index')
         except Exception as e:
-            # 500 에러 대신 입력 폼으로 에러 메시지와 함께 리턴
-            return render(request, 'monitoring/tank_form.html', {'error': f"입력값을 확인해주세요: {e}"})
+            return render(request, 'monitoring/tank_form.html', {'error': f"입력값을 확인해주세요: {e}", 'title': '어항 등록'})
             
     return render(request, 'monitoring/tank_form.html', {'title': '어항 등록'})
 
 @login_required
 def edit_tank(request, tank_id):
-    """어항 수정 (안전한 업데이트)"""
+    """어항 수정 (완료 후 메인 화면으로 이동)"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     if request.method == 'POST':
         try:
@@ -212,9 +215,10 @@ def edit_tank(request, tank_id):
             tank.water_change_period = int(request.POST.get('water_change_period') or 7)
             tank.save()
             messages.success(request, f"'{tank.name}' 정보가 수정되었습니다.")
-            return redirect('monitoring:tank_list')
+            # [수정] 메인 화면(index)으로 이동
+            return redirect('monitoring:index')
         except Exception as e:
-            return render(request, 'monitoring/tank_form.html', {'tank': tank, 'error': f"수정 실패: {e}"})
+            return render(request, 'monitoring/tank_form.html', {'tank': tank, 'error': f"수정 실패: {e}", 'title': '어항 수정'})
             
     return render(request, 'monitoring/tank_form.html', {'tank': tank, 'title': '어항 수정'})
 

@@ -88,9 +88,9 @@
         </div>
         
         <div id="side-chat-window" class="flex-1 overflow-y-auto p-5 space-y-4 bg-[#F8FBFF] no-scrollbar">
-            <div class="bg-blue-100 text-blue-800 p-4 rounded-2xl rounded-tl-none text-sm font-bold shadow-sm inline-block max-w-[80%]">
-                안녕하세요 주인님! 🌊<br>어항 상태에 대해 궁금한 점을 물어봐 주세요.
-            </div>
+            <div class="bg-blue-100 ...">
+                안녕하세요 {{ user.nickname|default:user.username }}님! 🌊<br>궁금한 점이 있다면 물어봐 주세요.
+                </div>
         </div>
 
         <div class="p-4 bg-white border-t border-slate-100 rounded-b-[2.5rem]">
