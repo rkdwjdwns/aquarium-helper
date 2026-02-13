@@ -20,20 +20,25 @@ def index(request):
         latest = tank.readings.order_by('-created_at').first()
         status = "NORMAL"
         
-        if latest:
+        # 온도 분석 (None 처리 보완)
+        if latest and latest.temperature is not None:
             try:
-                temp = float(latest.temperature or 0)
+                temp = float(latest.temperature)
                 t_temp = float(tank.target_temp or 26.0)
                 if abs(temp - t_temp) >= 2.0: 
                     status = "DANGER"
             except (ValueError, TypeError): 
                 pass
 
+        # D-Day 계산 (None 처리 보완)
         d_day = 7
         if tank.last_water_change:
-            period = int(tank.water_change_period or 7)
-            next_change = tank.last_water_change + timedelta(days=period)
-            d_day = (next_change - date.today()).days
+            try:
+                period = int(tank.water_change_period or 7)
+                next_change = tank.last_water_change + timedelta(days=period)
+                d_day = (next_change - date.today()).days
+            except (ValueError, TypeError):
+                pass
         
         tank_data.append({
             'tank': tank, 
@@ -62,18 +67,21 @@ def dashboard(request, tank_id=None):
     latest = tank.readings.order_by('-created_at').first()
     logs = EventLog.objects.filter(tank=tank).order_by('-created_at')[:5]
     
+    # 장치 제어 객체 안전하게 가져오기
     light, _ = DeviceControl.objects.get_or_create(tank=tank, type='LIGHT')
     filter_dev, _ = DeviceControl.objects.get_or_create(tank=tank, type='FILTER')
     
     is_water_changed_today = (tank.last_water_change == date.today())
 
+    # D-Day 계산 안전화
     d_day = 7
     if tank.last_water_change:
         try:
             period = int(tank.water_change_period or 7)
             next_change = tank.last_water_change + timedelta(days=period)
             d_day = (next_change - date.today()).days
-        except: pass
+        except (ValueError, TypeError, Exception): 
+            pass
 
     return render(request, 'monitoring/dashboard.html', {
         'tank': tank,
@@ -163,7 +171,6 @@ def chat_api(request):
         data = json.loads(request.body)
         user_message = data.get('message', '')
         
-        # 분석 로직
         if "온도" in user_message:
             reply = "현재 수온은 설정하신 목표 온도와 비교하여 모니터링 중입니다. 센서 데이터를 확인해 보세요!"
         elif "환수" in user_message:
@@ -172,7 +179,7 @@ def chat_api(request):
             reply = f"질문하신 '{user_message}'에 대해 확인해본 결과, 현재 시스템상 어항 수질은 양호한 편입니다!"
             
         return JsonResponse({'reply': reply})
-    except:
+    except Exception:
         return JsonResponse({'reply': '죄송합니다. 메시지 처리 중 오류가 발생했습니다.'}, status=400)
 
 @login_required
@@ -186,11 +193,17 @@ def ai_report_list(request):
 
 @login_required
 def tank_list(request):
-    """어항 관리 센터"""
-    all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
-    return render(request, 'monitoring/tank_list.html', {
-        'tank_data': [{'tank': t} for t in all_tanks]
-    })
+    """어항 관리 센터 (500 에러 방지 보완)"""
+    try:
+        all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+        # 템플릿의 {% for item in tank_data %} 구조를 위해 딕셔너리 리스트 생성
+        tank_data = [{'tank': t} for t in all_tanks]
+        return render(request, 'monitoring/tank_list.html', {
+            'tank_data': tank_data,
+            'tanks': all_tanks  # 대안으로 사용할 수 있도록 직접 쿼리셋도 전달
+        })
+    except Exception as e:
+        return render(request, 'monitoring/tank_list.html', {'error': str(e)})
 
 @login_required
 def logs_view(request):
