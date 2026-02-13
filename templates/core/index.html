@@ -1,72 +1,55 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="py-4" x-data="{ editMode: false, selectedTanks: [] }">
-    <div class="flex justify-between items-end mb-10 px-2">
+<div class="py-4">
+    <div class="flex justify-between items-end mb-8 px-2">
         <div>
             <h2 class="text-3xl font-black text-gray-800 tracking-tighter">🐠 실시간 내 어항</h2>
             <p class="text-slate-400 font-bold text-sm mt-1">우리 물고기들의 환경을 감시 중입니다.</p>
         </div>
-        <div class="flex gap-2">
-            <a href="{% url 'monitoring:tank_list' %}" class="bg-white border border-slate-200 text-slate-600 px-4 py-3 rounded-2xl font-black text-xs hover:bg-slate-50 shadow-sm transition-all">어항 편집</a>
-            <button @click="if(editMode && selectedTanks.length > 0) { if(confirm('선택한 어항을 삭제할까요?')) document.getElementById('delete-form').submit() }; editMode = !editMode"
-                    :class="editMode ? 'bg-red-500 text-white border-red-500' : 'bg-white border-slate-200 text-slate-600'" 
-                    class="px-4 py-3 rounded-2xl font-black text-xs border shadow-sm transition-all">
-                <span x-text="editMode ? (selectedTanks.length > 0 ? '선택 삭제' : '취소') : '어항 삭제'"></span>
-            </button>
-            <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg text-xs hover:bg-blue-700 transition-all">+ 어항 추가</a>
-        </div>
+        <a href="{% url 'monitoring:tank_list' %}" class="bg-white border border-slate-200 text-slate-600 px-4 py-3 rounded-2xl font-black text-xs hover:bg-slate-50 shadow-sm transition-all">⚙️ 어항 편집센터</a>
     </div>
 
-    <form id="delete-form" action="{% url 'monitoring:delete_tanks' %}" method="POST" class="hidden">
-        {% csrf_token %}
-        <template x-for="id in selectedTanks">
-            <input type="hidden" name="tank_ids[]" :value="id">
-        </template>
-    </form>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <a href="{% url 'monitoring:dashboard_default' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-100 hover:border-blue-300 transition-all">
+            <span class="text-3xl mb-2 block">📊</span>
+            <span class="font-black text-slate-700 text-sm">대시보드</span>
+        </a>
+        <a href="#" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-100 hover:border-blue-300 transition-all opacity-50 cursor-not-allowed">
+            <span class="text-3xl mb-2 block">🤖</span>
+            <span class="font-black text-slate-700 text-sm">AI 리포트</span>
+        </a>
+        <a href="{% url 'monitoring:camera_view' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-100 hover:border-blue-300 transition-all">
+            <span class="text-3xl mb-2 block">📷</span>
+            <span class="font-black text-slate-700 text-sm">카메라</span>
+        </a>
+        <a href="{% url 'monitoring:logs' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-100 hover:border-blue-300 transition-all">
+            <span class="text-3xl mb-2 block">📝</span>
+            <span class="font-black text-slate-700 text-sm">실시간 로그</span>
+        </a>
+    </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
         {% for item in tank_data %}
-        <div class="bg-white p-9 rounded-[2.8rem] shadow-xl border border-white hover:border-blue-300 transition-all group relative overflow-hidden">
-            <div x-show="editMode" x-cloak class="absolute top-8 left-8 z-30">
-                <input type="checkbox" value="{{ item.tank.id }}" x-model="selectedTanks" class="w-8 h-8 rounded-xl border-red-200 text-red-500 focus:ring-red-500 transition-all">
-            </div>
-
-            <div class="flex justify-between items-start mb-8" :class="editMode ? 'ml-12' : ''">
-                <div class="cursor-pointer" onclick="location.href='{% url 'monitoring:dashboard' item.tank.id %}'">
+        <div class="bg-white p-9 rounded-[2.8rem] shadow-xl border border-white hover:border-blue-300 transition-all group cursor-pointer" onclick="location.href='{% url 'monitoring:dashboard' item.tank.id %}'">
+            <div class="flex justify-between items-start mb-8">
+                <div>
                     <h3 class="font-black text-2xl text-gray-800 group-hover:text-blue-600 transition-colors">{{ item.tank.name }}</h3>
                     {% if item.d_day is not None %}
-                    <span class="text-[11px] font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-400{% endif %}">
-                        환수 D-{{ item.d_day }}
-                    </span>
+                    <span class="text-[11px] font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-400{% endif %}">환수 D-{{ item.d_day }}</span>
                     {% endif %}
                 </div>
-                <span class="text-xs font-black px-3 py-1 rounded-full {% if item.status == 'DANGER' %}bg-red-500 text-white animate-pulse{% else %}bg-blue-500 text-white{% endif %}">
-                    {{ item.status }}
-                </span>
+                <span class="text-xs font-black px-3 py-1 rounded-full {% if item.status == 'DANGER' %}bg-red-500 text-white animate-pulse{% else %}bg-blue-500 text-white{% endif %}">{{ item.status }}</span>
             </div>
             
-            <div class="grid grid-cols-2 gap-6 mb-8">
+            <div class="grid grid-cols-2 gap-6">
                 <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
-                    <span class="block text-[10px] text-slate-400 font-black mb-1 uppercase">Temp</span>
+                    <span class="block text-[10px] text-slate-400 font-black mb-1">TEMP</span>
                     <span class="text-2xl font-black text-slate-800">{{ item.latest.temperature|default:"--" }}°C</span>
                 </div>
                 <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
-                    <span class="block text-[10px] text-slate-400 font-black mb-1 uppercase">pH</span>
+                    <span class="block text-[10px] text-slate-400 font-black mb-1">PH</span>
                     <span class="text-2xl font-black text-slate-800">{{ item.latest.ph|default:"--" }}</span>
                 </div>
-            </div>
-
-            <div class="flex gap-3">
-                <button onclick="toggleDevice('{{ item.tank.id }}', 'LIGHT', '{% url 'monitoring:toggle_device' item.tank.id %}')" 
-                        class="flex-1 py-4 rounded-2xl font-black text-xs border transition-all active:scale-95
-                        {% if item.light_on %}bg-yellow-400 border-yellow-400 text-white shadow-lg shadow-yellow-100{% else %}bg-white border-slate-100 text-slate-400{% endif %}">
-                    💡 조명
-                </button>
-                <button onclick="toggleDevice('{{ item.tank.id }}', 'FILTER', '{% url 'monitoring:toggle_device' item.tank.id %}')" 
-                        class="flex-1 py-4 rounded-2xl font-black text-xs border transition-all active:scale-95
-                        {% if item.filter_on %}bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-100{% else %}bg-white border-slate-100 text-slate-400{% endif %}">
-                    🌀 여과기
-                </button>
             </div>
         </div>
         {% empty %}
@@ -75,41 +58,5 @@
         </div>
         {% endfor %}
     </div>
-
-    {% if page_obj.paginator.num_pages > 1 %}
-    <div class="flex justify-center gap-2">
-        {% for num in page_obj.paginator.page_range %}
-        <a href="?page={{ num }}" class="w-10 h-10 flex items-center justify-center rounded-xl font-bold transition-all {% if page_obj.number == num %}bg-blue-600 text-white shadow-lg shadow-blue-100{% else %}bg-white text-slate-400 border border-slate-100 hover:bg-slate-50{% endif %}">{{ num }}</a>
-        {% endfor %}
-    </div>
-    {% endif %}
 </div>
-
-<script>
-/**
- * AJAX를 이용한 장치 제어 함수
- */
-function toggleDevice(tankId, type, url) {
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}', 
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: `device_type=${type}`
-    })
-    .then(res => {
-        if (!res.ok) throw new Error('서버 응답 오류');
-        return res.json();
-    })
-    .then(data => {
-        if (data.status === 'success') {
-            location.reload(); 
-        }
-    })
-    .catch(err => {
-        console.error('Error:', err);
-    });
-}
-</script>
 {% endblock %}
