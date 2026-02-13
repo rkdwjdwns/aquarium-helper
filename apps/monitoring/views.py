@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
+from django.core.paginator import Paginator
 from .models import Tank, EventLog, DeviceControl
 from datetime import date, timedelta
 import json
@@ -9,19 +10,21 @@ from django.views.decorators.http import require_POST
 
 @login_required 
 def dashboard(request):
-    """메인 대시보드: 어항별 상태 요약 및 제어"""
-    tanks = Tank.objects.filter(user=request.user)
+    """메인 대시보드: 실시간 수치 확인 및 조작"""
+    all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     
-    if not tanks.exists():
-        return render(request, 'monitoring/dashboard.html', {'tank_data': [], 'no_tanks': True})
+    # 한 페이지에 어항 4개씩 노출 (1, 2, 3 버튼용)
+    paginator = Paginator(all_tanks, 4) 
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
 
     tank_data = []
-    for tank in tanks:
-        # readings related_name 확인 필요 (보통 readings)
+    for tank in page_obj:
+        # readings related_name이 'readings'라고 가정
         latest = tank.readings.order_by('-created_at').first()
         status = "정상"
         alerts = []
-
+        
         if latest:
             if abs(latest.temperature - tank.target_temp) >= 2.0:
                 status = "DANGER"
@@ -49,22 +52,32 @@ def dashboard(request):
             'logs': EventLog.objects.filter(tank=tank).order_by('-created_at')[:5]
         })
         
-    return render(request, 'monitoring/dashboard.html', {'tank_data': tank_data})
+    return render(request, 'monitoring/dashboard.html', {
+        'tank_data': tank_data,
+        'page_obj': page_obj
+    })
 
 @login_required
 def tank_list(request):
-    """어항 관리 센터: 대시보드 스타일의 편집 모드 제공"""
-    tanks = Tank.objects.filter(user=request.user)
-    tank_data = []
+    """어항 관리 센터: 편집 및 삭제 모드"""
+    all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     
-    for tank in tanks:
+    paginator = Paginator(all_tanks, 4) 
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    tank_data = []
+    for tank in page_obj:
         latest = tank.readings.order_by('-created_at').first()
         tank_data.append({
             'tank': tank,
             'latest': latest,
         })
     
-    return render(request, 'monitoring/tank_list.html', {'tank_data': tank_data})
+    return render(request, 'monitoring/tank_list.html', {
+        'tank_data': tank_data,
+        'page_obj': page_obj
+    })
 
 @login_required
 def add_tank(request):
@@ -99,10 +112,9 @@ def edit_tank(request, tank_id):
         return redirect('monitoring:tank_list')
     return render(request, 'monitoring/edit_tank.html', {'tank': tank})
 
-# --- 에러 해결의 핵심: 개별 삭제 함수 추가 ---
 @login_required
 def delete_tank(request, tank_id):
-    """개별 어항 삭제 기능 (URL conf의 'delete_tank'와 일치)"""
+    """단일 어항 삭제"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     name = tank.name
     tank.delete()
@@ -112,30 +124,28 @@ def delete_tank(request, tank_id):
 @login_required
 @require_POST
 def delete_tanks(request):
-    """일괄 삭제 로직"""
+    """체크박스 일괄 삭제"""
     tank_ids = request.POST.getlist('tank_ids')
     if tank_ids:
         deleted = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
         messages.success(request, f"선택한 {deleted[0]}개의 어항을 삭제했습니다.")
-    else:
-        messages.warning(request, "삭제할 어항을 선택해주세요.")
     return redirect('monitoring:tank_list')
 
 @login_required
 def logs_view(request):
-    """전체 이벤트 로그 조회"""
+    """전체 로그 보기"""
     logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
     return render(request, 'monitoring/logs.html', {'logs': logs})
 
 @login_required
 def camera_view(request):
-    """카메라 뷰"""
+    """카메라 스트리밍 뷰"""
     return render(request, 'monitoring/camera.html')
 
 @login_required
 @require_POST
 def toggle_device(request, tank_id):
-    """하드웨어 토글 API"""
+    """장치 On/Off 제어 API"""
     device_type = request.POST.get('device_type')
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     device, _ = DeviceControl.objects.get_or_create(tank=tank, type=device_type)
@@ -148,7 +158,7 @@ def toggle_device(request, tank_id):
 @login_required
 @require_POST
 def perform_water_change(request, tank_id):
-    """환수 날짜 갱신 API"""
+    """환수 날짜 업데이트 API"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     tank.last_water_change = date.today()
     tank.save()
@@ -158,16 +168,15 @@ def perform_water_change(request, tank_id):
 @login_required
 @require_POST
 def apply_recommendation(request):
-    """AI 추천 수치 반영 API"""
+    """AI 추천 수치 적용 API"""
     try:
         data = json.loads(request.body)
         tank = Tank.objects.filter(user=request.user).first()
-        if not tank:
-            return JsonResponse({'status': 'error', 'message': '어항이 없습니다.'})
-
-        tank.target_temp = float(data.get('temp', tank.target_temp))
-        tank.target_ph = float(data.get('ph', tank.target_ph))
-        tank.save()
-        return JsonResponse({'status': 'success'})
+        if tank:
+            tank.target_temp = float(data.get('temp', tank.target_temp))
+            tank.target_ph = float(data.get('ph', tank.target_ph))
+            tank.save()
+            return JsonResponse({'status': 'success'})
+        return JsonResponse({'status': 'error', 'message': '어항을 찾을 수 없습니다.'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
