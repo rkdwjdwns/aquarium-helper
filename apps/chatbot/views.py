@@ -11,7 +11,7 @@ import traceback
 
 @login_required
 def chatbot_home(request):
-    """채팅 페이지 홈: 이전 대화 내역 50개를 불러옵니다."""
+    """채팅 페이지 홈"""
     history = ChatMessage.objects.filter(user=request.user).order_by('-created_at')[:50]
     return render(request, 'chatbot/chat.html', {'history': reversed(list(history))})
 
@@ -26,16 +26,13 @@ def ask_chatbot(request):
                 data = json.loads(request.body)
                 user_message = data.get('message', '').strip()
             except json.JSONDecodeError:
-                return JsonResponse({'status': 'error', 'message': '잘못된 JSON 형식입니다.'}, status=400)
+                return JsonResponse({'status': 'error', 'message': '잘못된 데이터 형식입니다.'}, status=400)
         else:
             user_message = request.POST.get('message', '').strip()
             image_file = request.FILES.get('image')
 
         if not user_message and not image_file:
-            return JsonResponse({
-                'status': 'error', 
-                'message': "물어보실 내용을 입력하거나 사진을 올려주세요! 🐠"
-            }, status=400)
+            return JsonResponse({'status': 'error', 'message': "질문을 입력해주세요! 🐠"}, status=400)
         
         api_keys = [
             getattr(settings, 'GEMINI_API_KEY_1', os.environ.get('GEMINI_API_KEY_1')),
@@ -44,58 +41,52 @@ def ask_chatbot(request):
         ]
         valid_keys = [k for k in api_keys if k]
         
-        if not valid_keys:
-            return JsonResponse({'status': 'error', 'message': "API Key가 설정되지 않았습니다."}, status=500)
-
         last_error = None
         
         for current_key in valid_keys:
             try:
                 genai.configure(api_key=current_key)
                 
-                # [수정 핵심] 가장 호환성이 좋은 'gemini-1.5-flash-latest'로 명칭 변경
-                model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash-latest", 
-                    system_instruction=(
-                        "당신은 물물박사 '어항 도우미'입니다. 다음 규칙을 엄격히 준수하세요:\n"
-                        "1. 별표(*), 대시(-), 해시태그(#) 같은 특수 기호는 절대 사용하지 마세요.\n"
-                        "2. 답변은 친절하게 줄바꿈을 자주 하여 가속성을 높이세요.\n"
-                        "3. 마지막 줄 형식: [SETTING: temp=온도, ph=수치, cycle=환수주기]"
-                    )
-                )
-                
-                content = []
-                if user_message:
-                    content.append(user_message)
-                if image_file:
-                    img = PIL.Image.open(image_file)
-                    content.append(img)
-                
-                # AI 응답 생성
-                response = model.generate_content(content)
-                bot_response = response.text.replace('*', '').replace('#', '').replace('-', ' ').strip()
-                
-                ChatMessage.objects.create(
-                    user=request.user, 
-                    message=user_message if user_message else "사진 분석 요청 📸", 
-                    response=bot_response
-                )
-                
-                return JsonResponse({
-                    'status': 'success', 
-                    'message': bot_response,
-                    'reply': bot_response
-                })
+                # [안전제일] 가장 호환성이 높은 모델명 리스트 순회
+                # 1.5-flash가 안되면 pro로, 그것도 안되면 최신 flash 버전으로 시도
+                success = False
+                for model_name in ["gemini-pro", "gemini-1.5-flash", "gemini-1.5-pro"]:
+                    try:
+                        # 이미지가 있을 경우 vision 모델로 자동 전환 (구버전 라이브러리 대응)
+                        target_model = model_name
+                        if image_file and model_name == "gemini-pro":
+                            target_model = "gemini-pro-vision"
+                        
+                        model = genai.GenerativeModel(target_model)
+                        
+                        content = []
+                        if user_message: content.append(user_message)
+                        if image_file:
+                            img = PIL.Image.open(image_file)
+                            content.append(img)
+                        
+                        response = model.generate_content(content)
+                        bot_response = response.text.replace('*', '').replace('#', '').replace('-', ' ').strip()
+                        
+                        # 성공 시 루프 탈출
+                        ChatMessage.objects.create(
+                            user=request.user, 
+                            message=user_message or "사진 분석", 
+                            response=bot_response
+                        )
+                        return JsonResponse({'status': 'success', 'reply': bot_response, 'message': bot_response})
+                    
+                    except Exception as inner_e:
+                        last_error = inner_e
+                        continue # 다음 모델로 시도
                 
             except Exception as e:
                 last_error = e
-                # 만약 1.5-flash-latest도 못 찾는다면 gemini-pro로 마지막 시도
-                print(f"Gemini API Error: {traceback.format_exc()}")
                 continue
 
         return JsonResponse({
             'status': 'error', 
-            'message': "🐠 물물박사가 지금 너무 바빠요! 잠시 후 다시 시도해 주세요.",
+            'message': "물물박사가 수리 중이에요! 잠시만 기다려주세요.",
             'debug': str(last_error)
         }, status=500)
     
