@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fish Manager - 어항 도우미</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     
     <style>
@@ -44,6 +44,9 @@
             .nav-menu-text { font-size: 0.8rem; letter-spacing: -0.05rem; }
             .nav-container { padding-left: 0.5rem; padding-right: 0.5rem; }
         }
+
+        /* x-cloak: Alpine.js 로딩 전 깜빡임 방지 */
+        [x-cloak] { display: none !important; }
 
         .chat-bubble-ai { border-radius: 1.2rem 1.2rem 1.2rem 0.2rem; }
         .chat-bubble-user { border-radius: 1.2rem 1.2rem 0.2rem 1.2rem; }
@@ -99,7 +102,7 @@
                             <svg class="w-4 h-4 ml-1 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </button>
                         
-                        <div x-show="open" x-transition class="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-[70]">
+                        <div x-show="open" x-cloak x-transition class="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-[70]">
                             <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">내 정보</a>
                             <hr class="my-1 border-slate-50">
                             <form action="{% url 'accounts:logout' %}" method="post" class="m-0">
@@ -116,10 +119,8 @@
         </div>
     </nav>
 
-    <main class="container mx-auto px-4 py-6 md:py-10 flex-grow max-w-4xl flex flex-col items-center">
-        <div class="w-full">
-            {% block content %}{% endblock %}
-        </div>
+    <main class="container mx-auto px-4 py-6 md:py-10 flex-grow max-w-6xl">
+        {% block content %}{% endblock %}
     </main>
 
     <button id="chatbot-toggle-btn" onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-2xl flex items-center justify-center text-3xl z-[45] hover:scale-110 active-stable transition-all border-4 border-white">
