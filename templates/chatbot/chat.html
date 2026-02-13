@@ -80,7 +80,6 @@
     #chat-window::-webkit-scrollbar { width: 4px; }
     #chat-window::-webkit-scrollbar-thumb { background: rgba(0, 119, 255, 0.1); border-radius: 10px; }
     
-    /* 세팅 추천 카드 스타일 */
     .setting-card {
         margin-top: 12px;
         padding: 12px;
@@ -129,34 +128,37 @@
         const loadingId = 'loading-' + Date.now();
         appendMessage('ai', '어항 도우미가 분석 중입니다... 🫧', loadingId);
 
-        fetch("{% url 'chatbot:ask' %}", {
+        // [중요 수정] URL을 절대 경로로 지정하여 400 에러를 방지합니다.
+        fetch("/chatbot/ask/", {
             method: 'POST',
-            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
             body: formData
         })
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error('Network response was not ok');
+            return res.json();
+        })
         .then(data => {
             const lb = document.getElementById(loadingId);
             if (lb) lb.closest('.flex').remove();
             
-            const botMsg = data.message || data.reply || "응답을 받을 수 없습니다.";
+            const botMsg = data.message || data.reply;
             
             if (data.status === 'success') {
                 appendMessage('ai', botMsg);
-                // [추가] 세팅 값이 있으면 특수 버튼 생성
                 checkAndRenderSettings(botMsg);
             } else {
-                appendMessage('ai', "에러: " + botMsg);
+                appendMessage('ai', "에러: " + (botMsg || "연결 실패"));
             }
         })
         .catch(err => {
             const lb = document.getElementById(loadingId);
             if (lb) lb.closest('.flex').remove();
-            appendMessage('ai', "네트워크 오류가 발생했습니다.");
+            appendMessage('ai', "네트워크 오류가 발생했습니다. (경로 확인 필요)");
+            console.error(err);
         });
     });
 
-    // AI 답변에서 [SETTING: ...] 추출하여 UI 생성
     function checkAndRenderSettings(text) {
         const regex = /\[SETTING:\s*temp=([\d.]+),\s*ph=([\d.]+),\s*cycle=(\d+)\]/;
         const match = text.match(regex);
@@ -174,7 +176,7 @@
                         <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">pH</span><b class="text-xs">${ph}</b></div>
                         <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">주기</span><b class="text-xs">${cycle}일</b></div>
                     </div>
-                    <button onclick="location.href='{% url 'monitoring:tank_list' %}'" class="w-full py-2 bg-blue-600 text-white text-[11px] font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-100">
+                    <button onclick="location.href='/monitoring/tanks/'" class="w-full py-2 bg-blue-600 text-white text-[11px] font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-100">
                         내 어항에 적용하러 가기
                     </button>
                 </div>
@@ -188,7 +190,6 @@
         const div = document.createElement('div');
         div.className = sender === 'user' ? 'flex justify-end' : 'flex items-start gap-3';
         
-        // [SETTING] 태그는 사용자에게 안 보이게 숨기고 텍스트만 처리
         const cleanText = text.replace(/\[SETTING:.*?\]/g, '').replace(/\n/g, '<br>');
 
         if (sender === 'user') {
