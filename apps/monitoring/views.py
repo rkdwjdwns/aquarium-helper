@@ -54,6 +54,26 @@ def dashboard(request):
         
     return render(request, 'monitoring/dashboard.html', {'tank_data': tank_data})
 
+# [수정] 어항 목록 전용 뷰 (정렬 기능을 위한 데이터 가공 포함)
+@login_required
+def tank_list(request):
+    """모든 어항 목록을 시각적으로 보여주는 전용 페이지"""
+    tanks = Tank.objects.filter(user=request.user)
+    tanks_data = []
+    
+    for tank in tanks:
+        latest = tank.readings.order_by('-created_at').first()
+        # 정렬 시 숫자 비교를 위해 None일 경우 0.0 처리
+        tanks_data.append({
+            'id': tank.id,
+            'name': tank.name,
+            'temp': float(latest.temperature) if latest else 0.0,
+            'ph': float(latest.ph) if latest else 0.0,
+            'latest': latest, # 템플릿에서 직접 접근용
+        })
+    
+    return render(request, 'monitoring/tank_list.html', {'tanks_data': tanks_data})
+
 @login_required
 @require_POST
 def apply_recommendation(request):
@@ -113,21 +133,20 @@ def add_tank(request):
             Tank.objects.create(
                 user=request.user, 
                 name=name, 
-                capacity=request.POST.get('capacity', 0.0),
+                capacity=request.POST.get('capacity', 0.0) or 0.0,
                 fish_species=request.POST.get('fish_species', ""),
-                target_temp=request.POST.get('target_temp', 25.0),
-                target_ph=request.POST.get('target_ph', 7.0),
-                water_change_period=request.POST.get('water_change_period', 7)
+                target_temp=request.POST.get('target_temp', 25.0) or 25.0,
+                target_ph=request.POST.get('target_ph', 7.0) or 7.0,
+                water_change_period=request.POST.get('water_change_period', 7) or 7
             )
             messages.success(request, f"'{name}' 어항이 성공적으로 등록되었습니다!")
-            return redirect('home') # 메인 페이지로 이동
+            return redirect('home')
     return render(request, 'monitoring/add_tank.html')
 
 @login_required
 def camera_view(request):
     return render(request, 'monitoring/camera.html')
 
-# [신규] 여러 개 어항 선택 삭제 기능
 @login_required
 @require_POST
 def delete_tanks(request):
@@ -137,4 +156,6 @@ def delete_tanks(request):
         messages.success(request, f"{deleted_count[0]}개의 어항이 삭제되었습니다.")
     else:
         messages.warning(request, "삭제할 어항을 선택해주세요.")
-    return redirect('home')
+    
+    referer = request.META.get('HTTP_REFERER')
+    return redirect(referer if referer else 'home')
