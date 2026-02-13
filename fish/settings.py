@@ -7,7 +7,7 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
-# apps 폴더 등록
+# apps 폴더 등록 (monitoring, accounts 등이 이 안에 있다면 필수)
 APPS_DIR = BASE_DIR / 'apps'
 sys.path.insert(0, str(APPS_DIR))
 
@@ -15,10 +15,10 @@ sys.path.insert(0, str(APPS_DIR))
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-# 모든 호스트 허용
+# 모든 호스트 허용 (배포 초기에는 *가 편합니다)
 ALLOWED_HOSTS = ['*'] 
 
-# CSRF 신뢰할 수 있는 도메인 설정
+# CSRF 신뢰할 수 있는 도메인 설정 (Render 주소를 명확히 추가)
 CSRF_TRUSTED_ORIGINS = [
     'https://*.onrender.com',
 ]
@@ -42,7 +42,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # 반드시 SecurityMiddleware 바로 아래 위치
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -79,6 +79,7 @@ DATABASES = {
     )
 }
 
+# 개발 편의를 위해 비밀번호 유효성 검사 완화 (필요시 복구)
 AUTH_PASSWORD_VALIDATORS = []
 
 # 5. 국제화 설정
@@ -92,12 +93,13 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# [수정] 배포 시 정적 파일 누락으로 인한 500 에러 방지를 위해 유연한 백엔드로 변경
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage", # Manifest 제외 (에러 방지)
     },
 }
 
@@ -109,22 +111,18 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
-# --- [중요] 배포 환경 보안 및 모바일 로그인 최적화 ---
+# --- [중요] 배포 환경 보안 설정 ---
 if not DEBUG:
-    # 1. HTTPS 강제 및 쿠키 보안
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True # JS에서 쿠키 접근 방지 (보안 강화)
-    
-    # 2. 모바일/인앱 브라우저 호환성을 위한 SameSite 설정
+    SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
     CSRF_COOKIE_SAMESITE = 'Lax'
     
-    # 3. 프록시(Render) 인식 설정
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = True # HTTPS 리다이렉트 활성화
     
-    # 4. HSTS 설정
+    # HSTS 설정 (배포가 완전히 확인된 후 켜는 것이 좋지만 유지함)
     SECURE_HSTS_SECONDS = 31536000 
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -133,6 +131,4 @@ if not DEBUG:
 GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
 GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
 GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
-
-# 우선순위에 따른 키 할당
 GEMINI_API_KEY = GEMINI_API_KEY_1 or GEMINI_API_KEY_2 or GEMINI_API_KEY_3 or ""
