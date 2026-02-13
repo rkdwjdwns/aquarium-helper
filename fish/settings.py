@@ -15,10 +15,10 @@ sys.path.insert(0, str(APPS_DIR))
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-# 모든 호스트 허용 (배포 초기에는 *가 편합니다)
+# 모든 호스트 허용
 ALLOWED_HOSTS = ['*'] 
 
-# CSRF 신뢰할 수 있는 도메인 설정 (Render 주소를 명확히 추가)
+# CSRF 신뢰할 수 있는 도메인 설정 (Render 실제 주소 대응)
 CSRF_TRUSTED_ORIGINS = [
     'https://*.onrender.com',
 ]
@@ -42,7 +42,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # 반드시 SecurityMiddleware 바로 아래 위치
+    'whitenoise.middleware.WhiteNoiseMiddleware', # 최상단 유지
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -71,15 +71,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fish.wsgi.application'
 
-# 4. 데이터베이스 설정 (Render PostgreSQL 연동)
+# 4. 데이터베이스 설정 (Render PostgreSQL 연동 및 로컬 SQLite 호환)
 DATABASES = {
     'default': dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600
+        conn_max_age=600,
+        ssl_require=not DEBUG # 배포 환경에서만 SSL 강제
     )
 }
 
-# 개발 편의를 위해 비밀번호 유효성 검사 완화 (필요시 복구)
 AUTH_PASSWORD_VALIDATORS = []
 
 # 5. 국제화 설정
@@ -90,16 +90,16 @@ USE_TZ = True
 
 # 6. 정적 파일 및 Whitenoise 설정
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 
-# [수정] 배포 시 정적 파일 누락으로 인한 500 에러 방지를 위해 유연한 백엔드로 변경
+# [중요] 정적 파일 스토리지 설정 (파일 누락 시에도 서버가 꺼지지 않도록 유연하게 설정)
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage", # Manifest 제외 (에러 방지)
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage", 
     },
 }
 
@@ -111,23 +111,19 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
-# --- [중요] 배포 환경 보안 설정 ---
+# --- [중요] 배포 환경 보안 설정 (DEBUG가 False일 때만 작동) ---
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Lax'
-    CSRF_COOKIE_SAMESITE = 'Lax'
-    
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = True # HTTPS 리다이렉트 활성화
+    SECURE_SSL_REDIRECT = True
     
-    # HSTS 설정 (배포가 완전히 확인된 후 켜는 것이 좋지만 유지함)
+    # HSTS 설정
     SECURE_HSTS_SECONDS = 31536000 
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-# 8. AI 설정 (Gemini API KEY)
+# 8. AI 설정
 GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
 GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
 GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
