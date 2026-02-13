@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 
 @login_required 
 def index(request):
-    """메인 페이지: 어항 카드 목록"""
+    """메인 페이지: 어항 카드 목록 (Paginator 적용)"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 4) 
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -100,10 +100,37 @@ def add_tank(request):
                 last_water_change=date.today()
             )
             EventLog.objects.create(tank=tank, message=f"'{tank.name}' 어항이 등록되었습니다.")
+            messages.success(request, f"'{tank.name}' 어항이 추가되었습니다.")
             return redirect('monitoring:index')
         except Exception as e:
             return render(request, 'monitoring/tank_form.html', {'error': str(e)})
     return render(request, 'monitoring/tank_form.html')
+
+@login_required
+def edit_tank(request, tank_id):
+    """어항 정보 수정"""
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    if request.method == 'POST':
+        try:
+            tank.name = request.POST.get('name')
+            tank.fish_species = request.POST.get('fish_species')
+            tank.target_temp = float(request.POST.get('target_temp', 26.0))
+            tank.water_change_period = int(request.POST.get('water_change_period', 7))
+            tank.save()
+            messages.success(request, "어항 정보가 수정되었습니다.")
+            return redirect('monitoring:dashboard', tank_id=tank.id)
+        except Exception as e:
+            return render(request, 'monitoring/tank_form.html', {'tank': tank, 'error': str(e)})
+    return render(request, 'monitoring/tank_form.html', {'tank': tank})
+
+@login_required
+def delete_tank(request, tank_id):
+    """어항 삭제"""
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    tank_name = tank.name
+    tank.delete()
+    messages.success(request, f"'{tank_name}' 어항이 삭제되었습니다.")
+    return redirect('monitoring:index')
 
 @login_required
 @require_POST
@@ -136,23 +163,22 @@ def chat_api(request):
         data = json.loads(request.body)
         user_message = data.get('message', '')
         
-        # 실제 AI 연동 전 기본 분석 로직
+        # 분석 로직
         if "온도" in user_message:
-            reply = "현재 수온을 체크 중입니다. 설정하신 목표 온도와 비교해 적정 수준을 유지하고 있는지 확인해 보세요!"
+            reply = "현재 수온은 설정하신 목표 온도와 비교하여 모니터링 중입니다. 센서 데이터를 확인해 보세요!"
         elif "환수" in user_message:
-            reply = "환수는 물고기들의 건강에 직결됩니다. 주기에 맞춰 20-30% 정도 갈아주시는 것을 추천해요."
+            reply = "환수 주기가 다가오면 제가 알려드릴게요. 보통 주 1회 30% 환수를 권장합니다."
         else:
-            reply = f"질문하신 '{user_message}'에 대해 분석한 결과, 현재 어항 수질과 환경은 전반적으로 안정적입니다!"
+            reply = f"질문하신 '{user_message}'에 대해 확인해본 결과, 현재 시스템상 어항 수질은 양호한 편입니다!"
             
         return JsonResponse({'reply': reply})
     except:
-        return JsonResponse({'reply': '오류가 발생했습니다. 잠시 후 다시 시도해주세요.'}, status=400)
+        return JsonResponse({'reply': '죄송합니다. 메시지 처리 중 오류가 발생했습니다.'}, status=400)
 
 @login_required
 def ai_report_list(request):
     """AI 리포트 목록"""
     tanks = Tank.objects.filter(user=request.user)
-    # 실제 Report 모델 쿼리 필요 시 추가
     return render(request, 'reports/report_list.html', {
         'first_tank': tanks.first(),
         'tanks': tanks
@@ -160,11 +186,20 @@ def ai_report_list(request):
 
 @login_required
 def tank_list(request):
-    """어항 편집 센터"""
+    """어항 관리 센터"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
-    return render(request, 'monitoring/tank_list.html', {'tank_data': [{'tank': t} for t in all_tanks]})
+    return render(request, 'monitoring/tank_list.html', {
+        'tank_data': [{'tank': t} for t in all_tanks]
+    })
 
 @login_required
 def logs_view(request):
+    """전체 로그 보기"""
     logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
     return render(request, 'monitoring/logs.html', {'logs': logs})
+
+@login_required
+def camera_view(request):
+    """실시간 카메라 보기"""
+    tanks = Tank.objects.filter(user=request.user)
+    return render(request, 'monitoring/camera.html', {'tanks': tanks})

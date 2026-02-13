@@ -16,5 +16,5 @@ urlpatterns = [
     path('toggle-device/<int:tank_id>/', views.toggle_device, name='toggle_device'),
     path('water-change/<int:tank_id>/', views.perform_water_change, name='perform_water_change'),
     path('chat/', views.chat_api, name='chat_api'),
-    path('reports/', views.ai_report_list, name='ai_report_list'), # AI 리포트 경로
+    path('reports/', views.ai_report_list, name='ai_report_list'),
 ]
