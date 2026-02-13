@@ -7,7 +7,7 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
-# apps 폴더 등록 (프로젝트 구조 유지)
+# apps 폴더 등록
 APPS_DIR = BASE_DIR / 'apps'
 sys.path.insert(0, str(APPS_DIR))
 
@@ -15,10 +15,10 @@ sys.path.insert(0, str(APPS_DIR))
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-# 모든 호스트 허용 (배포 시에는 특정 도메인만 넣는 것이 좋으나 테스트를 위해 유지)
+# 모든 호스트 허용
 ALLOWED_HOSTS = ['*'] 
 
-# CSRF 신뢰할 수 있는 도메인 설정 (Render 도메인 필수)
+# CSRF 신뢰할 수 있는 도메인 설정
 CSRF_TRUSTED_ORIGINS = [
     'https://*.onrender.com',
 ]
@@ -42,7 +42,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # 정적 파일 서빙 (Render 필수)
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -79,7 +79,6 @@ DATABASES = {
     )
 }
 
-# 개발 편의를 위해 비밀번호 유효성 검사 생략 (배포 시 추가 권장)
 AUTH_PASSWORD_VALIDATORS = []
 
 # 5. 국제화 설정
@@ -110,21 +109,23 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
-# --- 사파리, 모바일 및 카카오톡 브라우저 로그인 유지 설정 ---
+# --- [중요] 배포 환경 보안 및 모바일 로그인 최적화 ---
 if not DEBUG:
+    # 1. HTTPS 강제 및 쿠키 보안
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True # JS에서 쿠키 접근 방지 (보안 강화)
     
-    # 카카오톡 등 인앱 브라우저 호환성을 위해 'Lax' 권장 (None은 일부 브라우저에서 거부될 수 있음)
+    # 2. 모바일/인앱 브라우저 호환성을 위한 SameSite 설정
     SESSION_COOKIE_SAMESITE = 'Lax'
     CSRF_COOKIE_SAMESITE = 'Lax'
     
-    # HTTPS 리다이렉트 설정
+    # 3. 프록시(Render) 인식 설정
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     
-    # HSTS 설정 (브라우저에게 항상 HTTPS로 접속하도록 강제)
-    SECURE_HSTS_SECONDS = 31536000 # 1년
+    # 4. HSTS 설정
+    SECURE_HSTS_SECONDS = 31536000 
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
@@ -133,5 +134,5 @@ GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
 GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
 GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
 
-# 기본 키 설정 (첫 번째 키를 사용하되 없으면 빈 문자열)
+# 우선순위에 따른 키 할당
 GEMINI_API_KEY = GEMINI_API_KEY_1 or GEMINI_API_KEY_2 or GEMINI_API_KEY_3 or ""

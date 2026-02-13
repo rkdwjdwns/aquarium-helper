@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -12,9 +12,7 @@
     <style>
         /* [스크롤 흔들림 해결] 핵심 CSS */
         html { 
-            /* 스크롤바가 생겨도 레이아웃이 밀리지 않도록 여백 고정 */
             scrollbar-gutter: stable !important;
-            /* 페이지 내용이 짧아도 항상 스크롤바 영역을 표시하여 일관성 유지 */
             overflow-y: scroll !important;
             height: 100% !important;
         }
@@ -22,7 +20,6 @@
         body { 
             font-family: "Pretendard", sans-serif; 
             -webkit-font-smoothing: antialiased;
-            /* 가로 스크롤 발생 원천 차단 */
             overflow-x: hidden !important;
             width: 100% !important; 
             min-height: 100% !important;
@@ -69,7 +66,6 @@
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
 
-        /* 클릭 시 파란 테두리 제거 */
         button:focus, a:focus, input:focus, textarea:focus { outline: none !important; box-shadow: none !important; }
         * { -webkit-tap-highlight-color: transparent; }
     </style>
@@ -120,8 +116,10 @@
         </div>
     </nav>
 
-    <main class="container mx-auto px-4 py-10 flex-grow max-w-6xl">
-        {% block content %}{% endblock %}
+    <main class="container mx-auto px-4 py-6 md:py-10 flex-grow max-w-4xl flex flex-col items-center">
+        <div class="w-full">
+            {% block content %}{% endblock %}
+        </div>
     </main>
 
     <button id="chatbot-toggle-btn" onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-2xl flex items-center justify-center text-3xl z-[45] hover:scale-110 active-stable transition-all border-4 border-white">
@@ -166,7 +164,6 @@
     </div>
 
     <script>
-        // 랜덤 인사말 설정
         const aiGreetings = [
             "오늘도 평화로운 물멍 시간 보내고 계신가요? 🐠",
             "무엇을 도와드릴까요? 어항 친구들은 잘 지내나요? 🫧",
@@ -187,14 +184,6 @@
             sidebar.style.transform = isOpen ? 'translateX(150%)' : 'translateX(0px)';
             isOpen ? body.classList.remove('chat-open') : body.classList.add('chat-open');
         }
-
-        // 스크롤바 너비 계산 스크립트 추가 (흔들림 보정)
-        function fixScrollJitter() {
-            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-            document.documentElement.style.setProperty('--scrollbar-width', `${scrollbarWidth}px`);
-        }
-        window.addEventListener('resize', fixScrollJitter);
-        window.addEventListener('load', fixScrollJitter);
 
         const sideChatForm = document.getElementById('side-chat-form');
         const sideChatWindow = document.getElementById('side-chat-window');
