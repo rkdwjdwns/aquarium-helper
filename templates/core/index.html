@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="py-8 max-w-6xl mx-auto px-4">
+<div class="py-8 max-w-6xl mx-auto px-4" x-data="{ editMode: false, selectedTanks: [] }">
     <div class="mb-14">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 px-2 gap-4">
             <div>
@@ -10,10 +10,28 @@
                 </h2>
                 <p class="text-slate-400 font-bold text-sm mt-1 ml-1">우리 물고기들의 환경을 실시간으로 감시 중입니다.</p>
             </div>
-            <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black shadow-xl shadow-blue-100 hover:scale-105 transition-all text-sm whitespace-nowrap inline-block text-center w-full md:w-auto">
-                + 어항 추가하기
-            </a>
+            
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <button 
+                    @click="if(editMode && selectedTanks.length > 0) { if(confirm('정말 삭제하시겠습니까?')) document.getElementById('delete-form').submit() }; editMode = !editMode"
+                    :class="editMode ? 'bg-red-500 text-white' : 'text-red-500 bg-red-50'"
+                    class="px-6 py-3 rounded-2xl font-black transition-all text-sm whitespace-nowrap flex-1 md:flex-none border border-red-100 hover:scale-105 active-stable shadow-sm"
+                >
+                    <span x-text="editMode ? (selectedTanks.length > 0 ? '선택한 어항 삭제' : '취소') : '어항 삭제/관리'"></span>
+                </button>
+
+                <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black shadow-xl shadow-blue-100 hover:scale-105 transition-all text-sm whitespace-nowrap flex-1 md:flex-none text-center">
+                    + 어항 추가하기
+                </a>
+            </div>
         </div>
+        
+        <form id="delete-form" action="{% url 'monitoring:delete_tanks' %}" method="POST" class="hidden">
+            {% csrf_token %}
+            <template x-for="tankId in selectedTanks">
+                <input type="hidden" name="tank_ids[]" :value="tankId">
+            </template>
+        </form>
         
         <div 
             x-data="{ showAll: false }" 
@@ -26,10 +44,16 @@
             {% if user.is_authenticated %}
                 {% for tank in user.tanks.all %}
                     <div 
-                        class="bg-white p-9 rounded-[2.8rem] shadow-xl shadow-gray-200/50 border border-white hover:border-blue-300 transition-all group relative overflow-hidden"
-                        {% if forloop.counter > 2 %}x-show="showAll" x-cloak x-transition{% endif %}
+                        class="bg-white p-9 rounded-[2.8rem] shadow-xl shadow-gray-200/50 border transition-all group relative overflow-hidden"
+                        :class="selectedTanks.includes('{{ tank.id }}') ? 'border-red-400 ring-4 ring-red-50' : 'border-white hover:border-blue-300'"
+                        {% if forloop.counter > 2 %}x-show="showAll || editMode" x-cloak x-transition{% endif %}
                     >
-                        <div class="flex justify-between items-center mb-8 relative z-10">
+                        <div x-show="editMode" x-transition class="absolute top-8 left-8 z-30">
+                            <input type="checkbox" value="{{ tank.id }}" x-model="selectedTanks" 
+                                class="w-8 h-8 rounded-xl border-2 border-red-200 text-red-500 focus:ring-red-500 transition-all cursor-pointer">
+                        </div>
+
+                        <div class="flex justify-between items-center mb-8 relative z-10" :class="editMode ? 'ml-12' : ''">
                             <div>
                                 <span class="bg-blue-100 text-blue-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-2 inline-block">Live Monitoring</span>
                                 <h3 class="font-black text-2xl text-gray-800">{{ tank.name }}</h3>
@@ -37,7 +61,7 @@
                             <span class="text-5xl drop-shadow-md group-hover:scale-110 transition-transform">🐟</span>
                         </div>
                         
-                        <div class="grid grid-cols-2 gap-6 relative z-10">
+                        <div class="grid grid-cols-2 gap-6 relative z-10" :class="editMode ? 'opacity-40 pointer-events-none' : ''">
                             <div class="bg-gradient-to-b from-blue-50/50 to-white p-7 rounded-[2.2rem] border border-blue-50 shadow-inner text-center">
                                 <span class="block text-[11px] text-blue-400 font-black mb-2 uppercase tracking-widest">Temperature</span>
                                 <span class="text-3xl font-black text-blue-700 tracking-tighter">
@@ -59,7 +83,7 @@
                 {% endfor %}
 
                 {% if user.tanks.count > 2 %}
-                <div class="col-span-full flex justify-center mt-4" x-show="!showAll">
+                <div class="col-span-full flex justify-center mt-4" x-show="!showAll && !editMode">
                     <button @click="showAll = true" class="bg-white border-2 border-blue-100 text-blue-600 px-10 py-4 rounded-2xl font-black shadow-lg hover:bg-blue-50 transition-all flex items-center gap-2">
                         기타 어항 정보 더 보기 <span>▼</span>
                     </button>

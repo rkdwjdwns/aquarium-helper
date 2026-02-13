@@ -120,9 +120,21 @@ def add_tank(request):
                 water_change_period=request.POST.get('water_change_period', 7)
             )
             messages.success(request, f"'{name}' 어항이 성공적으로 등록되었습니다!")
-            return redirect('monitoring:dashboard')
+            return redirect('home') # 메인 페이지로 이동
     return render(request, 'monitoring/add_tank.html')
 
 @login_required
 def camera_view(request):
     return render(request, 'monitoring/camera.html')
+
+# [신규] 여러 개 어항 선택 삭제 기능
+@login_required
+@require_POST
+def delete_tanks(request):
+    tank_ids = request.POST.getlist('tank_ids[]')
+    if tank_ids:
+        deleted_count = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
+        messages.success(request, f"{deleted_count[0]}개의 어항이 삭제되었습니다.")
+    else:
+        messages.warning(request, "삭제할 어항을 선택해주세요.")
+    return redirect('home')

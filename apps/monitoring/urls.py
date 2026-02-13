@@ -10,6 +10,7 @@ urlpatterns = [
     path('camera/', views.camera_view, name='camera_view'),
     path('toggle-device/<int:tank_id>/', views.toggle_device, name='toggle_device'),
     path('water-change/<int:tank_id>/', views.perform_water_change, name='perform_water_change'),
-    # AI 설정 적용 경로 추가
     path('apply-recommendation/', views.apply_recommendation, name='apply_recommendation'),
+    # 다중 어항 삭제 경로 추가
+    path('delete-tanks/', views.delete_tanks, name='delete_tanks'),
 ]
