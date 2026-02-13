@@ -1,9 +1,17 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="mb-12">
-    <h2 class="text-4xl font-black text-slate-800 tracking-tight mb-2">📊 실시간 대시보드</h2>
-    <p class="text-slate-500 font-medium ml-1">지능형 수질 분석 및 환수 관리 시스템이 작동 중입니다.</p>
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+    <div>
+        <h2 class="text-4xl font-black text-slate-800 tracking-tight mb-2">📊 실시간 대시보드</h2>
+        <p class="text-slate-500 font-medium ml-1">지능형 수질 분석 및 환수 관리 시스템이 작동 중입니다.</p>
+    </div>
+    
+    <a href="{% url 'monitoring:tank_list' %}" class="group flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-slate-100 px-6 py-4 rounded-[1.5rem] font-black text-slate-600 shadow-sm hover:shadow-md hover:bg-blue-50 hover:text-blue-600 transition-all active-stable">
+        <span class="text-lg">📋</span>
+        <span>어항 목록</span>
+        <svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"></path></svg>
+    </a>
 </div>
 
 <div class="grid grid-cols-1 {% if tank_data|length > 1 %}lg:grid-cols-2{% endif %} gap-10 {% if tank_data|length == 1 %}max-w-4xl mx-auto{% endif %}">
