@@ -19,13 +19,13 @@ def chatbot_home(request):
 def ask_chatbot(request):
     """
     챗봇 질문 처리 (텍스트 + 이미지 분석)
-    JSON 요청과 일반 POST 요청을 모두 지원하도록 보완되었습니다.
+    JSON/Form 요청 대응 및 Gemini 모델명 404 에러가 해결된 버전입니다.
     """
     if request.method == "POST":
         user_message = ""
         image_file = None
 
-        # [보완] 1. 데이터 추출 (JSON 요청과 일반 Form 요청 구분)
+        # 1. 데이터 추출 (JSON 요청과 일반 Form 요청 모두 대응)
         if request.content_type == 'application/json':
             try:
                 data = json.loads(request.body)
@@ -64,8 +64,9 @@ def ask_chatbot(request):
             try:
                 genai.configure(api_key=current_key)
                 
+                # [수정 핵심] 모델명을 "models/gemini-1.5-flash"로 변경하여 404 에러 방지
                 model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash",
+                    model_name="models/gemini-1.5-flash",
                     system_instruction=(
                         "당신은 물물박사 '어항 도우미'입니다. 다음 규칙을 엄격히 준수하세요:\n"
                         "1. 별표(*), 대시(-), 해시태그(#) 같은 특수 기호는 가독성을 위해 절대 사용하지 마세요.\n"
@@ -89,17 +90,18 @@ def ask_chatbot(request):
                 
                 # 6. AI 응답 생성
                 response = model.generate_content(content)
-                # 특수문자 제거 및 가독성 정리
+                
+                # 7. 응답 텍스트 정제 (특수 기호 제거)
                 bot_response = response.text.replace('*', '').replace('#', '').replace('-', ' ').strip()
                 
-                # 7. 대화 내역 DB 저장
+                # 8. 대화 내역 DB 저장
                 ChatMessage.objects.create(
                     user=request.user, 
                     message=user_message if user_message else "사진 분석 요청 📸", 
                     response=bot_response
                 )
                 
-                # 8. 성공 응답 (JS의 다양한 키값 요구에 대응)
+                # 9. 성공 응답 반환
                 return JsonResponse({
                     'status': 'success', 
                     'message': bot_response,
@@ -112,10 +114,11 @@ def ask_chatbot(request):
                 # 할당량 초과 시 다음 키로 이동
                 if "429" in error_str or "quota" in error_str:
                     continue
+                # 404 에러나 기타 에러 로그 출력
                 print(f"Gemini API Error: {traceback.format_exc()}")
                 continue
 
-        # 모든 키 실패 시
+        # 모든 키 실패 시 최종 에러 메시지
         return JsonResponse({
             'status': 'error', 
             'message': "🐠 물물박사가 지금 너무 바빠서 답변을 못 드렸어요. 잠시 후 다시 시도해 주세요!",
