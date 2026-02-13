@@ -34,7 +34,7 @@
             <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold shadow-lg shrink-0">AI</div>
             <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium max-w-[85%] text-slate-700 leading-relaxed">
                 안녕하세요! <strong>{{ user.username }}</strong>님 🫧<br>
-                무엇을 도와드릴까요? 사진(📷)을 보내주시면 더 자세한 상담이 가능해요!
+                무엇을 도와드릴까요? 물고기 이름을 말씀하시거나 사진(📷)을 보내주세요!
             </div>
         </div>
         {% endfor %}
@@ -79,6 +79,16 @@
     .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
     #chat-window::-webkit-scrollbar { width: 4px; }
     #chat-window::-webkit-scrollbar-thumb { background: rgba(0, 119, 255, 0.1); border-radius: 10px; }
+    
+    /* 세팅 추천 카드 스타일 */
+    .setting-card {
+        margin-top: 12px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
 </style>
 
 <script>
@@ -89,7 +99,6 @@
     const imagePreview = document.getElementById('image-preview');
     const fileNameDisp = document.getElementById('file-name');
 
-    // 채팅창 자동 스크롤 함수
     function scrollToBottom() {
         chatWindow.scrollTop = chatWindow.scrollHeight;
     }
@@ -130,13 +139,14 @@
             const lb = document.getElementById(loadingId);
             if (lb) lb.closest('.flex').remove();
             
-            // [보완] data.message 또는 data.reply 중 있는 것을 선택 (undefined 방지)
-            const botMsg = data.message || data.reply;
+            const botMsg = data.message || data.reply || "응답을 받을 수 없습니다.";
             
             if (data.status === 'success') {
                 appendMessage('ai', botMsg);
+                // [추가] 세팅 값이 있으면 특수 버튼 생성
+                checkAndRenderSettings(botMsg);
             } else {
-                appendMessage('ai', "에러: " + (botMsg || "연결에 실패했습니다."));
+                appendMessage('ai', "에러: " + botMsg);
             }
         })
         .catch(err => {
@@ -146,19 +156,47 @@
         });
     });
 
+    // AI 답변에서 [SETTING: ...] 추출하여 UI 생성
+    function checkAndRenderSettings(text) {
+        const regex = /\[SETTING:\s*temp=([\d.]+),\s*ph=([\d.]+),\s*cycle=(\d+)\]/;
+        const match = text.match(regex);
+        
+        if (match) {
+            const [_, temp, ph, cycle] = match;
+            const card = document.createElement('div');
+            card.className = 'flex items-start gap-3 mt-2 animate-fade-in';
+            card.innerHTML = `
+                <div class="w-9"></div>
+                <div class="setting-card border-blue-100 bg-blue-50/50 flex-1">
+                    <p class="text-[10px] font-black text-blue-600 mb-2 uppercase tracking-tighter">📋 박사님의 추천 세팅</p>
+                    <div class="grid grid-cols-3 gap-1 text-center mb-3">
+                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">온도</span><b class="text-xs">${temp}°C</b></div>
+                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">pH</span><b class="text-xs">${ph}</b></div>
+                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">주기</span><b class="text-xs">${cycle}일</b></div>
+                    </div>
+                    <button onclick="location.href='{% url 'monitoring:tank_list' %}'" class="w-full py-2 bg-blue-600 text-white text-[11px] font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-100">
+                        내 어항에 적용하러 가기
+                    </button>
+                </div>
+            `;
+            chatWindow.appendChild(card);
+            scrollToBottom();
+        }
+    }
+
     function appendMessage(sender, text, id = null) {
         const div = document.createElement('div');
         div.className = sender === 'user' ? 'flex justify-end' : 'flex items-start gap-3';
         
-        // 줄바꿈 처리를 위한 변환
-        const formattedText = text.replace(/\n/g, '<br>');
+        // [SETTING] 태그는 사용자에게 안 보이게 숨기고 텍스트만 처리
+        const cleanText = text.replace(/\[SETTING:.*?\]/g, '').replace(/\n/g, '<br>');
 
         if (sender === 'user') {
-            div.innerHTML = `<div class="bg-blue-600 text-white p-4 rounded-3xl rounded-tr-none shadow-md text-sm font-bold max-w-[85%] animate-fade-in">${formattedText}</div>`;
+            div.innerHTML = `<div class="bg-blue-600 text-white p-4 rounded-3xl rounded-tr-none shadow-md text-sm font-bold max-w-[85%] animate-fade-in">${cleanText}</div>`;
         } else {
             div.innerHTML = `
                 <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[10px] font-black shadow-lg shrink-0">AI</div>
-                <div id="${id || ''}" class="bg-white p-4 rounded-3xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium text-slate-700 max-w-[85%] leading-relaxed animate-fade-in">${formattedText}</div>`;
+                <div id="${id || ''}" class="bg-white p-4 rounded-3xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium text-slate-700 max-w-[85%] leading-relaxed animate-fade-in">${cleanText}</div>`;
         }
         chatWindow.appendChild(div);
         scrollToBottom();
