@@ -42,15 +42,15 @@
 <body class="ocean-bg flex flex-col">
     <nav class="sticky top-4 z-[60] mx-auto w-[95%] max-w-6xl">
         <div class="bg-white/70 backdrop-blur-md border border-white/40 shadow-xl rounded-2xl px-4 md:px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-4 md:space-x-8">
-                <a href="{% url 'home' %}" class="text-xl md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent tracking-tighter shrink-0">
+            <div class="flex items-center space-x-6 md:space-x-10">
+                <a href="{% url 'monitoring:dashboard' %}" class="text-xl md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent tracking-tighter shrink-0">
                     🐠 어항 도우미
                 </a>
+                
                 {% if user.is_authenticated %}
-                <div class="flex items-center space-x-3 md:space-x-6 text-sm font-bold text-slate-500 nav-menu-text">
-                    <a href="{% url 'monitoring:dashboard' %}" class="hover:text-blue-600 transition-colors shrink-0">홈</a>
-                    <a href="{% url 'monitoring:tank_list' %}" class="hover:text-blue-600 transition-colors shrink-0 font-black text-blue-500">어항목록</a>
-                    <a href="{% url 'monitoring:logs' %}" class="hover:text-blue-600 transition-colors shrink-0">로그</a>
+                <div class="flex items-center space-x-6 text-sm font-bold nav-menu-text">
+                    <a href="{% url 'monitoring:tank_list' %}" class="hover:text-blue-600 transition-colors shrink-0 {% if request.resolver_match.url_name == 'tank_list' %}text-blue-600 font-black{% else %}text-slate-500{% endif %}">어항목록</a>
+                    <a href="{% url 'monitoring:logs' %}" class="text-slate-500 hover:text-blue-600 transition-colors shrink-0">로그</a>
                 </div>
                 {% endif %}
             </div>
@@ -66,7 +66,7 @@
                             <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-slate-600 hover:bg-blue-50">내 정보</a>
                             <form action="{% url 'accounts:logout' %}" method="post" class="m-0 border-t border-slate-50">
                                 {% csrf_token %}
-                                <button type="submit" class="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50">로그아웃</button>
+                                <button type="submit" class="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50 font-bold">로그아웃</button>
                             </form>
                         </div>
                     </div>

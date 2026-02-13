@@ -18,6 +18,7 @@ def dashboard(request):
         alerts = []
 
         if latest:
+            # 온도 체크
             temp_diff = abs(latest.temperature - tank.target_temp)
             if temp_diff >= 2.0:
                 status = "DANGER"
@@ -25,6 +26,7 @@ def dashboard(request):
                 alerts.append(msg)
                 EventLog.objects.get_or_create(tank=tank, level='DANGER', message=msg)
 
+            # pH 체크
             ph_diff = abs(latest.ph - tank.target_ph)
             if ph_diff >= 0.5:
                 if status != "DANGER": status = "WARNING"
@@ -32,11 +34,13 @@ def dashboard(request):
                 alerts.append(msg)
                 EventLog.objects.get_or_create(tank=tank, level='WARNING', message=msg)
         
+        # 환수 디데이 계산
         d_day = None
         if tank.last_water_change:
             next_change = tank.last_water_change + timedelta(days=tank.water_change_period)
             d_day = (next_change - date.today()).days
 
+        # 장치 상태 및 로그
         light, _ = DeviceControl.objects.get_or_create(tank=tank, type='LIGHT')
         filter_dev, _ = DeviceControl.objects.get_or_create(tank=tank, type='FILTER')
         logs = EventLog.objects.filter(tank=tank).order_by('-created_at')[:5]
@@ -54,71 +58,63 @@ def dashboard(request):
         
     return render(request, 'monitoring/dashboard.html', {'tank_data': tank_data})
 
-# [수정] 어항 목록 전용 뷰 (정렬 기능을 위한 데이터 가공 포함)
+# [수정] 어항 목록 관리 페이지 (템플릿 변수명 tank_data로 통일)
 @login_required
 def tank_list(request):
-    """모든 어항 목록을 시각적으로 보여주는 전용 페이지"""
     tanks = Tank.objects.filter(user=request.user)
-    tanks_data = []
+    tank_data = [] # 템플릿과 이름 맞춤
     
     for tank in tanks:
         latest = tank.readings.order_by('-created_at').first()
-        # 정렬 시 숫자 비교를 위해 None일 경우 0.0 처리
-        tanks_data.append({
-            'id': tank.id,
-            'name': tank.name,
-            'temp': float(latest.temperature) if latest else 0.0,
-            'ph': float(latest.ph) if latest else 0.0,
-            'latest': latest, # 템플릿에서 직접 접근용
+        tank_data.append({
+            'tank': tank,
+            'latest': latest,
         })
     
-    return render(request, 'monitoring/tank_list.html', {'tanks_data': tanks_data})
+    return render(request, 'monitoring/tank_list.html', {'tank_data': tank_data})
 
+# [신규 추가] 어항 정보 수정 뷰
+@login_required
+def edit_tank(request, tank_id):
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    
+    if request.method == 'POST':
+        tank.name = request.POST.get('name', tank.name)
+        tank.capacity = request.POST.get('capacity', tank.capacity) or 0.0
+        tank.fish_species = request.POST.get('fish_species', tank.fish_species)
+        tank.target_temp = request.POST.get('target_temp', tank.target_temp) or 25.0
+        tank.target_ph = request.POST.get('target_ph', tank.target_ph) or 7.0
+        tank.water_change_period = request.POST.get('water_change_period', tank.water_change_period) or 7
+        tank.save()
+        messages.success(request, f"'{tank.name}' 정보가 수정되었습니다.")
+        return redirect('monitoring:tank_list')
+        
+    return render(request, 'monitoring/edit_tank.html', {'tank': tank})
+
+# [신규 추가] 개별 어항 삭제 뷰
+@login_required
+def delete_tank(request, tank_id):
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    tank_name = tank.name
+    tank.delete()
+    messages.success(request, f"'{tank_name}' 어항이 삭제되었습니다.")
+    return redirect('monitoring:tank_list')
+
+# [수정] 일괄 삭제 뷰 (Post 데이터 처리 방식 수정)
 @login_required
 @require_POST
-def apply_recommendation(request):
-    """AI 추천 설정을 실제 어항에 적용"""
-    try:
-        data = json.loads(request.body)
-        tank = Tank.objects.filter(user=request.user).first()
-        if not tank:
-            return JsonResponse({'status': 'error', 'message': '등록된 어항이 없습니다.'})
+def delete_tanks(request):
+    # 템플릿의 <input name="tank_ids"> 값을 가져옴
+    tank_ids = request.POST.getlist('tank_ids')
+    if tank_ids:
+        deleted_count = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
+        messages.success(request, f"{deleted_count[0]}개의 어항이 성공적으로 삭제되었습니다.")
+    else:
+        messages.warning(request, "삭제할 어항이 선택되지 않았습니다.")
+    
+    return redirect('monitoring:tank_list')
 
-        tank.target_temp = float(data.get('temp', tank.target_temp))
-        tank.target_ph = float(data.get('ph', tank.target_ph))
-        tank.water_change_period = int(data.get('cycle', tank.water_change_period))
-        tank.save()
-
-        EventLog.objects.create(
-            tank=tank, level='INFO',
-            message=f"AI 추천 설정 적용: {tank.target_temp}°C, pH {tank.target_ph}, {tank.water_change_period}일 주기"
-        )
-        return JsonResponse({'status': 'success'})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)})
-
-@login_required
-def perform_water_change(request, tank_id):
-    if request.method == "POST":
-        tank = get_object_or_404(Tank, id=tank_id, user=request.user)
-        tank.last_water_change = date.today()
-        tank.save()
-        EventLog.objects.create(tank=tank, level='INFO', message="환수를 완료했습니다. 물이 깨끗해졌어요! 🌊")
-        return JsonResponse({'status': 'success'})
-    return JsonResponse({'status': 'error'}, status=400)
-
-@login_required
-def toggle_device(request, tank_id):
-    if request.method == "POST":
-        device_type = request.POST.get('device_type')
-        tank = get_object_or_404(Tank, id=tank_id, user=request.user)
-        device, _ = DeviceControl.objects.get_or_create(tank=tank, type=device_type)
-        device.is_on = not device.is_on
-        device.save()
-        action = "켰습니다 💡" if device.is_on else "껐습니다 🌑"
-        EventLog.objects.create(tank=tank, level='INFO', message=f"{device.get_type_display()}를 {action}")
-        return JsonResponse({'status': 'success', 'is_on': device.is_on})
-    return JsonResponse({'status': 'error'}, status=400)
+# --- 나머지 기능들 ---
 
 @login_required
 def logs_view(request):
@@ -140,7 +136,7 @@ def add_tank(request):
                 water_change_period=request.POST.get('water_change_period', 7) or 7
             )
             messages.success(request, f"'{name}' 어항이 성공적으로 등록되었습니다!")
-            return redirect('home')
+            return redirect('monitoring:tank_list')
     return render(request, 'monitoring/add_tank.html')
 
 @login_required
@@ -149,13 +145,44 @@ def camera_view(request):
 
 @login_required
 @require_POST
-def delete_tanks(request):
-    tank_ids = request.POST.getlist('tank_ids[]')
-    if tank_ids:
-        deleted_count = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
-        messages.success(request, f"{deleted_count[0]}개의 어항이 삭제되었습니다.")
-    else:
-        messages.warning(request, "삭제할 어항을 선택해주세요.")
-    
-    referer = request.META.get('HTTP_REFERER')
-    return redirect(referer if referer else 'home')
+def toggle_device(request, tank_id):
+    device_type = request.POST.get('device_type')
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    device, _ = DeviceControl.objects.get_or_create(tank=tank, type=device_type)
+    device.is_on = not device.is_on
+    device.save()
+    action = "켰습니다 💡" if device.is_on else "껐습니다 🌑"
+    EventLog.objects.create(tank=tank, level='INFO', message=f"{device.get_type_display()}를 {action}")
+    return JsonResponse({'status': 'success', 'is_on': device.is_on})
+
+@login_required
+def perform_water_change(request, tank_id):
+    if request.method == "POST":
+        tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+        tank.last_water_change = date.today()
+        tank.save()
+        EventLog.objects.create(tank=tank, level='INFO', message="환수를 완료했습니다. 물이 깨끗해졌어요! 🌊")
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error'}, status=400)
+
+@login_required
+@require_POST
+def apply_recommendation(request):
+    try:
+        data = json.loads(request.body)
+        tank = Tank.objects.filter(user=request.user).first()
+        if not tank:
+            return JsonResponse({'status': 'error', 'message': '등록된 어항이 없습니다.'})
+
+        tank.target_temp = float(data.get('temp', tank.target_temp))
+        tank.target_ph = float(data.get('ph', tank.target_ph))
+        tank.water_change_period = int(data.get('cycle', tank.water_change_period))
+        tank.save()
+
+        EventLog.objects.create(
+            tank=tank, level='INFO',
+            message=f"AI 추천 설정 적용: {tank.target_temp}°C, pH {tank.target_ph}, {tank.water_change_period}일 주기"
+        )
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
