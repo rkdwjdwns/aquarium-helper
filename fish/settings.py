@@ -32,12 +32,14 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'accounts',
-    'core',
-    'monitoring',
-    'reports',
-    'ai',
-    'chatbot',
+    
+    # 경로를 명확히 하여 RuntimeError 방지
+    'apps.accounts',
+    'apps.core',
+    'apps.monitoring',
+    'apps.reports',
+    'apps.ai',
+    'apps.chatbot',
 ]
 
 MIDDLEWARE = [

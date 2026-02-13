@@ -9,25 +9,28 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.views.decorators.http import require_POST
+from django.apps import apps  # 모델 동적 로드를 위해 추가
 from datetime import date, timedelta
 
-# 모델 임포트
+# 현재 앱의 모델 임포트
 from .models import Tank, EventLog, DeviceControl
 
-# ChatMessage 모델 로드 (앱 구조에 따라 유연하게 대처)
-try:
-    from apps.chatbot.models import ChatMessage
-except ImportError:
+# ChatMessage 모델을 안전하게 가져오는 함수 (RuntimeError 방지)
+def get_chat_message_model():
     try:
-        from chatbot.models import ChatMessage
-    except ImportError:
-        ChatMessage = None
+        # 프로젝트 구조에 따라 'chatbot' 또는 'apps.chatbot' 시도
+        return apps.get_model('chatbot', 'ChatMessage')
+    except (LookupError, ValueError):
+        try:
+            return apps.get_model('apps.chatbot', 'ChatMessage')
+        except:
+            return None
 
-# --- [대시보드 및 메인 리스트] ---
+# --- [메인 기능: 대시보드 및 리스트] ---
 
 @login_required 
 def index(request):
-    """메인 페이지: 어항 카드 목록"""
+    """메인 페이지: 어항 카드 목록 (Paginator 적용)"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 4) 
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -81,12 +84,12 @@ def dashboard(request, tank_id=None):
         'is_water_changed_today': (tank.last_water_change == date.today())
     })
 
-# --- [핵심: 멀티 API 키 Gemini AI] ---
+# --- [핵심: 주인님의 멀티 API 키 Gemini 챗봇 로직] ---
 
 @login_required
 @require_POST
 def chat_api(request):
-    """텍스트 + 이미지 분석 지원 챗봇"""
+    """텍스트 + 이미지 분석 지원 챗봇 (멀티 API 키 순회)"""
     user_message = request.POST.get('message', '').strip()
     image_file = request.FILES.get('image') 
     
@@ -126,6 +129,8 @@ def chat_api(request):
             response = model.generate_content(content)
             bot_response = response.text.replace('*', '').replace('#', '').strip()
             
+            # 모델 저장 시도
+            ChatMessage = get_chat_message_model()
             if ChatMessage:
                 ChatMessage.objects.create(
                     user=request.user, 
@@ -136,17 +141,18 @@ def chat_api(request):
             return JsonResponse({'status': 'success', 'reply': bot_response})
             
         except Exception as e:
-            if "429" in str(e) or "quota" in str(e).lower(): continue
+            if "429" in str(e) or "quota" in str(e).lower():
+                continue 
             last_error = e
             continue
 
-    return JsonResponse({'status': 'error', 'message': "물물박사가 현재 응답할 수 없습니다."}, status=500)
+    return JsonResponse({'status': 'error', 'message': f"물물박사가 현재 응답할 수 없습니다. (사유: {str(last_error)})"}, status=500)
 
 # --- [어항 편집 및 관리 기능] ---
 
 @login_required
 def tank_list(request):
-    """어항 관리 센터 (선택 삭제 대응)"""
+    """어항 관리 센터 (에러 방지 및 선택 삭제 대응)"""
     try:
         all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
         tank_data = [{'tank': t} for t in all_tanks]
@@ -160,11 +166,13 @@ def tank_list(request):
 @login_required
 @require_POST
 def delete_tanks(request):
-    """[추가됨] 어항 선택 삭제 처리"""
+    """어항 선택 삭제 처리"""
     tank_ids = request.POST.getlist('tank_ids[]')
     if tank_ids:
         deleted_count, _ = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
         messages.success(request, f"{deleted_count}개의 어항이 삭제되었습니다.")
+    else:
+        messages.warning(request, "삭제할 어항을 선택해주세요.")
     return redirect('monitoring:tank_list')
 
 @login_required
