@@ -31,12 +31,9 @@ def index(request):
 
         d_day = 7
         if tank.last_water_change:
-            try:
-                period = int(tank.water_change_period or 7)
-                next_change = tank.last_water_change + timedelta(days=period)
-                d_day = (next_change - date.today()).days
-            except:
-                d_day = 7
+            period = int(tank.water_change_period or 7)
+            next_change = tank.last_water_change + timedelta(days=period)
+            d_day = (next_change - date.today()).days
         
         tank_data.append({
             'tank': tank, 
@@ -51,18 +48,14 @@ def index(request):
     })
 
 @login_required
-def ai_report_list(request):
-    """AI 리포트 목록 페이지"""
-    tanks = Tank.objects.filter(user=request.user)
-    return render(request, 'reports/report_list.html', {'tanks': tanks})
-
-@login_required
 def dashboard(request, tank_id=None):
-    """상세 대시보드"""
+    """상세 대시보드: 어항 선택 기능 포함"""
+    user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+    
     if tank_id:
         tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     else:
-        tank = Tank.objects.filter(user=request.user).first()
+        tank = user_tanks.first()
         if not tank:
             return redirect('monitoring:add_tank')
 
@@ -72,22 +65,25 @@ def dashboard(request, tank_id=None):
     light, _ = DeviceControl.objects.get_or_create(tank=tank, type='LIGHT')
     filter_dev, _ = DeviceControl.objects.get_or_create(tank=tank, type='FILTER')
     
+    is_water_changed_today = (tank.last_water_change == date.today())
+
     d_day = 7
     if tank.last_water_change:
         try:
             period = int(tank.water_change_period or 7)
             next_change = tank.last_water_change + timedelta(days=period)
             d_day = (next_change - date.today()).days
-        except:
-            pass
+        except: pass
 
     return render(request, 'monitoring/dashboard.html', {
         'tank': tank,
+        'user_tanks': user_tanks,
         'latest': latest,
         'logs': logs,
         'light_on': light.is_on,
         'filter_on': filter_dev.is_on,
-        'd_day': d_day
+        'd_day': d_day,
+        'is_water_changed_today': is_water_changed_today
     })
 
 @login_required
@@ -99,9 +95,7 @@ def add_tank(request):
                 user=request.user,
                 name=request.POST.get('name', '새 어항'),
                 fish_species=request.POST.get('fish_species', ''),
-                capacity=request.POST.get('capacity', ''),
                 target_temp=float(request.POST.get('target_temp') or 26.0),
-                target_ph=float(request.POST.get('target_ph') or 7.0),
                 water_change_period=int(request.POST.get('water_change_period') or 7),
                 last_water_change=date.today()
             )
@@ -112,34 +106,9 @@ def add_tank(request):
     return render(request, 'monitoring/tank_form.html')
 
 @login_required
-def edit_tank(request, tank_id):
-    """어항 정보 수정"""
-    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
-    if request.method == 'POST':
-        try:
-            tank.name = request.POST.get('name', tank.name)
-            tank.fish_species = request.POST.get('fish_species', tank.fish_species)
-            t_temp = request.POST.get('target_temp')
-            t_ph = request.POST.get('target_ph')
-            if t_temp: tank.target_temp = float(t_temp)
-            if t_ph: tank.target_ph = float(t_ph)
-            tank.save()
-            messages.success(request, "수정되었습니다.")
-            return redirect('monitoring:tank_list')
-        except (ValueError, TypeError):
-            messages.error(request, "수치 형식이 올바르지 않습니다.")
-    return render(request, 'monitoring/tank_form.html', {'tank': tank})
-
-@login_required
-@require_POST
-def delete_tank(request, tank_id):
-    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
-    tank.delete()
-    return redirect('monitoring:tank_list')
-
-@login_required
 @require_POST
 def toggle_device(request, tank_id):
+    """장치 제어 (조명/여과기)"""
     device_type = request.POST.get('device_type')
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     device, _ = DeviceControl.objects.get_or_create(tank=tank, type=device_type)
@@ -152,6 +121,7 @@ def toggle_device(request, tank_id):
 @login_required
 @require_POST
 def perform_water_change(request, tank_id):
+    """환수 완료 처리"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     tank.last_water_change = date.today()
     tank.save()
@@ -161,15 +131,36 @@ def perform_water_change(request, tank_id):
 @login_required
 @require_POST
 def chat_api(request):
+    """챗봇 분석 API"""
     try:
         data = json.loads(request.body)
         user_message = data.get('message', '')
-        return JsonResponse({'reply': f"'{user_message}'에 대한 분석 결과, 수질이 양호합니다!"})
+        
+        # 실제 AI 연동 전 기본 분석 로직
+        if "온도" in user_message:
+            reply = "현재 수온을 체크 중입니다. 설정하신 목표 온도와 비교해 적정 수준을 유지하고 있는지 확인해 보세요!"
+        elif "환수" in user_message:
+            reply = "환수는 물고기들의 건강에 직결됩니다. 주기에 맞춰 20-30% 정도 갈아주시는 것을 추천해요."
+        else:
+            reply = f"질문하신 '{user_message}'에 대해 분석한 결과, 현재 어항 수질과 환경은 전반적으로 안정적입니다!"
+            
+        return JsonResponse({'reply': reply})
     except:
-        return JsonResponse({'reply': '오류가 발생했습니다.'}, status=400)
+        return JsonResponse({'reply': '오류가 발생했습니다. 잠시 후 다시 시도해주세요.'}, status=400)
+
+@login_required
+def ai_report_list(request):
+    """AI 리포트 목록"""
+    tanks = Tank.objects.filter(user=request.user)
+    # 실제 Report 모델 쿼리 필요 시 추가
+    return render(request, 'reports/report_list.html', {
+        'first_tank': tanks.first(),
+        'tanks': tanks
+    })
 
 @login_required
 def tank_list(request):
+    """어항 편집 센터"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     return render(request, 'monitoring/tank_list.html', {'tank_data': [{'tank': t} for t in all_tanks]})
 
@@ -177,7 +168,3 @@ def tank_list(request):
 def logs_view(request):
     logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
     return render(request, 'monitoring/logs.html', {'logs': logs})
-
-@login_required
-def camera_view(request):
-    return render(request, 'monitoring/camera.html')

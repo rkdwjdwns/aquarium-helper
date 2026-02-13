@@ -1,65 +1,59 @@
 {% extends 'base.html' %}
-
 {% block content %}
-<div class="max-w-5xl mx-auto">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+<div class="max-w-5xl mx-auto py-8">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 px-4">
         <div>
-            <h2 class="text-3xl font-bold text-gray-800">📊 데이터 관리 리포트</h2>
-            <p class="text-gray-500 text-sm mt-1">어항의 수질 데이터를 기간별로 정리한 리포트입니다.</p>
+            <h2 class="text-4xl font-black text-gray-800 tracking-tight">📊 데이터 리포트</h2>
+            <p class="text-gray-500 font-bold mt-2">기간별 수질 변화를 분석한 결과입니다.</p>
         </div>
         
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-3">
             {% if first_tank %}
                 <a href="{% url 'reports:create_stat_report' first_tank.id %}?period=daily" 
-                   class="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-md shadow-blue-100">
-                   일간 리포트
+                   class="bg-blue-600 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100">
+                   일간 분석
                 </a>
                 <a href="{% url 'reports:create_stat_report' first_tank.id %}?period=weekly" 
-                   class="bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 transition shadow-md shadow-indigo-100">
-                   주간 리포트
+                   class="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
+                   주간 분석
                 </a>
                 <a href="{% url 'reports:create_stat_report' first_tank.id %}?period=monthly" 
-                   class="bg-gray-800 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition shadow-md shadow-gray-200">
-                   월간 리포트
+                   class="bg-slate-800 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-black transition shadow-lg shadow-slate-200">
+                   월간 분석
                 </a>
-            {% else %}
-                <button disabled class="bg-gray-300 text-white px-5 py-2.5 rounded-xl text-sm font-bold cursor-not-allowed">
-                    등록된 어항이 없습니다
-                </button>
             {% endif %}
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-4">
         {% for report in reports %}
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition group">
-            <div class="flex justify-between items-start mb-4">
-                <span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-extrabold rounded-full uppercase">
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl transition group">
+            <div class="flex justify-between items-start mb-6">
+                <span class="px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">
                     {{ report.get_report_type_display }}
                 </span>
-                <span class="text-gray-400 text-xs">{{ report.created_at|date:"Y.m.d H:i" }}</span>
+                <span class="text-slate-300 font-bold text-[10px]">{{ report.created_at|date:"Y.m.d" }}</span>
             </div>
             
-            <h3 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition">{{ report.tank.name }}</h3>
+            <h3 class="text-xl font-black text-gray-800 mb-3 group-hover:text-blue-600 transition">{{ report.tank.name }}</h3>
+            <p class="text-slate-500 text-sm leading-relaxed mb-8 line-clamp-3 font-medium">
+                {{ report.content }}
+            </p>
             
-            <div class="text-gray-500 text-sm leading-relaxed mb-6 h-15 overflow-hidden">
-                {{ report.content|linebreaksbr|truncatechars:120 }}
-            </div>
-            
-            <div class="flex flex-col gap-2">
-                <a href="{% url 'reports:download_report' report.id %}" class="w-full text-center bg-gray-50 text-gray-700 py-2.5 rounded-xl text-xs font-bold hover:bg-gray-100 transition border border-gray-100">
-                    📄 TXT 다운로드
+            <div class="flex flex-col gap-3">
+                <a href="{% url 'reports:download_report' report.id %}" class="w-full text-center bg-slate-50 text-slate-700 py-3 rounded-2xl text-xs font-black hover:bg-slate-100 transition border border-slate-100">
+                    📄 텍스트 다운로드
                 </a>
-                <a href="{% url 'reports:download_report_csv' report.id %}" class="w-full text-center bg-green-50 text-green-700 py-2.5 rounded-xl text-xs font-bold hover:bg-green-100 transition border border-green-100">
+                <a href="{% url 'reports:download_report_csv' report.id %}" class="w-full text-center bg-emerald-50 text-emerald-700 py-3 rounded-2xl text-xs font-black hover:bg-emerald-100 transition border border-emerald-100">
                     Excel(CSV) 다운로드
                 </a>
             </div>
         </div>
         {% empty %}
-        <div class="col-span-full py-24 text-center bg-white rounded-[2rem] border-2 border-dashed border-gray-100">
-            <div class="text-5xl mb-4">📊</div>
-            <p class="text-gray-400 font-medium">아직 생성된 데이터 리포트가 없습니다.</p>
-            <p class="text-gray-300 text-sm mt-1">상단의 기간별 버튼을 눌러 리포트를 생성해보세요!</p>
+        <div class="col-span-full py-32 text-center bg-white rounded-[3.5rem] border-4 border-dashed border-slate-50">
+            <div class="text-6xl mb-6">📊</div>
+            <p class="text-slate-400 font-black text-xl">아직 생성된 리포트가 없습니다.</p>
+            <p class="text-slate-300 font-bold mt-2">상단의 분석 버튼을 눌러 리포트를 생성해보세요!</p>
         </div>
         {% endfor %}
     </div>

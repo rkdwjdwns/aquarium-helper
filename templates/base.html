@@ -20,7 +20,6 @@
         [x-cloak] { display: none !important; }
         .active-stable:active { transform: scale(0.98); transition: transform 0.1s; }
         
-        /* 챗봇 사이드바 스타일 복구 */
         #chatbot-sidebar { 
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             backdrop-filter: blur(15px); 
@@ -40,6 +39,7 @@
         @media (max-width: 768px) { 
             #chatbot-sidebar { width: 100%; height: 80vh; right: 0; bottom: 0; border-radius: 2.5rem 2.5rem 0 0; }
         }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
@@ -76,7 +76,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    <button onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-2xl flex items-center justify-center text-3xl z-[45] hover:scale-110 active-stable transition-all border-4 border-white">🐠</button>
+    <button onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-2xl flex items-center justify-center text-3xl z-[45] hover:scale-110 active-stable transition-all border-4 border-white">🤖</button>
     
     <div id="chatbot-sidebar" style="transform: translateX(150%);">
         <div class="p-6 bg-gradient-to-r from-blue-600 to-cyan-500 flex justify-between items-center text-white shrink-0 rounded-t-[2.5rem]">
@@ -87,7 +87,7 @@
             <button onclick="toggleChat()" class="text-white/80 hover:text-white text-3xl">&times;</button>
         </div>
         
-        <div id="side-chat-window" class="flex-1 overflow-y-auto p-5 space-y-4 bg-[#F8FBFF]">
+        <div id="side-chat-window" class="flex-1 overflow-y-auto p-5 space-y-4 bg-[#F8FBFF] no-scrollbar">
             <div class="bg-blue-100 text-blue-800 p-4 rounded-2xl rounded-tl-none text-sm font-bold shadow-sm inline-block max-w-[80%]">
                 안녕하세요 주인님! 🌊<br>어항 상태에 대해 궁금한 점을 물어봐 주세요.
             </div>
@@ -103,27 +103,49 @@
     </div>
 
     <script>
-        // 챗봇 토글 스크립트 복구
         function toggleChat() {
             const sidebar = document.getElementById('chatbot-sidebar');
             const isClosed = sidebar.style.transform === 'translateX(150%)';
             sidebar.style.transform = isClosed ? 'translateX(0px)' : 'translateX(150%)';
         }
 
-        // 챗봇 전송 로직 (기존 연동용)
         document.getElementById('side-chat-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('side-user-input');
             const message = input.value.trim();
             if (!message) return;
 
-            // 채팅창에 내 메시지 추가
             const chatWin = document.getElementById('side-chat-window');
+            
+            // 내 메시지 표시
             chatWin.innerHTML += `<div class="flex justify-end"><div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none text-sm font-bold shadow-md inline-block max-w-[80%]">${message}</div></div>`;
             input.value = '';
             chatWin.scrollTop = chatWin.scrollHeight;
 
-            // 실제 서버 통신 로직은 주인님의 기존 api 연동에 맞게 사용하시면 됩니다.
+            // 로딩 표시 (선택 사항)
+            const loadingId = 'loading-' + Date.now();
+            chatWin.innerHTML += `<div id="${loadingId}" class="bg-slate-200 text-slate-500 p-3 rounded-2xl rounded-tl-none text-xs font-bold inline-block animate-pulse">분석 중...</div>`;
+
+            try {
+                const response = await fetch('{% url "monitoring:chat_api" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+                
+                const data = await response.json();
+                document.getElementById(loadingId).remove(); // 로딩 제거
+
+                // AI 답변 표시
+                chatWin.innerHTML += `<div class="bg-white border border-slate-100 text-slate-700 p-4 rounded-2xl rounded-tl-none text-sm font-bold shadow-sm inline-block max-w-[80%]">${data.reply}</div>`;
+            } catch (error) {
+                document.getElementById(loadingId).innerText = "앗, 오류가 발생했어요.";
+            }
+            
+            chatWin.scrollTop = chatWin.scrollHeight;
         });
     </script>
 </body>

@@ -30,25 +30,25 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
         {% for item in tank_data %}
-        <div class="bg-white p-9 rounded-[2.8rem] shadow-xl border border-white hover:border-blue-300 transition-all group cursor-pointer" onclick="location.href='{% url 'monitoring:dashboard' item.tank.id %}'">
+        <div class="bg-white p-10 rounded-[3rem] shadow-xl border border-white hover:border-blue-400 transition-all group cursor-pointer" onclick="location.href='{% url 'monitoring:dashboard' item.tank.id %}'">
             <div class="flex justify-between items-start mb-8">
                 <div>
-                    <h3 class="font-black text-2xl text-gray-800 group-hover:text-blue-600 transition-colors">{{ item.tank.name }}</h3>
+                    <h3 class="font-black text-3xl text-gray-800 group-hover:text-blue-600 transition-colors">{{ item.tank.name }}</h3>
                     {% if item.d_day is not None %}
-                    <span class="text-[11px] font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-400{% endif %}">환수 D-{{ item.d_day }}</span>
+                    <span class="text-sm font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-400{% endif %}">환수 D-{{ item.d_day }}</span>
                     {% endif %}
                 </div>
-                <span class="text-xs font-black px-3 py-1 rounded-full {% if item.status == 'DANGER' %}bg-red-500 text-white animate-pulse{% else %}bg-blue-500 text-white{% endif %}">{{ item.status }}</span>
+                <span class="text-xs font-black px-4 py-2 rounded-full {% if item.status == 'DANGER' %}bg-red-500 text-white animate-pulse{% else %}bg-blue-500 text-white{% endif %}">{{ item.status }}</span>
             </div>
             
             <div class="grid grid-cols-2 gap-6">
-                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
-                    <span class="block text-[10px] text-slate-400 font-black mb-1">TEMP</span>
-                    <span class="text-2xl font-black text-slate-800">{{ item.latest.temperature|default:"--" }}°C</span>
+                <div class="bg-slate-50 p-8 rounded-[2.5rem] text-center border border-slate-100">
+                    <span class="block text-xs text-slate-400 font-black mb-1">TEMPERATURE</span>
+                    <span class="text-3xl font-black text-slate-800">{{ item.latest.temperature|default:"--" }}°C</span>
                 </div>
-                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
-                    <span class="block text-[10px] text-slate-400 font-black mb-1">PH</span>
-                    <span class="text-2xl font-black text-slate-800">{{ item.latest.ph|default:"--" }}</span>
+                <div class="bg-slate-50 p-8 rounded-[2.5rem] text-center border border-slate-100">
+                    <span class="block text-xs text-slate-400 font-black mb-1">PH LEVEL</span>
+                    <span class="text-3xl font-black text-slate-800">{{ item.latest.ph|default:"--" }}</span>
                 </div>
             </div>
         </div>

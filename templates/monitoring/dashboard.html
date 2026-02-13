@@ -1,11 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="py-6">
-    <div class="mb-10 px-4">
-        <h1 class="text-4xl font-black text-slate-800 mb-2 flex items-center gap-3">
-            📊 실시간 대시보드
-        </h1>
-        <p class="text-slate-500 font-bold">지능형 수질 분석 및 환수 관리 시스템이 작동 중입니다.</p>
+    <div class="flex gap-2 overflow-x-auto pb-4 mb-6 px-4 no-scrollbar">
+        {% for t in user_tanks %}
+        <a href="{% url 'monitoring:dashboard' t.id %}" 
+           class="px-6 py-3 rounded-2xl font-black text-sm whitespace-nowrap transition-all
+           {% if t.id == tank.id %}bg-blue-600 text-white shadow-lg shadow-blue-100{% else %}bg-white text-slate-400 border border-slate-100 hover:bg-slate-50{% endif %}">
+            {{ t.name }}
+        </a>
+        {% endfor %}
     </div>
 
     <div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-10 md:p-14 mb-10">
@@ -14,13 +17,11 @@
                 <span class="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em] block mb-2">Aquarium Unit</span>
                 <h2 class="text-4xl font-black text-slate-800">{{ tank.name }}</h2>
             </div>
-            <span class="px-6 py-2 rounded-full text-sm font-black bg-blue-500 text-white shadow-lg shadow-blue-100">
-                정상
-            </span>
+            <span class="px-6 py-2 rounded-full text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
-            <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50 relative group">
+            <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">Temp</p>
                 <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.temperature|default:"--" }}°C</p>
                 {% if latest.temperature %}
@@ -41,12 +42,12 @@
             <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">Level</p>
                 <p class="text-3xl font-black text-slate-800 mb-2">--%</p>
-                <span class="text-[10px] font-bold text-slate-300">데이터 없음</span>
+                <span class="text-[10px] font-bold text-slate-300">센서 미연결</span>
             </div>
 
             <div class="bg-blue-50/30 rounded-[2.5rem] p-8 text-center border border-blue-100/50">
                 <p class="text-[10px] text-blue-400 font-black uppercase mb-3 tracking-widest">Water Change</p>
-                <p class="text-3xl font-black text-slate-800">D-{{ d_day|default:"7" }}</p>
+                <p class="text-3xl font-black text-slate-800">D-{{ d_day }}</p>
             </div>
         </div>
 
@@ -63,17 +64,20 @@
                 <span class="text-3xl">🌀</span>
                 <span class="font-black text-xs">여과기</span>
             </button>
-            <button onclick="completeWaterChange()" 
-                    class="flex flex-col items-center justify-center gap-3 py-8 rounded-[2rem] bg-white border-2 border-blue-500 shadow-xl shadow-blue-50 hover:bg-blue-50 transition-colors">
-                <span class="text-3xl">🗑️</span>
-                <span class="font-black text-xs text-blue-600">환수완료</span>
+            
+            <button id="waterChangeBtn" onclick="completeWaterChange()" 
+                    class="flex flex-col items-center justify-center gap-3 py-8 rounded-[2rem] border-2 transition-all
+                    {% if is_water_changed_today %}bg-emerald-500 border-emerald-400 text-white shadow-xl shadow-emerald-100{% else %}bg-white border-blue-500 shadow-xl shadow-blue-50 hover:bg-blue-50 text-blue-600{% endif %}"
+                    {% if is_water_changed_today %}disabled{% endif %}>
+                <span class="text-3xl">{% if is_water_changed_today %}✅{% else %}🗑️{% endif %}</span>
+                <span class="font-black text-xs">{% if is_water_changed_today %}환수완료{% else %}환수하기{% endif %}</span>
             </button>
         </div>
 
         <div class="border-t border-slate-50 pt-8">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest italic">Live Activity</h3>
-                <a href="{% url 'monitoring:logs' %}" class="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-lg text-slate-500">View All</a>
+                <a href="{% url 'monitoring:logs' %}" class="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-lg text-slate-500">전체보기</a>
             </div>
             <div class="space-y-4">
                 {% for log in logs|slice:":3" %}
@@ -90,14 +94,9 @@
             </div>
         </div>
     </div>
-    
-    <div class="flex justify-center">
-        <a href="{% url 'monitoring:index' %}" class="text-slate-400 font-black text-sm hover:text-blue-500 transition-colors">← 메인 화면으로 돌아가기</a>
-    </div>
 </div>
 
 <script>
-// 장치 제어
 function controlDevice(deviceType) {
     fetch(`/monitoring/toggle-device/{{ tank.id }}/`, {
         method: 'POST',
@@ -113,9 +112,8 @@ function controlDevice(deviceType) {
     });
 }
 
-// 환수 완료 처리
 function completeWaterChange() {
-    if(!confirm('오늘 환수를 완료하셨습니까?')) return;
+    if(!confirm('환수를 완료하셨습니까? 오늘 날짜로 기록됩니다.')) return;
     
     fetch(`/monitoring/water-change/{{ tank.id }}/`, {
         method: 'POST',
@@ -126,7 +124,6 @@ function completeWaterChange() {
     .then(res => res.json())
     .then(data => {
         if(data.status === 'success') {
-            alert('환수 기록이 업데이트되었습니다!');
             location.reload();
         }
     })
