@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="py-8 max-w-6xl mx-auto px-4" x-data="{ editMode: false, selectedTanks: [], showAll: false }">
+<div class="py-8 max-w-6xl mx-auto px-4" x-data="{ editMode: false, selectedTanks: [] }">
     <div class="mb-14">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 px-2 gap-4">
             <div>
@@ -11,17 +11,21 @@
                 <p class="text-slate-400 font-bold text-sm mt-1 ml-1">우리 물고기들의 환경을 실시간으로 감시 중입니다.</p>
             </div>
             
-            <div class="flex items-center gap-3 w-full md:w-auto">
+            <div class="flex items-center gap-2 w-full md:w-auto">
+                <a href="{% url 'monitoring:dashboard' %}" class="bg-white border border-slate-200 text-slate-600 px-4 py-3 rounded-2xl font-black transition-all text-xs hover:bg-slate-50 shadow-sm whitespace-nowrap">
+                    어항 목록
+                </a>
+
                 <button 
                     @click="if(editMode && selectedTanks.length > 0) { if(confirm('정말 삭제하시겠습니까?')) document.getElementById('delete-form').submit() }; editMode = !editMode"
-                    :class="editMode ? 'bg-red-500 text-white' : 'text-red-500 bg-red-50'"
-                    class="px-6 py-3 rounded-2xl font-black transition-all text-sm whitespace-nowrap flex-1 md:flex-none border border-red-100 hover:scale-105 active-stable shadow-sm"
+                    :class="editMode ? 'bg-red-500 text-white border-red-500' : 'text-slate-600 bg-white border border-slate-200'"
+                    class="px-4 py-3 rounded-2xl font-black transition-all text-xs whitespace-nowrap shadow-sm hover:scale-105 active:scale-95 border"
                 >
-                    <span x-text="editMode ? (selectedTanks.length > 0 ? '선택한 어항 삭제' : '취소') : '어항 삭제/관리'"></span>
+                    <span x-text="editMode ? (selectedTanks.length > 0 ? '선택 삭제' : '취-소') : '어항 편집'"></span>
                 </button>
 
-                <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black shadow-xl shadow-blue-100 hover:scale-105 transition-all text-sm whitespace-nowrap flex-1 md:flex-none text-center">
-                    + 어항 추가하기
+                <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg shadow-blue-100 hover:scale-105 transition-all text-xs whitespace-nowrap text-center">
+                    + 어항 추가
                 </a>
             </div>
         </div>
@@ -45,7 +49,6 @@
                     <div 
                         class="bg-white p-9 rounded-[2.8rem] shadow-xl shadow-gray-200/50 border transition-all group relative overflow-hidden"
                         :class="selectedTanks.includes('{{ tank.id }}') ? 'border-red-400 ring-4 ring-red-50' : 'border-white hover:border-blue-300'"
-                        {% if forloop.counter > 2 %}x-show="showAll || editMode" x-cloak x-transition{% endif %}
                     >
                         <div x-show="editMode" x-transition class="absolute top-8 left-8 z-30">
                             <input type="checkbox" value="{{ tank.id }}" x-model="selectedTanks" 
@@ -80,25 +83,6 @@
                         <p class="text-gray-400 font-black text-lg text-center">등록된 어항이 없습니다.</p>
                     </div>
                 {% endfor %}
-
-                {% if user.tanks.count > 2 %}
-                <div class="col-span-full flex justify-center mt-2" x-show="!editMode">
-                    <button 
-                        @click="showAll = !showAll" 
-                        class="bg-white border border-blue-100 text-blue-600 px-6 py-2.5 rounded-xl font-black shadow-sm hover:bg-blue-50 hover:scale-105 transition-all text-xs flex items-center gap-2"
-                    >
-                        <span x-text="showAll ? '접기' : '기타 어항 정보 더 보기'"></span>
-                        <svg 
-                            class="w-3 h-3 transition-transform duration-300" 
-                            :class="showAll ? 'rotate-180' : ''" 
-                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-                </div>
-                {% endif %}
-
             {% else %}
                 <div class="col-span-full py-20 bg-white/50 border-4 border-dashed border-gray-100 rounded-[3rem] text-center">
                     <p class="text-gray-400 font-black text-lg">로그인 후 실시간 상태를 확인할 수 있습니다.</p>
