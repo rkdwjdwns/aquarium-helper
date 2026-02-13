@@ -8,7 +8,6 @@ urlpatterns = [
     path('', views.index, name='index'), 
     
     # 2. 상세 대시보드 
-    # tank_id가 없을 때와 있을 때 모두 대응하도록 두 개를 지정합니다.
     path('dashboard/', views.dashboard, name='dashboard_default'), # 기본 대시보드
     path('dashboard/<int:tank_id>/', views.dashboard, name='dashboard'), # 특정 어항 상세
     
