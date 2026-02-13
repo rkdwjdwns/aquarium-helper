@@ -117,17 +117,19 @@
 
             const chatWin = document.getElementById('side-chat-window');
             
-            // 내 메시지 표시
-            chatWin.innerHTML += `<div class="flex justify-end"><div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none text-sm font-bold shadow-md inline-block max-w-[80%]">${message}</div></div>`;
+            // 유저 메시지 렌더링
+            chatWin.innerHTML += `<div class="flex justify-end mb-2"><div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none text-sm font-bold shadow-md inline-block max-w-[80%]">${message}</div></div>`;
             input.value = '';
             chatWin.scrollTop = chatWin.scrollHeight;
 
-            // 로딩 표시 (선택 사항)
+            // 로딩 표시
             const loadingId = 'loading-' + Date.now();
-            chatWin.innerHTML += `<div id="${loadingId}" class="bg-slate-200 text-slate-500 p-3 rounded-2xl rounded-tl-none text-xs font-bold inline-block animate-pulse">분석 중...</div>`;
+            chatWin.innerHTML += `<div id="${loadingId}" class="bg-slate-200 text-slate-500 p-3 rounded-2xl rounded-tl-none text-xs font-bold inline-block animate-pulse mb-2">분석 중...</div>`;
+            chatWin.scrollTop = chatWin.scrollHeight;
 
             try {
-                const response = await fetch('{% url "monitoring:chat_api" %}', {
+                // [수정 완료] 기존 monitoring:chat_api 대신 통합된 chatbot:ask 경로 사용
+                const response = await fetch('/chatbot/ask/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -137,12 +139,18 @@
                 });
                 
                 const data = await response.json();
-                document.getElementById(loadingId).remove(); // 로딩 제거
+                const loadingElem = document.getElementById(loadingId);
+                if (loadingElem) loadingElem.remove();
 
-                // AI 답변 표시
-                chatWin.innerHTML += `<div class="bg-white border border-slate-100 text-slate-700 p-4 rounded-2xl rounded-tl-none text-sm font-bold shadow-sm inline-block max-w-[80%]">${data.reply}</div>`;
+                // 서버 응답 필드 대응 (reply 또는 message)
+                const botReply = data.reply || data.message || "답변을 가져오지 못했습니다.";
+
+                // AI 답변 렌더링
+                chatWin.innerHTML += `<div class="bg-white border border-slate-100 text-slate-700 p-4 rounded-2xl rounded-tl-none text-sm font-bold shadow-sm inline-block max-w-[80%] mb-2">${botReply}</div>`;
             } catch (error) {
-                document.getElementById(loadingId).innerText = "앗, 오류가 발생했어요.";
+                const loadingElem = document.getElementById(loadingId);
+                if (loadingElem) loadingElem.innerText = "앗, 서버와 연결이 끊겼어요.";
+                console.error("Chat Error:", error);
             }
             
             chatWin.scrollTop = chatWin.scrollHeight;
