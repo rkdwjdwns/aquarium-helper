@@ -42,13 +42,15 @@
     <nav class="sticky top-4 z-[60] mx-auto w-[95%] max-w-6xl font-pretendard">
         <div class="bg-white/70 backdrop-blur-md border border-white/40 shadow-xl rounded-2xl px-4 md:px-6 py-4 flex justify-between items-center">
             <div class="flex items-center">
-                <a href="{% url 'monitoring:dashboard' %}" class="text-xl md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent tracking-tighter shrink-0 active-stable">
+                <a href="{% url 'monitoring:tank_list' %}" class="text-xl md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent tracking-tighter shrink-0 active-stable">
                     🐠 어항 도우미
                 </a>
             </div>
 
             <div class="flex items-center space-x-2 md:space-x-4">
                 {% if user.is_authenticated %}
+                    <a href="{% url 'monitoring:dashboard' %}" class="hidden md:block text-xs font-black text-slate-400 hover:text-blue-500 px-2 transition-colors">대시보드</a>
+                    
                     <div class="relative" x-data="{ open: false }">
                         <button @click="open = !open" @click.away="open = false" type="button" class="flex items-center bg-blue-50 px-3 py-2 rounded-xl text-blue-700 active-stable text-xs font-bold transition-all hover:bg-blue-100">
                             <span class="truncate max-w-[60px] md:max-w-none">{{ user.nickname|default:user.username }}님</span>
@@ -106,6 +108,19 @@
                 sidebar.style.transform = 'translateX(150%)';
                 document.body.classList.remove('chat-open');
             }
+        }
+
+        // 챗봇 폼 제출 로직 (필요 시 추가 연동)
+        const chatForm = document.getElementById('side-chat-form');
+        if (chatForm) {
+            chatForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const input = document.getElementById('side-user-input');
+                if (!input.value.trim()) return;
+                
+                // 여기에 메시지 추가 로직 및 API 호출 코드를 넣으면 완벽합니다!
+                input.value = '';
+            });
         }
     </script>
 </body>
