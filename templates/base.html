@@ -17,33 +17,56 @@
             margin: 0;
             padding: 0;
         }
+        [x-cloak] { display: none !important; }
         .active-stable:active { transform: scale(0.98); transition: transform 0.1s; }
+        
+        /* 챗봇 사이드바 스타일 복구 */
         #chatbot-sidebar { 
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(15px); background-color: rgba(255, 255, 255, 0.95);
-            width: 380px; height: 600px; position: fixed; bottom: 100px; right: 30px;
-            border-radius: 2rem; border: 1px solid rgba(0, 0, 0, 0.05);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column; z-index: 70;
+            backdrop-filter: blur(15px); 
+            background-color: rgba(255, 255, 255, 0.95);
+            width: 380px; 
+            height: 600px; 
+            position: fixed; 
+            bottom: 100px; 
+            right: 30px;
+            border-radius: 2.5rem; 
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15); 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 70;
         }
         @media (max-width: 768px) { 
-            #chatbot-sidebar { width: 100%; height: 80vh; right: 0; bottom: 0; border-radius: 2rem 2rem 0 0; }
+            #chatbot-sidebar { width: 100%; height: 80vh; right: 0; bottom: 0; border-radius: 2.5rem 2.5rem 0 0; }
         }
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
     <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div class="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
-            <a href="{% url 'monitoring:dashboard' %}" class="text-xl font-bold text-blue-600 tracking-tighter active-stable">
+            <a href="{% url 'monitoring:index' %}" class="text-xl font-bold text-blue-600 tracking-tighter active-stable">
                 🐠 어항 도우미
             </a>
 
             <div class="flex items-center space-x-4">
                 {% if user.is_authenticated %}
-                    <span class="text-sm font-bold text-slate-700">{{ user.nickname|default:user.username }}님</span>
-                    <form action="{% url 'accounts:logout' %}" method="post" class="m-0">
-                        {% csrf_token %}
-                        <button type="submit" class="text-xs text-red-400 font-bold border border-red-100 px-2 py-1 rounded-lg hover:bg-red-50">로그아웃</button>
-                    </form>
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" @click.away="open = false" class="text-sm font-bold text-slate-700 flex items-center gap-1 outline-none">
+                        {{ user.nickname|default:user.username }}님
+                        <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </button>
+                    <div x-show="open" x-cloak x-transition class="absolute right-0 mt-2 w-40 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50">
+                        <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-blue-50 font-bold">내 정보</a>
+                        <div class="border-t border-slate-50 my-1"></div>
+                        <form action="{% url 'accounts:logout' %}" method="post" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 font-bold">로그아웃</button>
+                        </form>
+                    </div>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -56,30 +79,52 @@
     <button onclick="toggleChat()" class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-full shadow-2xl flex items-center justify-center text-3xl z-[45] hover:scale-110 active-stable transition-all border-4 border-white">🐠</button>
     
     <div id="chatbot-sidebar" style="transform: translateX(150%);">
-        <div class="p-5 bg-gradient-to-r from-blue-600 to-cyan-500 flex justify-between items-center text-white shrink-0 rounded-t-[2rem]">
-            <h2 class="font-black text-sm tracking-tight uppercase">어항 도우미 AI</h2>
+        <div class="p-6 bg-gradient-to-r from-blue-600 to-cyan-500 flex justify-between items-center text-white shrink-0 rounded-t-[2.5rem]">
+            <div>
+                <h2 class="font-black text-sm tracking-tight uppercase">어항 도우미 AI</h2>
+                <p class="text-[10px] opacity-80 font-bold">실시간 수질 분석 및 상담</p>
+            </div>
             <button onclick="toggleChat()" class="text-white/80 hover:text-white text-3xl">&times;</button>
         </div>
+        
         <div id="side-chat-window" class="flex-1 overflow-y-auto p-5 space-y-4 bg-[#F8FBFF]">
             <div class="bg-blue-100 text-blue-800 p-4 rounded-2xl rounded-tl-none text-sm font-bold shadow-sm inline-block max-w-[80%]">
-                안녕하세요 주인님! 🌊<br>궁금한 점을 물어봐 주세요.
+                안녕하세요 주인님! 🌊<br>어항 상태에 대해 궁금한 점을 물어봐 주세요.
             </div>
         </div>
-        <div class="p-4 bg-white border-t border-slate-100 rounded-b-[2rem]">
+
+        <div class="p-4 bg-white border-t border-slate-100 rounded-b-[2.5rem]">
             <form id="side-chat-form" class="flex gap-2">
                 {% csrf_token %}
-                <input type="text" id="side-user-input" class="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-400" placeholder="메시지 입력...">
-                <button type="submit" class="bg-blue-600 text-white px-5 py-3 rounded-xl text-xs font-black">전송</button>
+                <input type="text" id="side-user-input" class="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="질문을 입력하세요...">
+                <button type="submit" class="bg-blue-600 text-white px-5 py-3 rounded-xl text-xs font-black shadow-md active-stable">전송</button>
             </form>
         </div>
     </div>
 
     <script>
+        // 챗봇 토글 스크립트 복구
         function toggleChat() {
             const sidebar = document.getElementById('chatbot-sidebar');
             const isClosed = sidebar.style.transform === 'translateX(150%)';
             sidebar.style.transform = isClosed ? 'translateX(0px)' : 'translateX(150%)';
         }
+
+        // 챗봇 전송 로직 (기존 연동용)
+        document.getElementById('side-chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('side-user-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // 채팅창에 내 메시지 추가
+            const chatWin = document.getElementById('side-chat-window');
+            chatWin.innerHTML += `<div class="flex justify-end"><div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none text-sm font-bold shadow-md inline-block max-w-[80%]">${message}</div></div>`;
+            input.value = '';
+            chatWin.scrollTop = chatWin.scrollHeight;
+
+            // 실제 서버 통신 로직은 주인님의 기존 api 연동에 맞게 사용하시면 됩니다.
+        });
     </script>
 </body>
 </html>

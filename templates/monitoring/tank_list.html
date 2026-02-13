@@ -1,53 +1,40 @@
 {% extends 'base.html' %}
-
 {% block content %}
 <div class="max-w-4xl mx-auto">
-    <div class="flex justify-between items-end mb-12">
+    <div class="flex justify-between items-end mb-12 px-2">
         <div>
             <h2 class="text-4xl font-black text-slate-800 tracking-tight">🌊 어항 편집 센터</h2>
-            <p class="text-slate-500 font-medium mt-2">어항 정보를 수정하거나 시스템에서 삭제합니다.</p>
+            <p class="text-slate-500 font-bold mt-2">등록된 어항 정보를 관리하고 수정합니다.</p>
         </div>
-        <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-blue-100 hover:scale-105 transition-all text-sm">
-            ➕ 새 어항 추가
-        </a>
+        <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-6 py-4 rounded-2xl font-black shadow-lg shadow-blue-100 hover:scale-105 transition-all text-sm">+ 새 어항 추가</a>
     </div>
 
-    <div class="grid grid-cols-1 gap-6">
+    <div class="grid grid-cols-1 gap-6 mb-10">
         {% for item in tank_data %}
-        <div class="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-shadow">
+        <div class="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div class="flex items-center gap-6">
-                <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl">🐠</div>
+                <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner">🐠</div>
                 <div>
                     <h3 class="text-2xl font-black text-slate-800">{{ item.tank.name }}</h3>
-                    <p class="text-sm text-slate-400 font-bold mt-1">
-                        어종: {{ item.tank.fish_species|default:"미지정" }} | 용량: {{ item.tank.capacity }}L
-                    </p>
+                    <p class="text-sm text-slate-400 font-bold mt-1">어종: {{ item.tank.fish_species|default:"미지정" }} | 용량: {{ item.tank.capacity }}L</p>
                 </div>
             </div>
 
             <div class="flex items-center gap-3">
-                <a href="{% url 'monitoring:edit_tank' item.tank.id %}" class="bg-slate-100 text-slate-600 px-6 py-3 rounded-xl font-black hover:bg-blue-100 hover:text-blue-600 transition-all text-sm">
-                    🛠️ 수정하기
-                </a>
-                <form action="{% url 'monitoring:delete_tank' item.tank.id %}" method="post" onsubmit="return confirm('정말 삭제할까요?')">
+                <a href="{% url 'monitoring:edit_tank' item.tank.id %}" class="bg-slate-100 text-slate-600 px-6 py-3 rounded-xl font-black hover:bg-blue-100 hover:text-blue-600 transition-all text-sm">수정하기</a>
+                <form action="{% url 'monitoring:delete_tank' item.tank.id %}" method="post" onsubmit="return confirm('이 어항을 삭제할까요?')">
                     {% csrf_token %}
-                    <button type="submit" class="bg-white border border-red-100 text-red-400 px-4 py-3 rounded-xl font-black hover:bg-red-50 hover:text-red-600 transition-all text-sm">
-                        🗑️ 삭제
-                    </button>
+                    <button type="submit" class="bg-white border border-red-100 text-red-400 px-5 py-3 rounded-xl font-black hover:bg-red-50 hover:text-red-600 transition-all text-sm">삭제</button>
                 </form>
             </div>
-        </div>
-        {% empty %}
-        <div class="bg-white rounded-[3rem] p-20 text-center border-4 border-dashed border-slate-100">
-            <p class="text-slate-300 font-black text-xl">편집할 어항이 없습니다.</p>
         </div>
         {% endfor %}
     </div>
 
-    <div class="mt-12 text-center">
-        <a href="{% url 'monitoring:dashboard' %}" class="text-slate-400 font-bold hover:text-blue-500 transition-colors">
-            ← 대시보드로 돌아가기
-        </a>
+    <div class="flex justify-center gap-2">
+        {% for num in page_obj.paginator.page_range %}
+        <a href="?page={{ num }}" class="w-10 h-10 flex items-center justify-center rounded-xl font-bold {% if page_obj.number == num %}bg-blue-600 text-white{% else %}bg-white text-slate-400 border border-slate-100{% endif %}">{{ num }}</a>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}
