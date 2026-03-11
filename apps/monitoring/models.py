@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 
 class Tank(models.Model):
-    """어항 정보"""
+    """어항 정보 및 제어 설정"""
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
@@ -16,9 +16,14 @@ class Tank(models.Model):
     target_temp = models.FloatField(default=25.0, help_text="권장 온도")
     target_ph = models.FloatField(default=7.0, help_text="권장 pH")
     
-    # --- [추가] 환수 관리 필드 ---
+    # 환수 관리 필드
     last_water_change = models.DateField(null=True, blank=True, help_text="마지막 환수 날짜")
     water_change_period = models.IntegerField(default=7, help_text="환수 주기(일)")
+    
+    # 여과기 제어 필드
+    FILTER_MODES = [('MANUAL', '수동'), ('AUTO', '자동')]
+    filter_mode = models.CharField(max_length=10, choices=FILTER_MODES, default='MANUAL')
+    filter_is_on = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -26,17 +31,20 @@ class Tank(models.Model):
         return self.name
 
 class SensorReading(models.Model):
-    """센서 측정 데이터 (수온, pH, 수위)"""
+    """센서 측정 데이터 (수온, pH, 수위, 탁도, 점수)"""
     tank = models.ForeignKey(Tank, on_delete=models.CASCADE, related_name='readings')
     temperature = models.FloatField()
     ph = models.FloatField()
     water_level = models.FloatField(default=100)
+    turbidity = models.FloatField(default=0.0)      
+    water_quality_score = models.IntegerField(default=100) 
     created_at = models.DateTimeField(auto_now_add=True) 
 
     def __str__(self):
         return f"{self.tank.name} - {self.created_at}"
 
-Reading = SensorReading
+# 하위 호환을 위한 별칭
+Reading = SensorReading 
 
 class EventLog(models.Model):
     """중요 이벤트 및 위험 알림 로그"""
@@ -54,7 +62,7 @@ class EventLog(models.Model):
         return f"[{self.level}] {self.message}"
 
 class DeviceControl(models.Model):
-    """장비 원격 제어 시뮬레이션용 모델"""
+    """장비 원격 제어 모델"""
     DEVICE_TYPES = (
         ('LIGHT', '조명'),
         ('FILTER', '여과기'),

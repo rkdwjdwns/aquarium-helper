@@ -14,7 +14,7 @@
             <span class="text-3xl mb-2 block">📊</span>
             <span class="font-black text-slate-700 text-sm">대시보드</span>
         </a>
-        <a href="{% url 'monitoring:ai_report_list' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-100 hover:border-purple-300 transition-all">
+        <a href="{% url 'reports:report_list' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-100 hover:border-purple-300 transition-all">
             <span class="text-3xl mb-2 block">🤖</span>
             <span class="font-black text-slate-700 text-sm">AI 리포트</span>
         </a>
@@ -30,26 +30,38 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
         {% for item in tank_data %}
-        <div class="bg-white p-10 rounded-[3rem] shadow-xl border border-white hover:border-blue-400 transition-all group cursor-pointer" onclick="location.href='{% url 'monitoring:dashboard' item.tank.id %}'">
+        <div class="bg-white p-10 rounded-[3rem] shadow-xl border border-white hover:border-blue-400 transition-all group">
             <div class="flex justify-between items-start mb-8">
                 <div>
                     <h3 class="font-black text-3xl text-gray-800 group-hover:text-blue-600 transition-colors">{{ item.tank.name }}</h3>
-                    {% if item.d_day is not None %}
-                    <span class="text-sm font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-400{% endif %}">환수 D-{{ item.d_day }}</span>
-                    {% endif %}
+                    <div class="mt-2 flex gap-2">
+                        <span class="text-xs font-black px-3 py-1 bg-blue-50 text-blue-500 rounded-full">모드: {{ item.tank.get_filter_mode_display }}</span>
+                        <span class="text-xs font-black px-3 py-1 {% if item.tank.filter_is_on %}bg-green-500{% else %}bg-slate-300{% endif %} text-white rounded-full">여과기 {% if item.tank.filter_is_on %}ON{% else %}OFF{% endif %}</span>
+                    </div>
                 </div>
-                <span class="text-xs font-black px-4 py-2 rounded-full {% if item.status == 'DANGER' %}bg-red-500 text-white animate-pulse{% else %}bg-blue-500 text-white{% endif %}">{{ item.status }}</span>
+                {% if item.d_day is not None %}
+                <span class="text-sm font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-400{% endif %}">환수 D-{{ item.d_day }}</span>
+                {% endif %}
             </div>
             
-            <div class="grid grid-cols-2 gap-6">
-                <div class="bg-slate-50 p-8 rounded-[2.5rem] text-center border border-slate-100">
-                    <span class="block text-xs text-slate-400 font-black mb-1">TEMPERATURE</span>
-                    <span class="text-3xl font-black text-slate-800">{{ item.latest.temperature|default:"--" }}°C</span>
+            <div class="grid grid-cols-3 gap-4 mb-8">
+                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-black mb-1">PH LEVEL</span>
+                    <span class="text-2xl font-black text-slate-800">{{ item.latest.ph|default:"--" }}</span>
                 </div>
-                <div class="bg-slate-50 p-8 rounded-[2.5rem] text-center border border-slate-100">
-                    <span class="block text-xs text-slate-400 font-black mb-1">PH LEVEL</span>
-                    <span class="text-3xl font-black text-slate-800">{{ item.latest.ph|default:"--" }}</span>
+                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-black mb-1">TURBIDITY</span>
+                    <span class="text-2xl font-black text-slate-800">{{ item.latest.turbidity|default:"0.0" }}</span>
                 </div>
+                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-black mb-1">WATER SCORE</span>
+                    <span class="text-2xl font-black text-blue-500">{{ item.latest.water_quality_score|default:"100" }}</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="location.href='{% url 'monitoring:dashboard' item.tank.id %}'" class="flex-1 bg-slate-900 text-white py-4 rounded-[1.5rem] font-black text-sm hover:bg-slate-800 transition-all">제어판 입장</button>
+                <button onclick="location.href='{% url 'reports:report_list' %}'" class="flex-1 bg-blue-500 text-white py-4 rounded-[1.5rem] font-black text-sm hover:bg-blue-600 transition-all">AI 분석리포트</button>
             </div>
         </div>
         {% empty %}
