@@ -1,6 +1,6 @@
+# apps/monitoring/apps.py
 from django.apps import AppConfig
 
 class MonitoringConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    # [수정] INSTALLED_APPS에 등록된 이름과 일치시킵니다.
-    name = 'monitoring'
+    name = 'apps.monitoring'  # 이 부분을 반드시 'apps.monitoring'으로 수정

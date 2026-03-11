@@ -7,7 +7,7 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
-# apps 폴더 등록
+# apps 폴더 등록 (monitoring, accounts 등이 이 안에 있다면 필수)
 APPS_DIR = BASE_DIR / 'apps'
 sys.path.insert(0, str(APPS_DIR))
 
@@ -24,7 +24,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://aquarium-helper.onrender.com',
 ]
 
-# 3. 앱 등록
+# 3. 앱 등록 [수정 포인트: Config 클래스 경로 명시]
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,13 +34,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     
-    # 앱 경로 등록
-    'apps.accounts',
-    'apps.core',
-    'apps.monitoring',
-    'apps.reports',
-    'apps.ai',
-    'apps.chatbot',
+    # apps/ 내부에 있는 앱들은 아래와 같이 상세 경로로 등록해야 RuntimeError를 피할 수 있습니다.
+    'apps.accounts.apps.AccountsConfig',
+    'apps.core.apps.CoreConfig',
+    'apps.monitoring.apps.MonitoringConfig',
+    'apps.reports.apps.ReportsConfig',
+    'apps.ai.apps.AiConfig',
+    'apps.chatbot.apps.ChatbotConfig',
 ]
 
 MIDDLEWARE = [
@@ -77,8 +77,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fish.wsgi.application'
 
-# 4. 데이터베이스 설정 (Render PostgreSQL 우선 연결)
-# 환경변수에 DATABASE_URL이 있으면 그걸 쓰고, 없으면 Render 주소를 직접 넣거나 SQLite를 씁니다.
+# 4. 데이터베이스 설정 (Render PostgreSQL 연동)
 RENDER_DB_URL = "postgresql://fishadmin:Zpyvc8UcvJl6crGmBSr6lZrAIPNYpbFA@dpg-d66njmcr85hc739qhod0-a/fishdb_t8jy"
 
 DATABASES = {
@@ -119,12 +118,10 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
-# 8. AI 설정 (뷰에서 참조할 이름 고정)
+# 8. AI 설정
 GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
 GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
 GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
-
-# [핵심] 뷰에서 settings.GEMINI_API_KEY로 접근할 수 있게 통합
 GEMINI_API_KEY = GEMINI_API_KEY_1 or GEMINI_API_KEY_2 or GEMINI_API_KEY_3 or ""
 
 # --- 배포 환경 보안 설정 ---
