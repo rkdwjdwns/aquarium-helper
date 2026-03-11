@@ -7,9 +7,10 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
-# apps 폴더 등록 (monitoring, accounts 등이 이 안에 있다면 필수)
+# [핵심] apps 폴더 내부의 앱들을 패키지로 인식하도록 경로 등록
 APPS_DIR = BASE_DIR / 'apps'
-sys.path.insert(0, str(APPS_DIR))
+if str(APPS_DIR) not in sys.path:
+    sys.path.insert(0, str(APPS_DIR))
 
 # 2. 보안 및 환경 설정
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
@@ -18,13 +19,14 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 # 모든 호스트 허용
 ALLOWED_HOSTS = ['*'] 
 
-# CSRF 신뢰할 수 있는 도메인 설정 (Render 실제 주소 통합)
+# CSRF 신뢰할 수 있는 도메인 설정
 CSRF_TRUSTED_ORIGINS = [
     'https://*.onrender.com',
     'https://aquarium-helper.onrender.com',
 ]
 
-# 3. 앱 등록 [수정 포인트: Config 클래스 경로 명시]
+# 3. 앱 등록
+# 'apps.'을 붙여서 관리하는 구조이므로, Config 클래스명을 명확히 기입합니다.
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,7 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     
-    # apps/ 내부에 있는 앱들은 아래와 같이 상세 경로로 등록해야 RuntimeError를 피할 수 있습니다.
+    # 로컬 앱 (apps 디렉토리 내부)
     'apps.accounts.apps.AccountsConfig',
     'apps.core.apps.CoreConfig',
     'apps.monitoring.apps.MonitoringConfig',
@@ -116,7 +118,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
-AUTH_USER_MODEL = 'accounts.User'
+AUTH_USER_MODEL = 'apps.accounts.User' # [주의] 앱 경로를 명시적으로 표현
 
 # 8. AI 설정
 GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
