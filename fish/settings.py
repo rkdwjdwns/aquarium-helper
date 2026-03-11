@@ -7,7 +7,7 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
-# apps 폴더 등록 (monitoring, accounts 등이 이 안에 있다면 필수)
+# apps 폴더 등록
 APPS_DIR = BASE_DIR / 'apps'
 sys.path.insert(0, str(APPS_DIR))
 
@@ -18,9 +18,10 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 # 모든 호스트 허용
 ALLOWED_HOSTS = ['*'] 
 
-# CSRF 신뢰할 수 있는 도메인 설정 (Render 실제 주소 대응)
+# CSRF 신뢰할 수 있는 도메인 설정 (Render 실제 주소 통합)
 CSRF_TRUSTED_ORIGINS = [
     'https://*.onrender.com',
+    'https://aquarium-helper.onrender.com',
 ]
 
 # 3. 앱 등록
@@ -33,7 +34,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     
-    # 경로를 명확히 하여 RuntimeError 방지
+    # 앱 경로 등록
     'apps.accounts',
     'apps.core',
     'apps.monitoring',
@@ -44,7 +45,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # 최상단 유지
+    'whitenoise.middleware.WhiteNoiseMiddleware', 
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -58,10 +59,9 @@ ROOT_URLCONF = 'fish.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # DIRS를 아래와 같이 확실하게 지정해 주세요.
         'DIRS': [
             BASE_DIR / 'templates',
-            BASE_DIR / 'apps' / 'monitoring' / 'templates', # 추가
+            BASE_DIR / 'apps' / 'monitoring' / 'templates',
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -77,12 +77,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fish.wsgi.application'
 
-# 4. 데이터베이스 설정 (Render PostgreSQL 연동 및 로컬 SQLite 호환)
+# 4. 데이터베이스 설정 (Render PostgreSQL 우선 연결)
+# 환경변수에 DATABASE_URL이 있으면 그걸 쓰고, 없으면 Render 주소를 직접 넣거나 SQLite를 씁니다.
+RENDER_DB_URL = "postgresql://fishadmin:Zpyvc8UcvJl6crGmBSr6lZrAIPNYpbFA@dpg-d66njmcr85hc739qhod0-a/fishdb_t8jy"
+
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        default=os.getenv('DATABASE_URL', RENDER_DB_URL if not DEBUG else f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
         conn_max_age=600,
-        ssl_require=not DEBUG # 배포 환경에서만 SSL 강제
+        ssl_require=not DEBUG
     )
 }
 
@@ -99,7 +102,6 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 
-# [중요] 정적 파일 스토리지 설정 (파일 누락 시에도 서버가 꺼지지 않도록 유연하게 설정)
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -117,22 +119,20 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 AUTH_USER_MODEL = 'accounts.User'
 
-# --- [중요] 배포 환경 보안 설정 (DEBUG가 False일 때만 작동) ---
+# 8. AI 설정 (뷰에서 참조할 이름 고정)
+GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
+GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
+GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
+
+# [핵심] 뷰에서 settings.GEMINI_API_KEY로 접근할 수 있게 통합
+GEMINI_API_KEY = GEMINI_API_KEY_1 or GEMINI_API_KEY_2 or GEMINI_API_KEY_3 or ""
+
+# --- 배포 환경 보안 설정 ---
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
-    
-    # HSTS 설정
     SECURE_HSTS_SECONDS = 31536000 
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-
-# 8. AI 설정
-GEMINI_API_KEY_1 = os.getenv('GEMINI_API_KEY_1')
-GEMINI_API_KEY_2 = os.getenv('GEMINI_API_KEY_2')
-GEMINI_API_KEY_3 = os.getenv('GEMINI_API_KEY_3')
-GEMINI_API_KEY = GEMINI_API_KEY_1 or GEMINI_API_KEY_2 or GEMINI_API_KEY_3 or ""
-
-CSRF_TRUSTED_ORIGINS = ['https://aquarium-helper.onrender.com']
