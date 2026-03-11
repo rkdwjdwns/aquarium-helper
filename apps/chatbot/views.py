@@ -19,6 +19,7 @@ def ask_chatbot(request):
         user_message = ""
         image_file = None
 
+        # JSON 요청과 일반 Form 요청 모두 대응
         if request.content_type == 'application/json':
             try:
                 data = json.loads(request.body)
@@ -28,8 +29,15 @@ def ask_chatbot(request):
             user_message = request.POST.get('message', '').strip()
             image_file = request.FILES.get('image')
 
+        # 닉네임 설정 (없으면 username)
         display_name = getattr(request.user, 'nickname', request.user.username)
-        api_key = getattr(settings, 'GEMINI_API_KEY_1', os.environ.get('GEMINI_API_KEY_1'))
+        
+        # [수정] settings.py에 정의된 GEMINI_API_KEY를 우선 참조
+        api_key = getattr(settings, 'GEMINI_API_KEY', None) or \
+                  getattr(settings, 'GEMINI_API_KEY_1', os.environ.get('GEMINI_API_KEY_1'))
+
+        if not api_key:
+            return JsonResponse({'status': 'error', 'message': "API 키가 설정되지 않았습니다."}, status=500)
 
         try:
             genai.configure(api_key=api_key)
@@ -51,11 +59,17 @@ def ask_chatbot(request):
             else:
                 response = model.generate_content(user_message)
             
+            # 특수기호 제거 및 정리
             bot_response = response.text.replace('*', '').replace('#', '').replace('-', ' ').strip()
             
+            # DB 저장
             ChatMessage.objects.create(user=request.user, message=user_message, response=bot_response)
+            
+            # 응답 반환 (base.html의 JS가 'reply'를 찾음)
             return JsonResponse({'status': 'success', 'reply': bot_response})
             
         except Exception as e:
+            print(f"Chatbot Error: {e}") # 터미널에서 에러 확인용
             return JsonResponse({'status': 'error', 'message': "잠시 후 다시 시도해주세요!"}, status=500)
+            
     return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
