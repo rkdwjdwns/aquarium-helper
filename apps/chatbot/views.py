@@ -10,6 +10,7 @@ import json
 
 @login_required
 def chatbot_home(request):
+    # 최신 대화 기록 50개를 가져와서 보여줍니다.
     history = ChatMessage.objects.filter(user=request.user).order_by('-created_at')[:50]
     return render(request, 'chatbot/chat.html', {'history': reversed(list(history))})
 
@@ -19,7 +20,7 @@ def ask_chatbot(request):
         user_message = ""
         image_file = None
 
-        # JSON 요청과 일반 Form 요청 모두 대응
+        # JSON 및 Form 데이터 대응
         if request.content_type == 'application/json':
             try:
                 data = json.loads(request.body)
@@ -29,12 +30,10 @@ def ask_chatbot(request):
             user_message = request.POST.get('message', '').strip()
             image_file = request.FILES.get('image')
 
-        # 닉네임 설정 (없으면 username)
         display_name = getattr(request.user, 'nickname', request.user.username)
         
-        # [수정] settings.py에 정의된 GEMINI_API_KEY를 우선 참조
-        api_key = getattr(settings, 'GEMINI_API_KEY', None) or \
-                  getattr(settings, 'GEMINI_API_KEY_1', os.environ.get('GEMINI_API_KEY_1'))
+        # API 키 참조 (settings.py 우선)
+        api_key = getattr(settings, 'GEMINI_API_KEY', None) or os.environ.get('GEMINI_API_KEY_1')
 
         if not api_key:
             return JsonResponse({'status': 'error', 'message': "API 키가 설정되지 않았습니다."}, status=500)
@@ -55,21 +54,29 @@ def ask_chatbot(request):
             
             if image_file:
                 img = PIL.Image.open(image_file)
-                response = model.generate_content([user_message or "분석해줘", img])
+                response = model.generate_content([user_message or "이 어항 사진을 분석해줘.", img])
             else:
                 response = model.generate_content(user_message)
             
-            # 특수기호 제거 및 정리
+            # 응답 텍스트 정리
             bot_response = response.text.replace('*', '').replace('#', '').replace('-', ' ').strip()
             
-            # DB 저장
-            ChatMessage.objects.create(user=request.user, message=user_message, response=bot_response)
+            # DB 저장 (message가 비어있을 경우 대응)
+            ChatMessage.objects.create(
+                user=request.user, 
+                message=user_message if user_message else "(사진 분석 요청)", 
+                response=bot_response
+            )
             
-            # 응답 반환 (base.html의 JS가 'reply'를 찾음)
-            return JsonResponse({'status': 'success', 'reply': bot_response})
+            # 프론트엔드 JS가 'reply' 또는 'response' 중 무엇을 찾든 대응하도록 둘 다 보냅니다.
+            return JsonResponse({
+                'status': 'success', 
+                'reply': bot_response,
+                'response': bot_response  # undefined 방지를 위해 추가
+            })
             
         except Exception as e:
-            print(f"Chatbot Error: {e}") # 터미널에서 에러 확인용
-            return JsonResponse({'status': 'error', 'message': "잠시 후 다시 시도해주세요!"}, status=500)
+            print(f"Chatbot Error: {e}")
+            return JsonResponse({'status': 'error', 'message': "AI 응답 중 오류가 발생했습니다."}, status=500)
             
     return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
