@@ -1,9 +1,13 @@
+# apps/chatbot/urls.py
 from django.urls import path
-from . import views
+try:
+    from core.views import chat_api
+except ImportError:
+    from apps.core.views import chat_api
 
 app_name = 'chatbot'
 
 urlpatterns = [
-    # 사이드바 챗봇 전용 엔드포인트
-    path('ask/', views.ask_chatbot, name='ask'),
+    # base.html의 fetch('/chatbot/ask/')와 매칭됩니다.
+    path('ask/', chat_api, name='ask'),
 ]
