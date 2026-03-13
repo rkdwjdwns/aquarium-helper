@@ -115,7 +115,7 @@ def delete_tanks(request):
         messages.warning(request, "삭제할 어항을 선택해주세요.")
     return redirect('monitoring:tank_list')
 
-# --- [3. 제어 및 로그] ---
+# --- [3. 제어, 로그 및 카메라] ---
 
 @login_required
 def logs_view(request):
@@ -129,6 +129,15 @@ def logs_view(request):
     return render(request, 'monitoring/logs.html', {
         'page_obj': page_obj,
         'logs': page_obj
+    })
+
+@login_required
+def camera_view(request):
+    """[해결됨] 실시간 카메라 화면을 보여주는 함수"""
+    tank = Tank.objects.filter(user=request.user).first()
+    return render(request, 'monitoring/camera.html', {
+        'tank': tank,
+        'title': '실시간 모니터링'
     })
 
 @login_required
@@ -156,12 +165,7 @@ def ai_report_list(request):
     tanks = Tank.objects.filter(user=request.user).order_by('-id')
     
     tank_id = request.GET.get('tank_id')
-    selected_tank = None
-    if tank_id:
-        selected_tank = tanks.filter(id=tank_id).first()
-    
-    if not selected_tank:
-        selected_tank = tanks.first()
+    selected_tank = tanks.filter(id=tank_id).first() if tank_id else tanks.first()
 
     sort_order = request.GET.get('sort', 'desc')
     order_by = '-created_at' if sort_order == 'desc' else 'created_at'
