@@ -10,6 +10,7 @@ from django.core.paginator import Paginator
 from django.conf import settings
 from django.views.decorators.http import require_POST
 from django.apps import apps
+from django.db import transaction  # 중복 등록 방지를 위해 추가
 from datetime import date, timedelta
 
 # 모델 임포트
@@ -64,7 +65,7 @@ def dashboard(request, tank_id=None):
 
 @login_required
 def tank_list(request):
-    """어항 관리 목록 페이지 (편집 센터): 최신순 정렬"""
+    """어항 관리 목록 페이지 (편집 센터): 등록 즉시 반영되도록 filter 사용"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     return render(request, 'monitoring/tank_list.html', {
         'tanks': all_tanks,
@@ -75,20 +76,22 @@ def tank_list(request):
 
 @login_required
 def add_tank(request):
-    """어항 등록 후 리다이렉트"""
+    """어항 등록: 중복 방지 트랜잭션 적용"""
     if request.method == 'POST':
         try:
-            tank = Tank.objects.create(
-                user=request.user,
-                name=request.POST.get('name', '새 어항'),
-                target_temp=float(request.POST.get('target_temp') or 26.0),
-                water_change_period=int(request.POST.get('water_change_period') or 7),
-                last_water_change=date.today()
-            )
+            with transaction.atomic(): 
+                tank = Tank.objects.create(
+                    user=request.user,
+                    name=request.POST.get('name', '새 어항'),
+                    target_temp=float(request.POST.get('target_temp') or 26.0),
+                    water_change_period=int(request.POST.get('water_change_period') or 7),
+                    last_water_change=date.today()
+                )
             messages.success(request, f"'{tank.name}' 어항이 등록되었습니다.")
             return redirect('monitoring:tank_list') 
         except Exception as e:
             messages.error(request, f"등록 중 오류 발생: {e}")
+            
     return render(request, 'monitoring/tank_form.html', {'title': '어항 등록'})
 
 @login_required
@@ -149,20 +152,12 @@ def logs_view(request):
     logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
     return render(request, 'monitoring/logs.html', {'logs': logs})
 
-@login_required
-def camera_view(request):
-    """카메라 뷰"""
-    tanks = Tank.objects.filter(user=request.user)
-    return render(request, 'monitoring/camera.html', {'tanks': tanks})
-
 # --- [AI 및 리포트] ---
 
 @login_required
 def ai_report_list(request):
-    """AI 리포트: 어항별 선택 기능 추가"""
+    """AI 리포트: 어항별 선택 기능"""
     tanks = Tank.objects.filter(user=request.user).order_by('-id')
-    
-    # URL 파라미터(?tank_id=1)로 특정 어항 선택 처리
     selected_tank_id = request.GET.get('tank_id')
     selected_tank = None
     
@@ -178,7 +173,7 @@ def ai_report_list(request):
 
 @login_required
 def download_report(request, tank_id):
-    """특정 어항의 리포트 다운로드 (텍스트 형식 예시)"""
+    """특정 어항 리포트 다운로드"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     readings = tank.readings.all().order_by('-created_at')[:10]
     
@@ -193,12 +188,12 @@ def download_report(request, tank_id):
     response['Content-Disposition'] = f'attachment; filename="{tank.name}_report.txt"'
     return response
 
-# --- [AI 챗봇] ---
+# --- [AI 챗봇 API] ---
 
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 요약 및 가독성 최적화 버전"""
+    """AI 챗봇 API: 가이드북 스타일 답변 최적화"""
     try:
         user_message = ""
         image_file = None
@@ -223,14 +218,17 @@ def chat_api(request):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
                 
+                # 정준님이 원하시는 깔끔하고 가독성 좋은 스타일을 위한 시스템 지시문
                 instruction = (
-                    f"당신은 '어항 도우미'입니다. 모든 답변은 군더더기 없이 아주 짧고 명확하게 하세요.\n"
-                    f"사용자: {display_name}님 / 보유 어항: {tank_info}\n\n"
-                    f"답변 규칙:\n"
-                    f"1. 인사는 '{display_name}님! 🌊' 한 줄로 끝낼 것.\n"
-                    f"2. 모든 문장은 짧게 끊어서 줄바꿈할 것.\n"
-                    f"3. 별표(*), 샵(#), 대시(-) 기호 금지.\n"
-                    f"4. 필수 섹션: [수질 요약], [여과기 수동 설정], [자동 기기 설정]\n"
+                    f"당신은 친절하고 전문적인 '어항 관리 전문가'입니다. 다음 규칙을 엄격히 지켜 답변하세요.\n\n"
+                    f"1. 인사는 반드시 '{display_name}님! 🌊'으로 시작할 것.\n"
+                    f"2. 답변은 주제별로 이모지를 활용한 섹션으로 나누어 가독성을 높일 것 (예: 🌡️, 💧, 🍽️, 🏠).\n"
+                    f"3. 모든 문장은 아주 짧게 끊어서 쓰고, 줄바꿈을 자주 하여 눈이 편하게 할 것.\n"
+                    f"4. 필수 섹션(질문에 따라 포함): [수질 정보], [추천 가이드], [여과기 수동 설정], [자동 기기 설정].\n"
+                    f"5. 각 항목은 '● 항목명: 내용' 또는 '1. 항목명' 형태로 정리할 것.\n"
+                    f"6. 전문 용어는 쉽게 풀어서 설명하고, 마지막에는 항상 정준님을 응원하는 따뜻한 멘트와 이모지로 마무리할 것.\n"
+                    f"7. 마크다운 기호(*, #, -)는 가독성을 해치지 않는 선에서만 사용하고 가급적 깔끔한 텍스트 위주로 구성할 것.\n"
+                    f"사용자의 현재 어항 목록: {tank_info}"
                 )
                 
                 prompt_parts = [instruction, user_message]
@@ -240,7 +238,9 @@ def chat_api(request):
 
                 response = model.generate_content(prompt_parts)
                 if response and response.text:
-                    reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
+                    # 마크다운 강조 기호를 깔끔하게 정리하되 가독성을 위해 최소한만 유지
+                    reply = response.text.replace('**', '').replace('### ', '').strip()
+                    
                     try:
                         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
                         ChatMessage.objects.create(user=request.user, message=user_message or "(사진)", response=reply)
