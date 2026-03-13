@@ -5,8 +5,8 @@ class User(AbstractUser):
     nickname = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
-        # [추가] Django App Registry가 경로를 찾지 못할 때를 대비한 명시적 선언
         app_label = 'accounts'
+        db_table = 'auth_user'  # 기존 장고 유저 테이블과 호환성 유지
 
     def __str__(self):
         return self.username
