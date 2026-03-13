@@ -11,6 +11,7 @@ from django.conf import settings
 from django.views.decorators.http import require_POST
 from django.apps import apps
 from django.db import transaction
+from django.utils import timezone  # [중요] timezone 추가
 from datetime import date, timedelta
 
 # 모델 임포트
@@ -98,7 +99,6 @@ def edit_tank(request, tank_id):
 
 @login_required
 def delete_tank(request, tank_id):
-    """단일 어항 삭제"""
     get_object_or_404(Tank, id=tank_id, user=request.user).delete()
     messages.success(request, "삭제 완료.")
     return redirect('monitoring:tank_list')
@@ -106,7 +106,6 @@ def delete_tank(request, tank_id):
 @login_required
 @require_POST
 def delete_tanks(request):
-    """선택된 여러 개의 어항을 한꺼번에 삭제"""
     tank_ids = request.POST.getlist('tank_ids')
     if tank_ids:
         deleted_count, _ = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
@@ -119,7 +118,6 @@ def delete_tanks(request):
 
 @login_required
 def logs_view(request):
-    """어항 활동 로그 뷰"""
     logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
     paginator = Paginator(logs, 20)
     page_number = request.GET.get('page')
@@ -128,7 +126,6 @@ def logs_view(request):
 
 @login_required
 def camera_view(request):
-    """실시간 카메라 화면"""
     tank = Tank.objects.filter(user=request.user).first()
     return render(request, 'monitoring/camera.html', {'tank': tank, 'title': '실시간 모니터링'})
 
@@ -149,12 +146,11 @@ def perform_water_change(request, tank_id):
     tank.save()
     return JsonResponse({'status': 'success'})
 
-# --- [4. AI 리포트 관리 (정렬 로직 및 사용자 체크 최적화)] ---
+# --- [4. AI 리포트 관리 (데이터 동기화 완료)] ---
 
 @login_required
 def ai_report_list(request):
-    """리포트 목록: 현재 로그인 사용자의 어항 데이터를 강제 동기화"""
-    # 현재 로그인한 유저의 어항만 가져옴
+    """리포트 목록: 사용자 어항과 생성된 리포트를 동기화하여 렌더링"""
     tanks = Tank.objects.filter(user=request.user).order_by('-id')
     has_tanks = tanks.exists()
     
@@ -164,7 +160,6 @@ def ai_report_list(request):
     if has_tanks:
         if tank_id:
             selected_tank = tanks.filter(id=tank_id).first()
-        # 선택된 어항이 없거나 다른 유저의 ID인 경우 첫 번째 어항 선택
         if not selected_tank:
             selected_tank = tanks.first()
 
@@ -172,13 +167,22 @@ def ai_report_list(request):
     order_by = '-created_at' if sort_order == 'desc' else 'created_at'
 
     report_data = []
+    reports = []
+    
     if selected_tank:
         report_data = selected_tank.readings.all().order_by(order_by)
+        # Reports 앱의 Report 모델 가져오기 시도
+        try:
+            ReportModel = apps.get_model('reports', 'Report')
+            reports = ReportModel.objects.filter(tank=selected_tank).order_by('-created_at')
+        except:
+            pass
 
     return render(request, 'reports/report_list.html', {
         'tanks': tanks,
         'selected_tank': selected_tank,
         'report_data': report_data,
+        'reports': reports,
         'sort': sort_order,
         'has_tanks': has_tanks 
     })
@@ -190,26 +194,30 @@ def delete_report_data(request, reading_id):
     tank_id = reading.tank.id
     reading.delete()
     messages.success(request, "기록이 삭제되었습니다.")
-    return redirect(f'/monitoring/reports/?tank_id={tank_id}')
+    # /reports/ 경로가 설정되어 있다면 아래와 같이 사용
+    return redirect(f'/reports/?tank_id={tank_id}')
 
 @login_required
 def download_report(request, tank_id):
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     period = request.GET.get('period', 'daily')
-    today = date.today()
+    today = timezone.now()
     
     if period == 'weekly': start_date = today - timedelta(days=7)
     elif period == 'monthly': start_date = today - timedelta(days=30)
     else: start_date = today - timedelta(days=1)
 
-    readings = tank.readings.filter(created_at__date__gte=start_date).order_by('-created_at')
+    readings = tank.readings.filter(created_at__gte=start_date).order_by('-created_at')
     
-    content = f"[{tank.name}] {period.upper()} 리포트\n기준일: {today}\n" + "="*30 + "\n"
-    for r in readings:
-        content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} : {r.temperature}°C\n"
+    content = f"[{tank.name}] {period.upper()} 분석 기록\n기준일: {today.strftime('%Y-%m-%d')}\n" + "="*40 + "\n"
+    if readings.exists():
+        for r in readings:
+            content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} : {r.temperature}°C\n"
+    else:
+        content += "데이터가 없습니다."
     
-    response = HttpResponse(content, content_type='text/plain')
-    response['Content-Disposition'] = f'attachment; filename="{tank.name}_{period}.txt"'
+    response = HttpResponse(content, content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{tank.name}_{period}_report.txt"'
     return response
 
 # --- [5. AI 챗봇 API] ---

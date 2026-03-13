@@ -27,11 +27,11 @@
             <div class="flex flex-wrap items-center gap-3">
                 {% if selected_tank %}
                     <div class="flex gap-2">
-                        <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=daily" 
+                        <a href="{% url 'reports:create_stat_report' selected_tank.id %}?period=daily" 
                            class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100">일간 분석</a>
-                        <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=weekly" 
+                        <a href="{% url 'reports:create_stat_report' selected_tank.id %}?period=weekly" 
                            class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">주간 분석</a>
-                        <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=monthly" 
+                        <a href="{% url 'reports:create_stat_report' selected_tank.id %}?period=monthly" 
                            class="bg-slate-800 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-black transition shadow-lg shadow-slate-200">월간 분석</a>
                     </div>
                     
@@ -57,9 +57,7 @@
             </form>
 
             <div class="flex justify-between items-start mb-6">
-                <span class="px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">
-                    SENSOR DATA
-                </span>
+                <span class="px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">SENSOR DATA</span>
                 <span class="text-slate-400 font-bold text-[10px] mr-6">{{ report.created_at|date:"Y.m.d H:i" }}</span>
             </div>
             
