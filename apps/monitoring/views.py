@@ -106,7 +106,7 @@ def delete_tank(request, tank_id):
 @login_required
 @require_POST
 def delete_tanks(request):
-    """[해결됨] 선택된 여러 개의 어항을 한꺼번에 삭제하는 함수"""
+    """선택된 여러 개의 어항을 한꺼번에 삭제"""
     tank_ids = request.POST.getlist('tank_ids')
     if tank_ids:
         deleted_count, _ = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
@@ -119,26 +119,18 @@ def delete_tanks(request):
 
 @login_required
 def logs_view(request):
-    """[해결됨] 어항 활동 로그를 보여주는 함수"""
+    """어항 활동 로그 뷰"""
     logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
-    
     paginator = Paginator(logs, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'monitoring/logs.html', {
-        'page_obj': page_obj,
-        'logs': page_obj
-    })
+    return render(request, 'monitoring/logs.html', {'page_obj': page_obj})
 
 @login_required
 def camera_view(request):
-    """[해결됨] 실시간 카메라 화면을 보여주는 함수"""
+    """실시간 카메라 화면"""
     tank = Tank.objects.filter(user=request.user).first()
-    return render(request, 'monitoring/camera.html', {
-        'tank': tank,
-        'title': '실시간 모니터링'
-    })
+    return render(request, 'monitoring/camera.html', {'tank': tank, 'title': '실시간 모니터링'})
 
 @login_required
 @require_POST
@@ -161,14 +153,22 @@ def perform_water_change(request, tank_id):
 
 @login_required
 def ai_report_list(request):
-    """리포트 목록: 정렬 및 어항 존재 여부 체크 강화"""
+    """리포트 목록: 어항 존재 여부와 데이터 로직 최적화"""
     tanks = Tank.objects.filter(user=request.user).order_by('-id')
+    has_tanks = tanks.exists()
     
     tank_id = request.GET.get('tank_id')
-    selected_tank = tanks.filter(id=tank_id).first() if tank_id else tanks.first()
+    selected_tank = None
+    
+    # 어항이 있다면 무조건 하나는 선택되도록 보장
+    if has_tanks:
+        if tank_id:
+            selected_tank = tanks.filter(id=tank_id).first()
+        if not selected_tank:
+            selected_tank = tanks.first()
 
     sort_order = request.GET.get('sort', 'desc')
-    order_by = '-created_at' if sort_order == 'desc' else 'created_at'
+    order_by = '-created_at' if sort_order == 'desc' else 'at'
 
     report_data = []
     if selected_tank:
@@ -179,13 +179,12 @@ def ai_report_list(request):
         'selected_tank': selected_tank,
         'report_data': report_data,
         'sort': sort_order,
-        'has_tanks': tanks.exists()
+        'has_tanks': has_tanks 
     })
 
 @login_required
 @require_POST
 def delete_report_data(request, reading_id):
-    """특정 리포트 데이터 삭제"""
     reading = get_object_or_404(SensorReading, id=reading_id, tank__user=request.user)
     tank_id = reading.tank.id
     reading.delete()
@@ -194,19 +193,17 @@ def delete_report_data(request, reading_id):
 
 @login_required
 def download_report(request, tank_id):
-    """일간/주간/월간 리포트 다운로드 버튼 기능"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     period = request.GET.get('period', 'daily')
-    
     today = date.today()
+    
     if period == 'weekly': start_date = today - timedelta(days=7)
     elif period == 'monthly': start_date = today - timedelta(days=30)
     else: start_date = today - timedelta(days=1)
 
     readings = tank.readings.filter(created_at__date__gte=start_date).order_by('-created_at')
     
-    content = f"[{tank.name}] {period.upper()} 리포트\n기준일: {today}\n"
-    content += "="*30 + "\n"
+    content = f"[{tank.name}] {period.upper()} 리포트\n기준일: {today}\n" + "="*30 + "\n"
     for r in readings:
         content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} : {r.temperature}°C\n"
     
