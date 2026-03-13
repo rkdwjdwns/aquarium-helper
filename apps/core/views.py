@@ -57,7 +57,7 @@ def index(request):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 모델 인식 404 에러 강제 해결 및 세팅값 자동화"""
+    """AI 챗봇 API: 2026년 최신 모델 자동 인식 및 세팅값 특화"""
     user_message = ""
     image_file = None
 
@@ -84,58 +84,51 @@ def chat_api(request):
         return JsonResponse({'status': 'error', 'message': "사용 가능한 API 키가 없습니다."}, status=500)
 
     last_error_msg = ""
-
     for key in valid_keys:
         try:
             genai.configure(api_key=key)
             
-            # [진단 및 해결] 현재 API 키가 지원하는 모델 목록을 직접 가져옵니다.
-            # 0.5.0 버전 패키지에서도 작동하는 가장 안전한 탐색법입니다.
+            # [보완 1] 2026년 가용 모델 목록을 실시간으로 확인
             available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            print(f"Available models for this key: {available_models}") # Render 로그에서 확인용
-
-            # 우선순위대로 모델을 선정합니다.
+            
+            # [보완 2] 우선순위 모델 리스트 (로그에 찍힌 2.5, 2.0 버전을 최우선으로)
             selected_model = None
             if image_file:
-                # 이미지 분석이 가능한 모델 찾기
-                for m in ["models/gemini-1.5-flash", "models/gemini-pro-vision", "models/gemini-1.0-pro-vision-latest"]:
-                    if m in available_models:
-                        selected_model = m
-                        break
+                candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-1.5-flash", "models/gemini-pro-vision"]
             else:
-                # 텍스트 전용 모델 찾기
-                for m in ["models/gemini-1.5-flash", "models/gemini-pro", "models/gemini-1.0-pro"]:
-                    if m in available_models:
-                        selected_model = m
-                        break
+                candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-flash-latest", "models/gemini-pro"]
+
+            for cand in candidates:
+                if cand in available_models:
+                    selected_model = cand
+                    break
             
-            # 목록에서 못 찾았다면 하드코딩된 이름으로 최후의 시도
-            if not selected_model:
-                selected_model = "gemini-pro" if not image_file else "gemini-pro-vision"
+            # 후보에 없으면 목록 중 첫 번째 모델이라도 사용 (404 방지)
+            if not selected_model and available_models:
+                selected_model = available_models[0]
+            
+            if not selected_model: continue
 
             model = genai.GenerativeModel(model_name=selected_model)
             
-            # [규칙 보완] 사육 세팅값(수동/자동) 안내 강화
+            # [보완 3] 세팅값(수동/자동) 안내를 강제하는 프롬프트
             instruction = (
                 f"당신은 '어항 도우미'입니다.\n"
                 f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
-                f"2. 특수기호(*, #, -) 절대 금지. 3. 문장마다 줄바꿈 필수.\n"
+                f"2. 특수기호(*, #, -) 사용 금지. 3. 문장마다 줄바꿈 필수.\n"
                 f"4. 아주 친절하고 짧게 핵심만 말할 것.\n"
-                f"5. 어종 추천이나 사육법 질문 시 반드시 다음 형식으로 답변할 것:\n"
+                f"5. 어종 추천이나 사육 환경 질문 시 반드시 아래 형식을 포함할 것:\n"
                 f"   [수동 설정 추천]\n"
-                f"   - 환수 주기: X일마다\n"
-                f"   - 적정 온도: X도\n"
+                f"   직접 관리 시: 환수 주기와 적정 온도\n"
                 f"   [자동 설정 추천]\n"
-                f"   - 목표 온도 세팅: X도\n"
-                f"   - 조명/여과기 자동화 팁"
+                f"   기기 제어 시: 대시보드 목표 온도 설정값과 센서 주의 기준"
             )
             
             prompt_parts = [instruction]
             if image_file:
                 image_file.seek(0)
                 img = PIL.Image.open(image_file)
-                prompt_parts.append(img)
-                prompt_parts.append(user_message if user_message else "이 사진 속 환경의 세팅값을 알려줘.")
+                prompt_parts.extend([img, user_message if user_message else "이 환경의 세팅값을 알려줘."])
             else:
                 if not user_message: continue
                 prompt_parts.append(user_message)
@@ -147,7 +140,7 @@ def chat_api(request):
                 
                 try:
                     ChatMessage = apps.get_model('chatbot', 'ChatMessage')
-                    ChatMessage.objects.create(user=request.user, message=user_message or "(사진)", response=reply)
+                    ChatMessage.objects.create(user=request.user, message=user_message or "(사진 분석)", response=reply)
                 except: pass
                 
                 return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
@@ -157,4 +150,4 @@ def chat_api(request):
             print(f"Chat API Retry Log: {last_error_msg}")
             continue
 
-    return JsonResponse({'status': 'error', 'message': f"현재 사용 가능한 AI 모델이 없습니다. (사유: {last_error_msg})"}, status=500)
+    return JsonResponse({'status': 'error', 'message': f"모델 연결 실패: {last_error_msg}"}, status=500)
