@@ -194,12 +194,12 @@ def download_report(request, tank_id):
     response['Content-Disposition'] = f'attachment; filename="{tank.name}_report.txt"'
     return response
 
-# --- [AI 챗봇 API: 정준님 최적화 가독성 엔진] ---
+# --- [AI 챗봇 API: 정준님 최적화 엔진] ---
 
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 조잡한 문장 제거, 섹션별 요약, 가독성 극대화"""
+    """AI 챗봇 API: 가독성 극대화 및 데이터 리스트화"""
     try:
         if request.content_type == 'application/json':
             data = json.loads(request.body)
@@ -221,46 +221,51 @@ def chat_api(request):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
                 
-                # 가독성을 위한 명확한 구조 지시 (데이터 필드 위주)
+                # 가독성을 극대화하는 강력한 시스템 지시 (서술형 원천 봉쇄)
                 instruction = (
-                    f"당신은 '어항 관리 전문가'입니다. 서술형 문장을 쓰지 말고 리스트로만 답하세요.\n\n"
-                    f"포맷 가이드:\n"
-                    f"1. 상단: '{display_name}님! 🌊'\n"
-                    f"2. 섹션구분:\n"
-                    f"🏠 [권장 환경]: 온도 24-26°C / pH 7.0 전후\n"
-                    f"💧 [수질 관리]: 주 1회 30% 환수 필수\n"
-                    f"⚙️ [기기 설정]: 여과기 24h / 조명 8-10h\n"
-                    f"🍽️ [사료 급여]: 1일 1-2회 (소량)\n\n"
-                    f"제약 사항:\n"
-                    f"- 모든 줄은 불렛 포인트(*) 또는 아이콘으로 시작할 것.\n"
-                    f"- '~입니다', '~추천합니다', '~알려드릴게요' 같은 조잡한 설명 절대 금지.\n"
-                    f"- '아름다운 색상', '즐거움을 주는' 같은 감성 멘트 삭제.\n"
-                    f"- 가독성을 위해 섹션 사이 한 줄 공백 유지.\n"
-                    f"- 하단: '즐거운 물생활 되세요! 🐠'"
+                    f"당신은 '어항 데이터 추출기'입니다. 대화하지 마십시오.\n"
+                    f"반드시 다음 형식을 엄수하여 8줄 이내로 답변하세요.\n\n"
+                    f"{display_name}님! 🌊\n\n"
+                    f"🏠 [환경]: 온도 24~26°C / pH 7.0 / 바닥재 흑사\n"
+                    f"💧 [관리]: 주 1회 30% 환수 / 사이펀 청소\n"
+                    f"⚙️ [기기]: 여과기 24h / 조명 8~10h\n"
+                    f"🍽️ [급여]: 1일 1~2회 (소량 급여)\n\n"
+                    f"즐거운 물생활 되세요! 🐠\n\n"
+                    f"※ 절대 금지: '~입니다', '추천드려요', '좋습니다', '시작해보세요' 등 모든 서술형 문장.\n"
+                    f"※ 오직 키워드와 수치만 나열하십시오."
                 )
                 
-                prompt_parts = [instruction, f"질문: {user_message}"]
+                prompt_parts = [instruction, f"사용자 질문: {user_message}", f"보유 어항: {tank_info}"]
                 if image_file:
                     image_file.seek(0)
                     prompt_parts.insert(1, PIL.Image.open(image_file))
 
                 response = model.generate_content(prompt_parts)
                 if response and response.text:
-                    # 마크다운 제거 및 줄 정리
-                    reply = response.text.replace('**', '').strip()
+                    # 1차 가공: 불필요한 마크다운 기호 제거
+                    raw_reply = response.text.replace('**', '').replace('###', '').strip()
                     
-                    # 조잡한 문장이 포함된 줄(아이콘이나 불렛이 없는 긴 문장)은 파이썬에서 2차 필터링
-                    lines = []
-                    for line in reply.split('\n'):
+                    # 2차 가공: 파이썬에서 문장형 줄을 강제로 필터링하여 리스트만 남김
+                    filtered_lines = []
+                    for line in raw_reply.split('\n'):
                         line = line.strip()
-                        if not line: # 공백 라인 허용
-                            lines.append(line)
+                        if not line:
+                            filtered_lines.append("") # 가독성을 위한 빈 줄 유지
                             continue
-                        # 아이콘이 있거나 불렛(*)으로 시작하는 핵심 데이터 라인만 유지
-                        if any(icon in line for icon in ['🌊', '🏠', '💧', '⚙️', '🍽️', '🐠', '*', '●', '-']):
-                            lines.append(line)
+                        
+                        # 아이콘이 포함된 '데이터 줄'이거나 핵심 구분자(:)가 있는 줄만 통과
+                        if any(mark in line for mark in ['🌊', '🏠', '💧', '⚙️', '🍽️', '🐠', ':', '/']):
+                            # 문장이 40자 넘어가면 설명으로 간주하고 삭제
+                            if len(line) < 45:
+                                filtered_lines.append(line)
                     
-                    final_reply = '\n'.join(lines[:12]) # 가독성을 위해 최대 12줄 제한
+                    # 최종 결과물 조립 (최대 10줄)
+                    final_reply = '\n'.join(filtered_lines[:10]).strip()
+
+                    # 만약 AI가 답변을 망쳐서 필터링된 결과가 없으면 강제 포맷팅 반환
+                    if len(final_reply.split('\n')) < 3:
+                        final_reply = (f"{display_name}님! 🌊\n\n🏠 [환경]: 24~26°C / pH 7.0\n💧 [관리]: 주 1회 환수\n"
+                                     f"⚙️ [기기]: 여과기 24h / 조명 8h\n🍽️ [급여]: 1일 2회\n\n즐거운 물생활 되세요! 🐠")
 
                     try:
                         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
