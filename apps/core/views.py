@@ -9,14 +9,15 @@ from django.apps import apps
 from datetime import date, timedelta
 from django.core.paginator import Paginator
 
-# [수정 확인] sys.path 설정에 맞춰 apps. 접두사 없이 올바르게 가져옴
+# [수정 확인] 모델 가져오기
 from monitoring.models import Tank, SensorReading
 
 def index(request):
-    """메인 대시보드: 비로그인 대응"""
+    """메인 대시보드: 삭제/수정 즉시 반영을 위해 항상 DB 최신 데이터를 조회"""
     if not request.user.is_authenticated:
         return render(request, 'core/index.html', {'tank_data': [], 'is_guest': True})
 
+    # 정렬 순서를 명확히 하여 메인과 편집센터의 일치감을 높임
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -57,7 +58,7 @@ def index(request):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 2026년 최신 모델 자동 인식 및 세팅값 특화"""
+    """AI 챗봇 API: 특수기호 제거, 가독성 강화, 어항 데이터 실시간 연동"""
     user_message = ""
     image_file = None
 
@@ -70,6 +71,11 @@ def chat_api(request):
         user_message = request.POST.get('message', '').strip()
         image_file = request.FILES.get('image')
     
+    # [데이터 동기화 핵심] 현재 로그인한 유저의 어항 리스트를 가져와서 챗봇에게 알려줌
+    current_user_tanks = Tank.objects.filter(user=request.user)
+    tank_info_list = [f"{t.name}(종류: {t.fish_type})" for t in current_user_tanks]
+    tank_context = ", ".join(tank_info_list) if tank_info_list else "현재 등록된 어항이 없습니다."
+
     display_name = getattr(request.user, 'nickname', None) or request.user.username
 
     api_keys = [
@@ -81,29 +87,22 @@ def chat_api(request):
     valid_keys = [k for k in api_keys if k]
 
     if not valid_keys:
-        return JsonResponse({'status': 'error', 'message': "사용 가능한 API 키가 없습니다."}, status=500)
+        return JsonResponse({'status': 'error', 'message': "API 키가 설정되지 않았습니다."}, status=500)
 
     last_error_msg = ""
     for key in valid_keys:
         try:
             genai.configure(api_key=key)
-            
-            # [보완 1] 2026년 가용 모델 목록을 실시간으로 확인
             available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
             
-            # [보완 2] 우선순위 모델 리스트 (로그에 찍힌 2.5, 2.0 버전을 최우선으로)
+            # 2026년 최신 모델 우선 순위
             selected_model = None
-            if image_file:
-                candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-1.5-flash", "models/gemini-pro-vision"]
-            else:
-                candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-flash-latest", "models/gemini-pro"]
-
+            candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-flash-latest"]
             for cand in candidates:
                 if cand in available_models:
                     selected_model = cand
                     break
             
-            # 후보에 없으면 목록 중 첫 번째 모델이라도 사용 (404 방지)
             if not selected_model and available_models:
                 selected_model = available_models[0]
             
@@ -111,31 +110,29 @@ def chat_api(request):
 
             model = genai.GenerativeModel(model_name=selected_model)
             
-            # [보완 3] 세팅값(수동/자동) 안내를 강제하는 프롬프트
+            # [가독성 및 데이터 정합성 지시사항]
             instruction = (
                 f"당신은 '어항 도우미'입니다.\n"
-                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
-                f"2. 특수기호(*, #, -) 사용 금지. 3. 문장마다 줄바꿈 필수.\n"
-                f"4. 아주 친절하고 짧게 핵심만 말할 것.\n"
-                f"5. 어종 추천이나 사육 환경 질문 시 반드시 아래 형식을 포함할 것:\n"
-                f"   [수동 설정 추천]\n"
-                f"   직접 관리 시: 환수 주기와 적정 온도\n"
-                f"   [자동 설정 추천]\n"
-                f"   기기 제어 시: 대시보드 목표 온도 설정값과 센서 주의 기준"
+                f"현재 사용자: {display_name}님\n"
+                f"현재 등록된 어항 정보: {tank_context}\n\n"
+                f"답변 규칙:\n"
+                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작할 것.\n"
+                f"2. 별표(*), 샵(#), 대시(-) 같은 특수기호는 절대 사용하지 말 것.\n"
+                f"3. 모든 답변은 문장 단위로 줄바꿈을 하고, 문단 사이에는 빈 줄을 넣어 깔끔하게 보여줄 것.\n"
+                f"4. 중요 항목은 [제목] 형태를 사용하고, 지금 상담원과 대화하는 것처럼 친절하게 말할 것.\n"
+                f"5. 어종 질문 시 [수동 설정 추천]과 [자동 설정 추천]을 나누어 친절하게 설명할 것."
             )
             
-            prompt_parts = [instruction]
+            prompt_parts = [instruction, user_message]
             if image_file:
                 image_file.seek(0)
                 img = PIL.Image.open(image_file)
-                prompt_parts.extend([img, user_message if user_message else "이 환경의 세팅값을 알려줘."])
-            else:
-                if not user_message: continue
-                prompt_parts.append(user_message)
-            
+                prompt_parts.insert(1, img)
+
             response = model.generate_content(prompt_parts)
             
             if response and response.text:
+                # 기호 제거 및 깔끔한 정리
                 reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
                 
                 try:
@@ -147,7 +144,6 @@ def chat_api(request):
 
         except Exception as e:
             last_error_msg = str(e)
-            print(f"Chat API Retry Log: {last_error_msg}")
             continue
 
-    return JsonResponse({'status': 'error', 'message': f"모델 연결 실패: {last_error_msg}"}, status=500)
+    return JsonResponse({'status': 'error', 'message': f"연결 실패: {last_error_msg}"}, status=500)
