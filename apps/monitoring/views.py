@@ -177,12 +177,29 @@ def ai_report_list(request):
         'selected_tank': selected_tank
     })
 
-# --- [AI 챗봇 API: 정준님 최적화 요약 엔진] ---
+@login_required
+def download_report(request, tank_id):
+    """리포트 다운로드 - 에러 해결을 위해 다시 추가됨"""
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    readings = tank.readings.all().order_by('-created_at')[:10]
+    
+    content = f"--- {tank.name} AI 관리 리포트 ---\n"
+    content += f"생성 일자: {date.today()}\n"
+    content += f"목표 온도: {tank.target_temp}도\n\n"
+    content += "[최근 수질 기록]\n"
+    for r in readings:
+        content += f"- {r.created_at.strftime('%Y-%m-%d %H:%M')}: 수온 {r.temperature}도\n"
+    
+    response = HttpResponse(content, content_type='text/plain')
+    response['Content-Disposition'] = f'attachment; filename="{tank.name}_report.txt"'
+    return response
+
+# --- [AI 챗봇 API: 정준님 최적화 엔진] ---
 
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 제어판 수치 가이드 및 10줄 강제 요약"""
+    """AI 챗봇 API: 불필요한 설명 제거 및 10줄 이내 요약"""
     try:
         if request.content_type == 'application/json':
             data = json.loads(request.body)
@@ -204,7 +221,6 @@ def chat_api(request):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
                 
-                # 강제 지침: 문장 사용 전면 금지, 데이터만 나열
                 instruction = (
                     f"당신은 '데이터 추출 기계'입니다. 인간처럼 대화하지 마십시오.\n\n"
                     f"1. 첫 줄: '{display_name}님! 🌊' (이외 인사 절대 금지)\n"
@@ -230,15 +246,12 @@ def chat_api(request):
                 if response and response.text:
                     raw_text = response.text.replace('**', '').replace('### ', '').replace('## ', '').strip()
                     
-                    # [사후 처리 필터링] 
-                    # 문장형 설명을 강제로 제거하고 섹션 기호가 있는 핵심 줄만 남김
                     filtered_lines = []
                     for line in raw_text.split('\n'):
                         line = line.strip()
                         if any(mark in line for mark in ['🌊', '🏠', '💧', '⚙️', '🍽️', '●', '🐠', 'Temp', 'pH']):
                             filtered_lines.append(line)
                     
-                    # 10줄 초과 방지 및 최종 조립
                     reply = '\n'.join(filtered_lines[:10])
                     
                     try:
