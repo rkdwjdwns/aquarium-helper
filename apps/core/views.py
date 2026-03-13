@@ -1,6 +1,6 @@
 import json, os, PIL.Image
 import google.generativeai as genai
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.conf import settings
@@ -9,15 +9,15 @@ from django.apps import apps
 from datetime import date, timedelta
 from django.core.paginator import Paginator
 
-# 모델 가져오기
+# [중요] 데이터 정합성을 위해 올바른 경로에서 모델 가져오기
 from monitoring.models import Tank, SensorReading
 
 def index(request):
-    """메인 대시보드: 데이터 정합성을 위해 항상 DB에서 최신순 조회"""
+    """메인 대시보드: 어항 삭제/수정 내용이 즉시 반영되도록 실시간 조회"""
     if not request.user.is_authenticated:
         return render(request, 'core/index.html', {'tank_data': [], 'is_guest': True})
 
-    # 편집 센터와 순서를 맞추기 위해 최신순(-id) 정렬
+    # [수정] 사용자의 어항을 항상 최신 DB 기준으로 필터링
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -52,13 +52,14 @@ def index(request):
     return render(request, 'core/index.html', {
         'tank_data': tank_data, 
         'page_obj': page_obj,
-        'is_guest': False
+        'is_guest': False,
+        'has_tanks': all_tanks.exists()
     })
 
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 특수기호 완전 제거 및 실시간 데이터 연동"""
+    """AI 챗봇 API: 정준님 기존 모델 탐색 로직 + 실시간 데이터 연동 + 스타일 수정"""
     user_message = ""
     image_file = None
 
@@ -71,10 +72,9 @@ def chat_api(request):
         user_message = request.POST.get('message', '').strip()
         image_file = request.FILES.get('image')
     
-    # [데이터 동기화] 현재 유저의 어항 정보를 실시간으로 조회하여 챗봇에게 주입
+    # [추가] 챗봇에게 현재 내 어항 정보를 알려주기 위한 로직
     user_tanks = Tank.objects.filter(user=request.user)
-    tank_info = ", ".join([f"{t.name}({t.fish_type})" for t in user_tanks]) if user_tanks else "현재 등록된 어항 없음"
-    
+    tank_info = ", ".join([f"{t.name}" for t in user_tanks]) if user_tanks.exists() else "등록된 어항 없음"
     display_name = getattr(request.user, 'nickname', None) or request.user.username
 
     api_keys = [
@@ -86,7 +86,7 @@ def chat_api(request):
     valid_keys = [k for k in api_keys if k]
 
     if not valid_keys:
-        return JsonResponse({'status': 'error', 'message': "API 키가 없습니다."}, status=500)
+        return JsonResponse({'status': 'error', 'message': "사용 가능한 API 키가 없습니다."}, status=500)
 
     last_error_msg = ""
     for key in valid_keys:
@@ -95,7 +95,8 @@ def chat_api(request):
             available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
             
             selected_model = None
-            candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-flash-latest"]
+            candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-1.5-flash", "models/gemini-flash-latest"]
+            
             for cand in candidates:
                 if cand in available_models:
                     selected_model = cand
@@ -108,28 +109,31 @@ def chat_api(request):
 
             model = genai.GenerativeModel(model_name=selected_model)
             
-            # [가독성 극대화 지시사항] 특수문자 금지 및 문장별 줄바꿈 강조
+            # [스타일 수정] 요청하신 대로 기호 제거 및 친절한 말투 설정
             instruction = (
-                f"당신은 '어항 도우미'입니다.\n"
-                f"사용자: {display_name}님 / 현재 보유 어항: {tank_info}\n\n"
-                f"답변 규칙 (엄격 준수):\n"
-                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작하세요.\n"
-                f"2. 별표(*), 샵(#), 대시(-) 같은 모든 특수기호를 절대 사용하지 마세요.\n"
-                f"3. 오직 문장과 줄바꿈(엔터)만 사용하여 내용을 구분하세요.\n"
-                f"4. 중요 항목은 [제목] 처럼 대괄호를 사용하고, 각 문단 사이에는 빈 줄을 넣어 간격을 벌리세요.\n"
-                f"5. 지금 상담원과 대화하는 것처럼 부드럽고 친절한 말투를 유지하세요.\n"
-                f"6. 사육법 질문 시 [수동 관리 추천]과 [자동 기기 세팅값]을 나누어 상세히 설명하세요."
+                f"당신은 친절한 '어항 도우미'입니다.\n"
+                f"사용자: {display_name}님 / 보유 어항: {tank_info}\n\n"
+                f"규칙:\n"
+                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
+                f"2. 별표(*), 샵(#), 대시(-) 기호 절대 사용 금지.\n"
+                f"3. 문장마다 줄바꿈(엔터) 필수.\n"
+                f"4. 중요 제목은 [제목] 형태를 사용하고 문단 사이 간격을 벌릴 것.\n"
+                f"5. 사육 환경 질문 시 [수동 설정 추천]과 [자동 설정 추천]을 나누어 친절히 설명할 것."
             )
             
-            prompt_parts = [instruction, user_message]
+            prompt_parts = [instruction]
             if image_file:
                 image_file.seek(0)
-                prompt_parts.insert(1, PIL.Image.open(image_file))
-
+                img = PIL.Image.open(image_file)
+                prompt_parts.extend([img, user_message if user_message else "상태를 분석해줘."])
+            else:
+                if not user_message: continue
+                prompt_parts.append(user_message)
+            
             response = model.generate_content(prompt_parts)
             
             if response and response.text:
-                # 기호 강제 제거 (2중 필터)
+                # 기호 강제 제거
                 reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
                 
                 try:
@@ -143,4 +147,4 @@ def chat_api(request):
             last_error_msg = str(e)
             continue
 
-    return JsonResponse({'status': 'error', 'message': f"연결 실패: {last_error_msg}"}, status=500)
+    return JsonResponse({'status': 'error', 'message': f"모델 연결 실패: {last_error_msg}"}, status=500)

@@ -12,8 +12,8 @@ from django.views.decorators.http import require_POST
 from django.apps import apps
 from datetime import date, timedelta
 
-# 모델 임포트
-from .models import Tank, EventLog, DeviceControl
+# 모델 임포트 (monitoring 앱 내의 모델)
+from monitoring.models import Tank, EventLog, DeviceControl, SensorReading
 
 # --- [메인 페이지 및 대시보드] ---
 
@@ -21,12 +21,12 @@ def home(request):
     """로그인 상태에 따라 홈 또는 인덱스 페이지 표시"""
     if request.user.is_authenticated:
         return index(request)
-    return render(request, 'core/index.html', {'tank_data': []})
+    return render(request, 'core/index.html', {'tank_data': [], 'is_guest': True})
 
 @login_required 
 def index(request):
-    """메인 페이지: 사용자의 어항 목록 및 요약 상태"""
-    # 항상 DB에서 최신 순으로 조회하여 데이터 불일치 방지
+    """메인 페이지: 사용자의 어항 목록 및 요약 상태 (실시간 반영)"""
+    # 항상 DB에서 최신 순으로 조회하여 삭제/수정 데이터 즉시 반영
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 10) 
     page_number = request.GET.get('page')
@@ -56,7 +56,8 @@ def index(request):
     return render(request, 'core/index.html', {
         'tank_data': tank_data, 
         'page_obj': page_obj, 
-        'has_tanks': all_tanks.exists()
+        'has_tanks': all_tanks.exists(),
+        'is_guest': False
     })
 
 @login_required
@@ -79,7 +80,7 @@ def tank_list(request):
 
 @login_required
 def add_tank(request):
-    """어항 등록 후 메인 루트로 리다이렉트하여 즉시 반영"""
+    """어항 등록 후 즉시 반영"""
     if request.method == 'POST':
         try:
             tank = Tank.objects.create(
@@ -90,7 +91,7 @@ def add_tank(request):
                 last_water_change=date.today()
             )
             messages.success(request, f"'{tank.name}' 어항이 등록되었습니다.")
-            return redirect('/') # 확실하게 메인 페이지로 보냄
+            return redirect('/') 
         except Exception as e:
             messages.error(request, f"등록 중 오류 발생: {e}")
             
@@ -158,11 +159,6 @@ def camera_view(request):
 
 # --- [AI 및 챗봇] ---
 
-@login_required
-def ai_report_list(request):
-    tanks = Tank.objects.filter(user=request.user)
-    return render(request, 'reports/report_list.html', {'first_tank': tanks.first(), 'tanks': tanks})
-
 def get_chat_message_model():
     try:
         return apps.get_model('chatbot', 'ChatMessage')
@@ -172,7 +168,7 @@ def get_chat_message_model():
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 보완된 프롬프트와 기호 제거 및 예외 처리 강화"""
+    """AI 챗봇 API: 최신 모델 자동 탐색 및 정준님 스타일 반영"""
     try:
         user_message = ""
         image_file = None
@@ -184,32 +180,55 @@ def chat_api(request):
             user_message = request.POST.get('message', '').strip()
             image_file = request.FILES.get('image')
         
-        # 실시간 어항 데이터 연동
+        # 실시간 어항 데이터 주입
         user_tanks = Tank.objects.filter(user=request.user)
-        tank_info = ", ".join([f"{t.name}" for t in user_tanks]) if user_tanks.exists() else "없음"
+        tank_info = ", ".join([f"{t.name}" for t in user_tanks]) if user_tanks.exists() else "등록된 어항 없음"
         display_name = getattr(request.user, 'nickname', None) or request.user.username
 
-        # API 키 리스트 준비
-        api_keys = [os.getenv('GEMINI_API_KEY_1'), os.getenv('GEMINI_API_KEY_2'), getattr(settings, 'GEMINI_API_KEY', None)]
+        # API 키 준비
+        api_keys = [
+            os.getenv('GEMINI_API_KEY_1'), 
+            os.getenv('GEMINI_API_KEY_2'), 
+            os.getenv('GEMINI_API_KEY_3'),
+            getattr(settings, 'GEMINI_API_KEY', None)
+        ]
         valid_keys = [k for k in api_keys if k]
 
         if not valid_keys:
-            return JsonResponse({'status': 'error', 'message': "서버 설정 문제(API 키 누락)"}, status=500)
+            return JsonResponse({'status': 'error', 'message': "사용 가능한 API 키가 없습니다."}, status=500)
 
         last_exception = None
         for key in valid_keys:
             try:
                 genai.configure(api_key=key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
                 
+                # [수정] 2026년 가용 모델 자동 탐색
+                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                
+                selected_model = None
+                candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-1.5-flash", "models/gemini-flash-latest"]
+                for cand in candidates:
+                    if cand in available_models:
+                        selected_model = cand
+                        break
+                
+                if not selected_model and available_models:
+                    selected_model = available_models[0]
+                
+                if not selected_model: continue
+
+                model = genai.GenerativeModel(model_name=selected_model)
+                
+                # [프롬프트] 스타일 및 사육 가이드 강제
                 instruction = (
-                    f"당신은 어항 관리 전문가인 '어항 도우미'입니다.\n"
+                    f"당신은 친절한 어항 전문가 '어항 도우미'입니다.\n"
                     f"사용자: {display_name}님 / 보유 어항: {tank_info}\n\n"
-                    f"핵심규칙:\n"
-                    f"1. 첫인사는 '{display_name}님! 🌊' 으로 시작.\n"
-                    f"2. 답변에서 별표(*), 샵(#), 대시(-) 기호를 절대 사용하지 말 것.\n"
-                    f"3. 모든 항목 구분은 줄바꿈(엔터)으로만 할 것.\n"
-                    f"4. 아주 친절하고 전문적인 상담원처럼 답변할 것."
+                    f"답변 규칙:\n"
+                    f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
+                    f"2. 별표(*), 샵(#), 대시(-) 등 특수기호 절대 사용 금지.\n"
+                    f"3. 모든 구분은 줄바꿈(엔터)으로만 할 것.\n"
+                    f"4. 중요 제목은 [제목] 처럼 대괄호를 사용하고 문단 사이 빈 줄을 넣을 것.\n"
+                    f"5. 사육 질문 시 반드시 [수동 설정 추천]과 [자동 설정 추천] 섹션을 나누어 상세히 말할 것."
                 )
                 
                 prompt_parts = [instruction, user_message]
@@ -218,16 +237,18 @@ def chat_api(request):
                     prompt_parts.insert(1, PIL.Image.open(image_file))
 
                 response = model.generate_content(prompt_parts)
+                
                 if response and response.text:
-                    # 특수 기호 제거 및 정리
+                    # 기호 최종 제거
                     reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
                     
                     # 로그 저장
                     ChatMessage = get_chat_message_model()
                     if ChatMessage:
-                        ChatMessage.objects.create(user=request.user, message=user_message or "(사진 분석)", response=reply)
+                        ChatMessage.objects.create(user=request.user, message=user_message or "(사진)", response=reply)
                     
-                    return JsonResponse({'status': 'success', 'reply': reply})
+                    return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
+
             except Exception as e:
                 last_exception = e
                 continue
@@ -235,4 +256,4 @@ def chat_api(request):
         return JsonResponse({'status': 'error', 'message': f"연결 실패: {str(last_exception)}"}, status=500)
         
     except Exception as general_e:
-        return JsonResponse({'status': 'error', 'message': f"예상치 못한 오류: {str(general_e)}"}, status=500)
+        return JsonResponse({'status': 'error', 'message': f"시스템 오류: {str(general_e)}"}, status=500)
