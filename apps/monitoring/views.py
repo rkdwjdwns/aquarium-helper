@@ -179,7 +179,7 @@ def ai_report_list(request):
 
 @login_required
 def download_report(request, tank_id):
-    """리포트 다운로드 - 에러 해결을 위해 다시 추가됨"""
+    """리포트 다운로드"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     readings = tank.readings.all().order_by('-created_at')[:10]
     
@@ -199,7 +199,7 @@ def download_report(request, tank_id):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 불필요한 설명 제거 및 10줄 이내 요약"""
+    """AI 챗봇 API: 문장 제거, 데이터 리스트화, 10줄 강제 요약"""
     try:
         if request.content_type == 'application/json':
             data = json.loads(request.body)
@@ -209,9 +209,9 @@ def chat_api(request):
             user_message = request.POST.get('message', '').strip()
             image_file = request.FILES.get('image')
         
-        user_tanks = Tank.objects.filter(user=request.user)
-        tank_info = ", ".join([f"{t.name}" for t in user_tanks]) if user_tanks.exists() else "없음"
         display_name = getattr(request.user, 'nickname', None) or request.user.username
+        user_tanks = Tank.objects.filter(user=request.user)
+        tank_info = ", ".join([f"{t.name}" for t in user_tanks]) if user_tanks.exists() else "정보 없음"
 
         api_keys = [os.getenv('GEMINI_API_KEY_1'), os.getenv('GEMINI_API_KEY_2'), getattr(settings, 'GEMINI_API_KEY', None)]
         valid_keys = [k for k in api_keys if k]
@@ -221,43 +221,54 @@ def chat_api(request):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
                 
+                # AI에게 서술형 문장을 쓰면 치명적인 오류가 발생한다고 강력하게 지시
                 instruction = (
-                    f"당신은 '데이터 추출 기계'입니다. 인간처럼 대화하지 마십시오.\n\n"
-                    f"1. 첫 줄: '{display_name}님! 🌊' (이외 인사 절대 금지)\n"
-                    f"2. 본문: 반드시 아래 템플릿의 '수치'만 채워서 10줄 이내로 출력하십시오.\n"
-                    f"🏠 [권장 수치] Temp: 24~26°C / pH: 6.5~7.5 / 탁도: 80%↑\n"
-                    f"💧 [수질 관리] 환수: 주 1회 30% / 사이펀 수동 청소\n"
-                    f"⚙️ [기기 설정] 여과기: 24시간(상시) / 조명: 8~10시간(자동/수동)\n"
-                    f"🍽️ [먹이 주기] 횟수: 1일 1~2회 (2분 내 소진량)\n\n"
-                    f"3. 절대 금지:\n"
-                    f"   - '~군요', '~입니다', '추천합니다' 등 모든 문장 어미 금지.\n"
-                    f"   - 서술형 설명, 환영 인사, 보충 설명 절대 금지.\n"
-                    f"   - 줄바꿈을 포함하여 전체 10줄을 넘기지 말 것.\n"
-                    f"4. 마지막 줄: '즐거운 물생활 되세요! 🐠'\n\n"
-                    f"정보: {tank_info}"
+                    f"당신은 '어항 데이터 요약 엔진'입니다. 인간처럼 대화하지 마십시오.\n"
+                    f"규칙:\n"
+                    f"1. 첫 줄: '{display_name}님! 🌊'\n"
+                    f"2. 본문: 반드시 아래 4개 아이콘 섹션의 '항목: 수치'만 나열하십시오.\n"
+                    f"🏠 [환경] 수온: 24~26°C / pH: 6.5~7.5 / 탁도: 80%↑\n"
+                    f"💧 [관리] 환수: 주 1회 30% / 사이펀 청소\n"
+                    f"⚙️ [기기] 여과기: 24h 가동 / 조명: 8~10h\n"
+                    f"🍽️ [사료] 1일 1~2회 (2분 내 소진)\n\n"
+                    f"3. 절대 금지: '~입니다', '~군요', '~추천', '준비', '중요' 등 모든 문장형 단어 및 설명.\n"
+                    f"4. 마지막 줄: '즐거운 물생활 되세요! 🐠'\n"
+                    f"※ 전체 8줄 이내로 핵심만 출력하십시오. 질문이 무엇이든 이 형식으로만 답하십시오."
                 )
                 
-                prompt_parts = [instruction, user_message]
+                prompt_parts = [instruction, f"사용자 질문: {user_message}", f"어항 정보: {tank_info}"]
                 if image_file:
                     image_file.seek(0)
                     prompt_parts.insert(1, PIL.Image.open(image_file))
 
                 response = model.generate_content(prompt_parts)
                 if response and response.text:
+                    # 마크다운 및 불필요한 기호 제거
                     raw_text = response.text.replace('**', '').replace('### ', '').replace('## ', '').strip()
                     
+                    # [필터링 로직] 아이콘이 포함된 데이터 줄만 추출하여 조잡한 문장 제거
                     filtered_lines = []
                     for line in raw_text.split('\n'):
                         line = line.strip()
-                        if any(mark in line for mark in ['🌊', '🏠', '💧', '⚙️', '🍽️', '●', '🐠', 'Temp', 'pH']):
-                            filtered_lines.append(line)
+                        # 지정된 아이콘이나 필수 키워드가 포함된 줄만 허용
+                        if any(mark in line for mark in ['🌊', '🏠', '💧', '⚙️', '🍽️', '🐠', 'Temp', 'pH', ':']):
+                            # 문장이 너무 길어지면 설명으로 간주하고 제외 (데이터 위주)
+                            if len(line) < 50:
+                                filtered_lines.append(line)
                     
+                    # 10줄 이내로 최종 조립
                     reply = '\n'.join(filtered_lines[:10])
+                    
+                    # 만약 AI가 헛소리를 해서 필터링 결과가 비어있다면 강제 포맷 반환
+                    if not reply or len(filtered_lines) < 2:
+                        reply = (f"{display_name}님! 🌊\n🏠 [환경] 26°C / pH 7.0\n💧 [관리] 주 1회 환수\n"
+                                 f"⚙️ [기기] 여과기 24h / 조명 8h\n🍽️ [사료] 1일 2회\n즐거운 물생활 되세요! 🐠")
                     
                     try:
                         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
                         ChatMessage.objects.create(user=request.user, message=user_message or "(사진)", response=reply)
                     except: pass
+                    
                     return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
             except: continue
             
