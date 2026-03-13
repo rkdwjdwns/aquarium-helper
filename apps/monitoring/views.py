@@ -106,7 +106,7 @@ def delete_tank(request, tank_id):
 @login_required
 @require_POST
 def delete_tanks(request):
-    """[추가됨] 선택된 여러 개의 어항을 한꺼번에 삭제하는 함수"""
+    """[해결됨] 선택된 여러 개의 어항을 한꺼번에 삭제하는 함수"""
     tank_ids = request.POST.getlist('tank_ids')
     if tank_ids:
         deleted_count, _ = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
@@ -116,6 +116,20 @@ def delete_tanks(request):
     return redirect('monitoring:tank_list')
 
 # --- [3. 제어 및 로그] ---
+
+@login_required
+def logs_view(request):
+    """[해결됨] 어항 활동 로그를 보여주는 함수"""
+    logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
+    
+    paginator = Paginator(logs, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'monitoring/logs.html', {
+        'page_obj': page_obj,
+        'logs': page_obj
+    })
 
 @login_required
 @require_POST
