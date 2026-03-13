@@ -85,9 +85,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# 유저 모델 및 로그인 경로
+# 유저 모델 설정
 AUTH_USER_MODEL = 'accounts.User'
-LOGIN_REDIRECT_URL = '/monitoring/dashboard/'
+
+# [수정] 로그인 후 메인 페이지(어항 리스트)로 이동하도록 변경
+LOGIN_REDIRECT_URL = '/' 
 LOGOUT_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
 
@@ -100,5 +102,6 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = True
     SESSION_COOKIE_HTTPONLY = True
-    # [추가] 세션 유지가 안 될 때를 대비
     SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+    # 배포 환경에서 세션 유지를 위해 추가
+    SESSION_SAVE_EVERY_REQUEST = True
