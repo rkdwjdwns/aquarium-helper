@@ -8,7 +8,7 @@
                 {% if selected_tank %}
                     <span class="text-blue-600">[{{ selected_tank.name }}]</span>의 수질 변화를 분석합니다.
                 {% else %}
-                    기간별 수질 변화를 분석한 결과입니다.
+                    어항 데이터를 분석합니다.
                 {% endif %}
             </p>
         </div>
@@ -25,7 +25,7 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-                {% if has_tanks and selected_tank %}
+                {% if selected_tank %}
                     <div class="flex gap-2">
                         <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=daily" 
                            class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100">일간 분석</a>
@@ -39,9 +39,6 @@
                         <a href="?tank_id={{ selected_tank.id }}&sort=desc" class="px-3 py-1.5 text-[10px] font-black rounded-lg {% if sort == 'desc' %}bg-white shadow-sm text-blue-600{% else %}text-gray-400{% endif %}">최신순</a>
                         <a href="?tank_id={{ selected_tank.id }}&sort=asc" class="px-3 py-1.5 text-[10px] font-black rounded-lg {% if sort == 'asc' %}bg-white shadow-sm text-blue-600{% else %}text-gray-400{% endif %}">과거순</a>
                     </div>
-                {% elif not has_tanks %}
-                    <p class="text-amber-500 font-bold text-sm">리포트를 확인하려면 먼저 어항을 등록해주세요!</p>
-                    <a href="{% url 'monitoring:add_tank' %}" class="ml-2 bg-amber-500 text-white px-4 py-2 rounded-lg text-xs font-bold">어항 등록하기</a>
                 {% endif %}
             </div>
         </div>
@@ -88,7 +85,7 @@
                 {% if selected_tank %}
                     [{{ selected_tank.name }}]의 수집된 데이터가 아직 없습니다.
                 {% else %}
-                    표시할 데이터가 없습니다.
+                    표시할 데이터가 없습니다. 어항을 먼저 등록해 주세요!
                 {% endif %}
             </p>
             <p class="text-slate-300 font-bold mt-2">센서가 작동하여 데이터가 쌓이면 자동으로 리포트가 생성됩니다!</p>

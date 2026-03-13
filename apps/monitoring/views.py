@@ -149,21 +149,22 @@ def perform_water_change(request, tank_id):
     tank.save()
     return JsonResponse({'status': 'success'})
 
-# --- [4. AI 리포트 관리] ---
+# --- [4. AI 리포트 관리 (정렬 로직 및 사용자 체크 최적화)] ---
 
 @login_required
 def ai_report_list(request):
-    """리포트 목록: 어항 존재 여부와 데이터 로직 최적화"""
+    """리포트 목록: 현재 로그인 사용자의 어항 데이터를 강제 동기화"""
+    # 현재 로그인한 유저의 어항만 가져옴
     tanks = Tank.objects.filter(user=request.user).order_by('-id')
     has_tanks = tanks.exists()
     
     tank_id = request.GET.get('tank_id')
     selected_tank = None
     
-    # 어항이 존재한다면 무조건 하나를 선택 상태로 만듦
     if has_tanks:
         if tank_id:
             selected_tank = tanks.filter(id=tank_id).first()
+        # 선택된 어항이 없거나 다른 유저의 ID인 경우 첫 번째 어항 선택
         if not selected_tank:
             selected_tank = tanks.first()
 
