@@ -199,7 +199,7 @@ def download_report(request, tank_id):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 핵심 정보만 요약하여 출력"""
+    """AI 챗봇 API: 불필요한 설명 없이 카드형 요약 제공"""
     try:
         user_message = ""
         image_file = None
@@ -224,20 +224,15 @@ def chat_api(request):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
                 
-                # 핵심: 불필요한 서술어를 모두 빼고 요약하도록 강력 지시
+                # 핵심: 서술형 문장을 금지하고 항목별 요약만 강제함
                 instruction = (
-                    f"당신은 '어항 요약 전문가'입니다. 다음 규칙을 '반드시' 지키세요.\n\n"
-                    f"1. 인사: '{display_name}님! 🌊' 딱 한 줄만 하세요.\n"
-                    f"2. 본문: '중요 정보'만 요약해서 보여주세요. 서술형 문장(~입니다, ~가 중요합니다)은 최대한 배제하세요.\n"
-                    f"3. 가독성: 한 문장으로 길게 쓰지 말고, 항목별로 줄바꿈을 자주 하세요.\n"
-                    f"4. 섹션 예시:\n"
-                    f"   [핵심 요약]\n"
-                    f"   ● 온도: 26-28°C\n"
-                    f"   ● 환수: 주 1회 30%\n"
-                    f"   [장비/설정]\n"
-                    f"   ● 히터: 26°C 고정\n"
-                    f"5. 마무리: '즐거운 물생활 되세요! 🐠' 한 줄로 끝내세요.\n"
-                    f"사용자의 어항 목록: {tank_info}"
+                    f"당신은 '어항 요약 로봇'입니다. 다음 지침을 엄격히 준수하세요.\n\n"
+                    f"1. 인사: '{display_name}님! 🌊' (이외의 수식어 금지)\n"
+                    f"2. 답변 방식: 설명하는 문장(~입니다, ~가 중요합니다)을 절대 쓰지 마세요.\n"
+                    f"3. 형식: 핵심 수치와 단어 위주로, '● 항목명: 내용' 형식으로만 작성하세요.\n"
+                    f"4. 가독성: 주제별로 [섹션명]을 나누고 줄바꿈을 자주 하세요.\n"
+                    f"5. 마무리: '즐거운 물생활 되세요! 🐠' 딱 한 줄로 끝내세요.\n\n"
+                    f"현재 어항 정보: {tank_info}"
                 )
                 
                 prompt_parts = [instruction, user_message]
@@ -247,7 +242,7 @@ def chat_api(request):
 
                 response = model.generate_content(prompt_parts)
                 if response and response.text:
-                    # 가독성을 위해 마크다운 기호를 제거하고 깔끔하게 텍스트만 추출
+                    # 마크다운 강조 기호를 제거하여 텍스트를 더 깔끔하게 만듦
                     reply = response.text.replace('**', '').replace('### ', '').strip()
                     
                     try:
