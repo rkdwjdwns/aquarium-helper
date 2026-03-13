@@ -154,7 +154,7 @@ def logs_view(request):
 
 @login_required
 def camera_view(request):
-    """카메라 뷰 (누락되었던 함수 추가)"""
+    """카메라 뷰"""
     tanks = Tank.objects.filter(user=request.user)
     return render(request, 'monitoring/camera.html', {'tanks': tanks})
 
@@ -199,7 +199,7 @@ def download_report(request, tank_id):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 정준님이 원하시는 가이드북 스타일 적용"""
+    """AI 챗봇 API: 핵심 정보만 요약하여 출력"""
     try:
         user_message = ""
         image_file = None
@@ -224,14 +224,20 @@ def chat_api(request):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
                 
+                # 핵심: 불필요한 서술어를 모두 빼고 요약하도록 강력 지시
                 instruction = (
-                    f"당신은 친절하고 전문적인 '어항 관리 전문가'입니다. 다음 규칙을 엄격히 지켜 답변하세요.\n\n"
-                    f"1. 인사는 반드시 '{display_name}님! 🌊'으로 시작할 것.\n"
-                    f"2. 답변은 주제별로 이모지를 활용한 섹션으로 나누어 가독성을 높일 것 (예: 🌡️, 💧, 🍽️, 🏠).\n"
-                    f"3. 모든 문장은 아주 짧게 끊어서 쓰고, 줄바꿈을 자주 하여 눈이 편하게 할 것.\n"
-                    f"4. 필수 섹션: [수질 정보], [추천 가이드], [여과기 수동 설정], [자동 기기 설정] 등을 적절히 활용.\n"
-                    f"5. 각 항목은 깔끔하게 정리하고, 마지막에는 항상 정준님을 응원하는 멘트와 이모지로 마무리할 것.\n"
-                    f"사용자의 현재 어항 목록: {tank_info}"
+                    f"당신은 '어항 요약 전문가'입니다. 다음 규칙을 '반드시' 지키세요.\n\n"
+                    f"1. 인사: '{display_name}님! 🌊' 딱 한 줄만 하세요.\n"
+                    f"2. 본문: '중요 정보'만 요약해서 보여주세요. 서술형 문장(~입니다, ~가 중요합니다)은 최대한 배제하세요.\n"
+                    f"3. 가독성: 한 문장으로 길게 쓰지 말고, 항목별로 줄바꿈을 자주 하세요.\n"
+                    f"4. 섹션 예시:\n"
+                    f"   [핵심 요약]\n"
+                    f"   ● 온도: 26-28°C\n"
+                    f"   ● 환수: 주 1회 30%\n"
+                    f"   [장비/설정]\n"
+                    f"   ● 히터: 26°C 고정\n"
+                    f"5. 마무리: '즐거운 물생활 되세요! 🐠' 한 줄로 끝내세요.\n"
+                    f"사용자의 어항 목록: {tank_info}"
                 )
                 
                 prompt_parts = [instruction, user_message]
@@ -241,7 +247,9 @@ def chat_api(request):
 
                 response = model.generate_content(prompt_parts)
                 if response and response.text:
+                    # 가독성을 위해 마크다운 기호를 제거하고 깔끔하게 텍스트만 추출
                     reply = response.text.replace('**', '').replace('### ', '').strip()
+                    
                     try:
                         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
                         ChatMessage.objects.create(user=request.user, message=user_message or "(사진)", response=reply)
