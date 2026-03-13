@@ -20,6 +20,7 @@ from .models import Tank, EventLog, DeviceControl, SensorReading
 
 @login_required 
 def index(request):
+    """메인 페이지: 사용자 어항 목록 및 상태 요약"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 10) 
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -45,16 +46,22 @@ def index(request):
         
         tank_data.append({'tank': tank, 'latest': latest, 'status': status, 'd_day': d_day})
         
-    return render(request, 'core/index.html', {'tank_data': tank_data, 'page_obj': page_obj, 'has_tanks': all_tanks.exists()})
+    return render(request, 'core/index.html', {
+        'tank_data': tank_data, 
+        'page_obj': page_obj, 
+        'has_tanks': all_tanks.exists()
+    })
 
 @login_required
 def dashboard(request, tank_id=None):
+    """특정 어항 상세 대시보드"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user) if tank_id else Tank.objects.filter(user=request.user).first()
     readings = tank.readings.all().order_by('-created_at')[:20] if tank else []
     return render(request, 'monitoring/dashboard.html', {'tank': tank, 'readings': readings})
 
 @login_required
 def tank_list(request):
+    """어항 관리 목록"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     return render(request, 'monitoring/tank_list.html', {'tanks': all_tanks, 'tank_count': all_tanks.count()})
 
@@ -95,15 +102,6 @@ def delete_tank(request, tank_id):
     messages.success(request, "삭제 완료.")
     return redirect('monitoring:tank_list')
 
-@login_required
-@require_POST
-def delete_tanks(request):
-    tank_ids = request.POST.getlist('tank_ids')
-    if tank_ids:
-        Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
-        messages.success(request, "일괄 삭제 완료.")
-    return redirect('monitoring:tank_list')
-
 # --- [3. 제어 및 로그] ---
 
 @login_required
@@ -123,84 +121,106 @@ def perform_water_change(request, tank_id):
     tank.save()
     return JsonResponse({'status': 'success'})
 
-@login_required
-def logs_view(request):
-    logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
-    return render(request, 'monitoring/logs.html', {'logs': logs})
-
-@login_required
-def camera_view(request):
-    return render(request, 'monitoring/camera.html', {'tanks': Tank.objects.filter(user=request.user)})
-
-# --- [4. AI 리포트] ---
+# --- [4. AI 리포트 관리 (정렬, 삭제, 기간별 버튼 기능)] ---
 
 @login_required
 def ai_report_list(request):
+    """리포트 목록: 정렬 및 어항 존재 여부 체크 강화"""
     tanks = Tank.objects.filter(user=request.user).order_by('-id')
-    selected_tank = get_object_or_404(Tank, id=request.GET.get('tank_id'), user=request.user) if request.GET.get('tank_id') else tanks.first()
-    return render(request, 'reports/report_list.html', {'tanks': tanks, 'selected_tank': selected_tank})
+    
+    # 1. 어항 선택 (어항이 있는데 없다고 뜨는 현상 방지)
+    tank_id = request.GET.get('tank_id')
+    selected_tank = None
+    if tank_id:
+        selected_tank = tanks.filter(id=tank_id).first()
+    
+    if not selected_tank:
+        selected_tank = tanks.first()
+
+    # 2. 정렬 기능 (최신순/과거순)
+    sort_order = request.GET.get('sort', 'desc')
+    order_by = '-created_at' if sort_order == 'desc' else 'created_at'
+
+    # 3. 데이터 로드
+    report_data = []
+    if selected_tank:
+        report_data = selected_tank.readings.all().order_by(order_by)
+
+    return render(request, 'reports/report_list.html', {
+        'tanks': tanks,
+        'selected_tank': selected_tank,
+        'report_data': report_data,
+        'sort': sort_order,
+        'has_tanks': tanks.exists() # 템플릿에서 '어항을 생성해주세요' 제어
+    })
+
+@login_required
+@require_POST
+def delete_report_data(request, reading_id):
+    """특정 리포트 데이터 삭제"""
+    reading = get_object_or_404(SensorReading, id=reading_id, tank__user=request.user)
+    tank_id = reading.tank.id
+    reading.delete()
+    messages.success(request, "기록이 삭제되었습니다.")
+    return redirect(f'/monitoring/reports/?tank_id={tank_id}')
 
 @login_required
 def download_report(request, tank_id):
+    """일간/주간/월간 리포트 다운로드 버튼 기능"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
-    content = f"[{tank.name}] 리포트\n날짜: {date.today()}\n온도: {tank.target_temp}°C"
+    period = request.GET.get('period', 'daily')
+    
+    today = date.today()
+    if period == 'weekly': start_date = today - timedelta(days=7)
+    elif period == 'monthly': start_date = today - timedelta(days=30)
+    else: start_date = today - timedelta(days=1)
+
+    readings = tank.readings.filter(created_at__date__gte=start_date).order_by('-created_at')
+    
+    content = f"[{tank.name}] {period.upper()} 리포트\n기준일: {today}\n"
+    content += "="*30 + "\n"
+    for r in readings:
+        content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} : {r.temperature}°C\n"
+    
     response = HttpResponse(content, content_type='text/plain')
-    response['Content-Disposition'] = f'attachment; filename="report.txt"'
+    response['Content-Disposition'] = f'attachment; filename="{tank.name}_{period}.txt"'
     return response
 
-# --- [5. AI 챗봇 API: 초고속 & 초간결 최적화 버전] ---
+# --- [5. AI 챗봇 API: 초고속 최적화] ---
 
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 답변 속도와 가독성을 극대화한 버전"""
     try:
         if request.content_type == 'application/json':
             user_message = json.loads(request.body).get('message', '').strip()
-            image_file = None
         else:
             user_message = request.POST.get('message', '').strip()
-            image_file = request.FILES.get('image')
         
         display_name = getattr(request.user, 'nickname', None) or request.user.username
         api_key = os.getenv('GEMINI_API_KEY_1') or getattr(settings, 'GEMINI_API_KEY', None)
         
         genai.configure(api_key=api_key)
-        # 8b 모델은 응답 속도가 훨씬 빠릅니다.
         model = genai.GenerativeModel(model_name="gemini-1.5-flash-8b")
         
-        # AI가 딴소리 못하게 하는 강력한 지시문
         instruction = (
-            f"Role: minimalist aquarium expert.\n"
-            f"Format:\n"
-            f"1. {display_name}님! 🌊\n"
-            f"2. 🏠 [환경]: 수치 위주\n"
-            f"3. 💧 [관리]: 방법 위주\n"
-            f"4. ⚙️ [기기]: 상태 위주\n"
-            f"5. 🍽️ [급여]: 횟수 위주\n"
-            f"6. 즐거운 물생활 되세요! 🐠\n\n"
-            f"Rule: No sentences. No '~입니다'. No '~요'. Only nouns and icons."
+            f"Role: minimalist expert for {display_name}.\n"
+            f"Format:\n1. {display_name}님! 🌊\n2. 🏠 [환경]: 데이터\n3. 💧 [관리]: 데이터\n"
+            f"4. ⚙️ [기기]: 데이터\n5. 🍽️ [급여]: 데이터\n6. 즐거운 물생활 되세요! 🐠\n"
+            f"Constraint: No sentences. No '~요', '~다'. Only nouns."
         )
 
         response = model.generate_content(
-            [instruction, f"질문: {user_message}"],
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=100, # 길이를 짧게 제한해서 속도 향상
-                temperature=0.0        # 일관되고 빠른 응답
-            )
+            [instruction, f"Q: {user_message}"],
+            generation_config=genai.types.GenerationConfig(max_output_tokens=100, temperature=0.0)
         )
 
         if response and response.text:
-            # 줄바꿈 정리 및 마크다운 제거
             lines = [l.strip() for l in response.text.replace('**', '').split('\n') if l.strip()]
+            reply = '\n'.join([l for l in lines if not any(l.endswith(e) for e in ['다.', '요.', '죠.'])][:8])
             
-            # 파이썬 필터링: 문장형 어미(~다, ~요)가 포함된 줄은 삭제
-            filtered = [l for l in lines if not any(l.endswith(e) for e in ['다.', '요.', '죠.'])]
-            reply = '\n'.join(filtered[:8]) # 최대 8줄 제한
-
-            # 결과가 너무 짧으면 기본 포맷 반환
             if len(reply) < 10:
-                reply = f"{display_name}님! 🌊\n\n🏠 [환경]: 26°C / pH 7.0\n💧 [관리]: 주 1회 환수\n⚙️ [기기]: 여과기 가동\n🍽️ [급여]: 1일 1회\n\n즐거운 물생활 되세요! 🐠"
+                reply = f"{display_name}님! 🌊\n\n🏠 [환경]: 26°C\n💧 [관리]: 환수요망\n⚙️ [기기]: 정상\n🍽️ [급여]: 1회\n\n즐거운 물생활 되세요! 🐠"
 
             try:
                 ChatMessage = apps.get_model('chatbot', 'ChatMessage')
@@ -208,6 +228,5 @@ def chat_api(request):
             except: pass
             
             return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
-            
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

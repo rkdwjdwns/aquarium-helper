@@ -16,7 +16,7 @@
         <div class="flex flex-col gap-4 w-full md:w-auto">
             <div class="flex flex-wrap gap-2">
                 {% for tank in tanks %}
-                <a href="?tank_id={{ tank.id }}" 
+                <a href="?tank_id={{ tank.id }}&sort={{ sort }}" 
                    class="px-4 py-2 rounded-xl text-xs font-black transition shadow-sm 
                    {% if selected_tank.id == tank.id %} bg-blue-600 text-white {% else %} bg-white text-gray-400 border border-gray-100 hover:bg-gray-50 {% endif %}">
                     {{ tank.name }}
@@ -24,20 +24,21 @@
                 {% endfor %}
             </div>
 
-            <div class="flex flex-wrap gap-3">
-                {% if selected_tank %}
-                    <a href="{% url 'monitoring:ai_report_list' %}?tank_id={{ selected_tank.id }}&period=daily" 
-                       class="bg-blue-600 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100">
-                        일간 분석
-                    </a>
-                    <a href="{% url 'monitoring:ai_report_list' %}?tank_id={{ selected_tank.id }}&period=weekly" 
-                       class="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
-                        주간 분석
-                    </a>
-                    <a href="{% url 'monitoring:ai_report_list' %}?tank_id={{ selected_tank.id }}&period=monthly" 
-                       class="bg-slate-800 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-black transition shadow-lg shadow-slate-200">
-                        월간 분석
-                    </a>
+            <div class="flex flex-wrap items-center gap-3">
+                {% if has_tanks %}
+                    <div class="flex gap-2">
+                        <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=daily" 
+                           class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100">일간 분석</a>
+                        <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=weekly" 
+                           class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">주간 분석</a>
+                        <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=monthly" 
+                           class="bg-slate-800 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-black transition shadow-lg shadow-slate-200">월간 분석</a>
+                    </div>
+                    
+                    <div class="flex bg-gray-100 p-1 rounded-xl ml-2">
+                        <a href="?tank_id={{ selected_tank.id }}&sort=desc" class="px-3 py-1.5 text-[10px] font-black rounded-lg {% if sort == 'desc' %}bg-white shadow-sm text-blue-600{% else %}text-gray-400{% endif %}">최신순</a>
+                        <a href="?tank_id={{ selected_tank.id }}&sort=asc" class="px-3 py-1.5 text-[10px] font-black rounded-lg {% if sort == 'asc' %}bg-white shadow-sm text-blue-600{% else %}text-gray-400{% endif %}">과거순</a>
+                    </div>
                 {% else %}
                     <p class="text-amber-500 font-bold text-sm">리포트를 생성하려면 먼저 어항을 등록해주세요!</p>
                 {% endif %}
@@ -46,26 +47,36 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-4">
-        {% for report in reports %}
-        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl transition group">
+        {% for report in report_data %} <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl transition group relative">
+            
+            <form action="{% url 'monitoring:delete_report_data' report.id %}" method="POST" class="absolute top-6 right-6">
+                {% csrf_token %}
+                <button type="submit" onclick="return confirm('이 기록을 삭제하시겠습니까?')" class="text-slate-300 hover:text-red-500 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </form>
+
             <div class="flex justify-between items-start mb-6">
                 <span class="px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">
-                    {{ report.report_type }}
+                    SENSOR DATA
                 </span>
-                <span class="text-slate-300 font-bold text-[10px]">{{ report.created_at|date:"Y.m.d" }}</span>
+                <span class="text-slate-400 font-bold text-[10px] mr-6">{{ report.created_at|date:"Y.m.d H:i" }}</span>
             </div>
             
-            <h3 class="text-xl font-black text-gray-800 mb-3 group-hover:text-blue-600 transition">{{ report.tank.name }}</h3>
-            <p class="text-slate-500 text-sm leading-relaxed mb-8 line-clamp-3 font-medium">
-                {{ report.content|linebreaksbr }}
-            </p>
+            <h3 class="text-xl font-black text-gray-800 mb-3 group-hover:text-blue-600 transition">{{ selected_tank.name }}</h3>
+            
+            <div class="bg-slate-50 rounded-2xl p-4 mb-6">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 text-xs font-bold">현재 수온</span>
+                    <span class="text-blue-600 font-black text-lg">{{ report.temperature }}°C</span>
+                </div>
+            </div>
             
             <div class="flex flex-col gap-3">
-                <a href="{% url 'monitoring:download_report' report.tank.id %}" class="w-full text-center bg-slate-50 text-slate-700 py-3 rounded-2xl text-xs font-black hover:bg-slate-100 transition border border-slate-100">
-                    📄 텍스트 다운로드
-                </a>
-                <a href="#" class="w-full text-center bg-emerald-50 text-emerald-700 py-3 rounded-2xl text-xs font-black hover:bg-emerald-100 transition border border-emerald-100">
-                    Excel(CSV) 다운로드
+                <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=daily" class="w-full text-center bg-white text-slate-700 py-3 rounded-2xl text-xs font-black hover:bg-slate-50 transition border border-slate-100">
+                    📄 분석 파일 다운로드
                 </a>
             </div>
         </div>
@@ -74,12 +85,12 @@
             <div class="text-6xl mb-6">📊</div>
             <p class="text-slate-400 font-black text-xl">
                 {% if selected_tank %}
-                    [{{ selected_tank.name }}]의 리포트가 없습니다.
+                    [{{ selected_tank.name }}]의 수질 데이터가 없습니다.
                 {% else %}
-                    아직 생성된 리포트가 없습니다.
+                    아직 생성된 데이터가 없습니다.
                 {% endif %}
             </p>
-            <p class="text-slate-300 font-bold mt-2">상단의 분석 버튼을 눌러 리포트를 생성해보세요!</p>
+            <p class="text-slate-300 font-bold mt-2">수온 데이터가 수집되면 리포트 작성이 가능합니다!</p>
         </div>
         {% endfor %}
     </div>
