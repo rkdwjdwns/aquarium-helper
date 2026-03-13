@@ -16,6 +16,7 @@ if str(APPS_DIR) not in sys.path:
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = ['*']
+# Render 배포 도메인 및 와일드카드 허용
 CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com', 'https://aquarium-helper.onrender.com']
 
 # 3. 앱 등록
@@ -42,7 +43,7 @@ INSTALLED_APPS = [
 # 4. 미들웨어 설정
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # [추가] 배포 환경에서 정적 파일을 위해 필수
+    'whitenoise.middleware.WhiteNoiseMiddleware', 
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -96,13 +97,13 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
-# WhiteNoise가 정적 파일을 압축하고 캐싱하도록 설정
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # 9. 사용자 모델 및 로그인/로그아웃 경로 설정
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_REDIRECT_URL = '/monitoring/dashboard/'
-LOGOUT_REDIRECT_URL = '/'  # 로그아웃 후 메인으로 이동
+LOGOUT_REDIRECT_URL = '/'
+LOGIN_URL = '/accounts/login/' # 로그인이 필요한 페이지 접근 시 이동할 곳
 
 # 10. AI 및 보안 설정
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY_1') or os.getenv('GEMINI_API_KEY_2') or ""
@@ -112,3 +113,6 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # [추가] 배포 환경에서 로그인이 튕기는 것을 방지
+    CSRF_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_HTTPONLY = True
