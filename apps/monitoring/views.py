@@ -177,37 +177,17 @@ def ai_report_list(request):
         'selected_tank': selected_tank
     })
 
-@login_required
-def download_report(request, tank_id):
-    """리포트 다운로드"""
-    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
-    readings = tank.readings.all().order_by('-created_at')[:10]
-    
-    content = f"--- {tank.name} AI 관리 리포트 ---\n"
-    content += f"생성 일자: {date.today()}\n"
-    content += f"목표 온도: {tank.target_temp}도\n\n"
-    content += "[최근 수질 기록]\n"
-    for r in readings:
-        content += f"- {r.created_at.strftime('%Y-%m-%d %H:%M')}: 수온 {r.temperature}도\n"
-    
-    response = HttpResponse(content, content_type='text/plain')
-    response['Content-Disposition'] = f'attachment; filename="{tank.name}_report.txt"'
-    return response
-
-# --- [AI 챗봇 API] ---
+# --- [AI 챗봇 API: 정준님 최적화 요약 엔진] ---
 
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 불필요한 설명 제거 및 10줄 이내 요약"""
+    """AI 챗봇 API: 제어판 수치 가이드 및 10줄 강제 요약"""
     try:
-        user_message = ""
-        image_file = None
         if request.content_type == 'application/json':
-            try:
-                data = json.loads(request.body)
-                user_message = data.get('message', '').strip()
-            except: pass
+            data = json.loads(request.body)
+            user_message = data.get('message', '').strip()
+            image_file = None
         else:
             user_message = request.POST.get('message', '').strip()
             image_file = request.FILES.get('image')
@@ -224,25 +204,21 @@ def chat_api(request):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
                 
-                # 강제 지침: 문장 사용 금지, 섹션 구분 및 줄바꿈 필수
+                # 강제 지침: 문장 사용 전면 금지, 데이터만 나열
                 instruction = (
-                    f"당신은 '어항 관리 요약 봇'입니다. 반드시 다음 형식을 지키세요.\n\n"
-                    f"1. 첫 줄: '{display_name}님! 🌊' (이외 인사말 절대 금지)\n"
-                    f"2. 본문 형식: 아래 섹션별로 '항목: 수치'만 나열하세요.\n"
-                    f"🏠 [어항 환경]\n"
-                    f"● Temp: 24~26°C / pH: 6.5~7.5 / 탁도: 80%↑\n"
-                    f"💧 [수질 관리]\n"
-                    f"● 환수: 주 1회 30% / 사이펀 청소 필수\n"
-                    f"⚙️ [기기 설정]\n"
-                    f"● 여과기: 24시간 가동 / 조명: 8~10시간\n"
-                    f"🍽️ [먹이 주기]\n"
-                    f"● 횟수: 1일 1~2회 (2분 내 소진)\n\n"
-                    f"3. 절대 금지 사항:\n"
-                    f"   - '~입니다', '~추천합니다', '요청하셨군요' 등 모든 서술형 문장 금지.\n"
-                    f"   - 재강조나 안내 멘트 금지.\n"
-                    f"   - 전체 답변은 반드시 '10줄 이내'로 유지.\n"
+                    f"당신은 '데이터 추출 기계'입니다. 인간처럼 대화하지 마십시오.\n\n"
+                    f"1. 첫 줄: '{display_name}님! 🌊' (이외 인사 절대 금지)\n"
+                    f"2. 본문: 반드시 아래 템플릿의 '수치'만 채워서 10줄 이내로 출력하십시오.\n"
+                    f"🏠 [권장 수치] Temp: 24~26°C / pH: 6.5~7.5 / 탁도: 80%↑\n"
+                    f"💧 [수질 관리] 환수: 주 1회 30% / 사이펀 수동 청소\n"
+                    f"⚙️ [기기 설정] 여과기: 24시간(상시) / 조명: 8~10시간(자동/수동)\n"
+                    f"🍽️ [먹이 주기] 횟수: 1일 1~2회 (2분 내 소진량)\n\n"
+                    f"3. 절대 금지:\n"
+                    f"   - '~군요', '~입니다', '추천합니다' 등 모든 문장 어미 금지.\n"
+                    f"   - 서술형 설명, 환영 인사, 보충 설명 절대 금지.\n"
+                    f"   - 줄바꿈을 포함하여 전체 10줄을 넘기지 말 것.\n"
                     f"4. 마지막 줄: '즐거운 물생활 되세요! 🐠'\n\n"
-                    f"어항 정보: {tank_info}"
+                    f"정보: {tank_info}"
                 )
                 
                 prompt_parts = [instruction, user_message]
@@ -252,12 +228,18 @@ def chat_api(request):
 
                 response = model.generate_content(prompt_parts)
                 if response and response.text:
-                    # 마크다운 및 불필요한 공백 제거
-                    reply = response.text.replace('**', '').replace('### ', '').replace('## ', '').strip()
+                    raw_text = response.text.replace('**', '').replace('### ', '').replace('## ', '').strip()
                     
-                    # 10줄 강제 커팅 및 가공
-                    lines = [line.strip() for line in reply.split('\n') if line.strip()][:10]
-                    reply = '\n'.join(lines)
+                    # [사후 처리 필터링] 
+                    # 문장형 설명을 강제로 제거하고 섹션 기호가 있는 핵심 줄만 남김
+                    filtered_lines = []
+                    for line in raw_text.split('\n'):
+                        line = line.strip()
+                        if any(mark in line for mark in ['🌊', '🏠', '💧', '⚙️', '🍽️', '●', '🐠', 'Temp', 'pH']):
+                            filtered_lines.append(line)
+                    
+                    # 10줄 초과 방지 및 최종 조립
+                    reply = '\n'.join(filtered_lines[:10])
                     
                     try:
                         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
