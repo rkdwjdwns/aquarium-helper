@@ -1,6 +1,8 @@
-import json, os, PIL.Image
+import json
+import os
+import PIL.Image
 import google.generativeai as genai
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.conf import settings
@@ -9,15 +11,21 @@ from django.apps import apps
 from datetime import date, timedelta
 from django.core.paginator import Paginator
 
-# [중요] 데이터 정합성을 위해 올바른 경로에서 모델 가져오기
+# 모델 임포트
 from monitoring.models import Tank, SensorReading
 
+def home(request):
+    """로그인 상태에 따라 홈 또는 인덱스 페이지 표시"""
+    if request.user.is_authenticated:
+        return index(request)
+    return render(request, 'core/index.html', {'tank_data': [], 'is_guest': True})
+
 def index(request):
-    """메인 대시보드: 어항 삭제/수정 내용이 즉시 반영되도록 실시간 조회"""
+    """메인 대시보드: 데이터 정합성을 위해 항상 DB에서 최신순 조회"""
     if not request.user.is_authenticated:
         return render(request, 'core/index.html', {'tank_data': [], 'is_guest': True})
 
-    # [수정] 사용자의 어항을 항상 최신 DB 기준으로 필터링
+    # 편집 센터와 순서를 맞추기 위해 최신순(-id) 정렬 (삭제 즉시 반영)
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -59,7 +67,7 @@ def index(request):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 정준님 기존 모델 탐색 로직 + 실시간 데이터 연동 + 스타일 수정"""
+    """AI 챗봇 API: 가독성 강화 버전 (핵심 로직 유지)"""
     user_message = ""
     image_file = None
 
@@ -72,9 +80,9 @@ def chat_api(request):
         user_message = request.POST.get('message', '').strip()
         image_file = request.FILES.get('image')
     
-    # [추가] 챗봇에게 현재 내 어항 정보를 알려주기 위한 로직
+    # 실시간 어항 데이터 연동
     user_tanks = Tank.objects.filter(user=request.user)
-    tank_info = ", ".join([f"{t.name}" for t in user_tanks]) if user_tanks.exists() else "등록된 어항 없음"
+    tank_info = ", ".join([f"{t.name}" for t in user_tanks]) if user_tanks else "등록된 어항 없음"
     display_name = getattr(request.user, 'nickname', None) or request.user.username
 
     api_keys = [
@@ -86,7 +94,7 @@ def chat_api(request):
     valid_keys = [k for k in api_keys if k]
 
     if not valid_keys:
-        return JsonResponse({'status': 'error', 'message': "사용 가능한 API 키가 없습니다."}, status=500)
+        return JsonResponse({'status': 'error', 'message': "API 키가 없습니다."}, status=500)
 
     last_error_msg = ""
     for key in valid_keys:
@@ -96,7 +104,6 @@ def chat_api(request):
             
             selected_model = None
             candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-1.5-flash", "models/gemini-flash-latest"]
-            
             for cand in candidates:
                 if cand in available_models:
                     selected_model = cand
@@ -104,36 +111,31 @@ def chat_api(request):
             
             if not selected_model and available_models:
                 selected_model = available_models[0]
-            
             if not selected_model: continue
 
             model = genai.GenerativeModel(model_name=selected_model)
             
-            # [스타일 수정] 요청하신 대로 기호 제거 및 친절한 말투 설정
+            # [수정] 정준님 스타일 반영 프롬프트
             instruction = (
-                f"당신은 친절한 '어항 도우미'입니다.\n"
+                f"당신은 '어항 도우미'입니다.\n"
                 f"사용자: {display_name}님 / 보유 어항: {tank_info}\n\n"
-                f"규칙:\n"
-                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
-                f"2. 별표(*), 샵(#), 대시(-) 기호 절대 사용 금지.\n"
-                f"3. 문장마다 줄바꿈(엔터) 필수.\n"
-                f"4. 중요 제목은 [제목] 형태를 사용하고 문단 사이 간격을 벌릴 것.\n"
-                f"5. 사육 환경 질문 시 [수동 설정 추천]과 [자동 설정 추천]을 나누어 친절히 설명할 것."
+                f"답변 규칙:\n"
+                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작하세요.\n"
+                f"2. 별표(*), 샵(#), 대시(-) 등 특수기호를 절대 사용하지 마세요.\n"
+                f"3. 오직 문장과 줄바꿈으로만 내용을 구분하세요.\n"
+                f"4. 중요 항목은 [제목] 처럼 대괄호를 사용하고, 문단 사이 빈 줄을 넣어 간격을 벌리세요.\n"
+                f"5. 사육 질문 시 [수동 관리 추천]과 [자동 기기 세팅값]을 나누어 상세히 설명하세요."
             )
             
-            prompt_parts = [instruction]
+            prompt_parts = [instruction, user_message]
             if image_file:
                 image_file.seek(0)
-                img = PIL.Image.open(image_file)
-                prompt_parts.extend([img, user_message if user_message else "상태를 분석해줘."])
-            else:
-                if not user_message: continue
-                prompt_parts.append(user_message)
-            
+                prompt_parts.insert(1, PIL.Image.open(image_file))
+
             response = model.generate_content(prompt_parts)
             
             if response and response.text:
-                # 기호 강제 제거
+                # 기호 강제 제거 필터
                 reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
                 
                 try:
@@ -147,4 +149,4 @@ def chat_api(request):
             last_error_msg = str(e)
             continue
 
-    return JsonResponse({'status': 'error', 'message': f"모델 연결 실패: {last_error_msg}"}, status=500)
+    return JsonResponse({'status': 'error', 'message': f"연결 실패: {last_error_msg}"}, status=500)
