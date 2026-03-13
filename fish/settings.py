@@ -53,8 +53,8 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
-                'django.template.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+                'django.contrib.auth.context_processors.auth',         # [수정완료] 경로 오타 수정
+                'django.contrib.messages.context_processors.messages', # [수정완료] 경로 오타 수정
             ],
         },
     },
@@ -90,9 +90,9 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
 
-# [추가 및 수정] 세션 관리 설정
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # 브라우저 닫으면 로그아웃 (기본값)
-SESSION_COOKIE_AGE = 1209600           # 로그인 유지 체크 시 최대 2주
+# 세션 관리 설정
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # 기본값: 브라우저 닫으면 로그아웃
+SESSION_COOKIE_AGE = 1209600           # 로그인 유지 시 2주
 SESSION_SAVE_EVERY_REQUEST = True
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY_1') or os.getenv('GEMINI_API_KEY_2') or ""
