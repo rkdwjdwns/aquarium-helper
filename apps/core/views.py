@@ -31,7 +31,6 @@ def index(request):
         latest = tank.readings.order_by('-created_at').first()
         status = "NORMAL"
         
-        # [보완] float 변환 에러 방지 (데이터가 없을 경우 대비)
         try:
             if latest and latest.temperature is not None:
                 current_temp = float(latest.temperature)
@@ -41,7 +40,6 @@ def index(request):
         except (ValueError, TypeError):
             status = "UNKNOWN"
         
-        # D-Day 계산 (기본값 7일)
         d_day = 7
         if tank.last_water_change:
             period = int(tank.water_change_period or 7)
@@ -64,7 +62,7 @@ def index(request):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API (텍스트/이미지 대응 및 다중 키 순환)"""
+    """AI 챗봇 API: Render 환경변수 3개 순환 대응"""
     user_message = ""
     image_file = None
 
@@ -79,62 +77,80 @@ def chat_api(request):
     
     display_name = getattr(request.user, 'nickname', None) or request.user.username
 
-    # 설정된 API 키 리스트 (settings.py 및 env 참조)
+    # [중요] Render 환경변수 키 3개 + settings 기본키 리스트업
+    # Render 대시보드에 입력한 Key 이름과 정확히 일치해야 합니다.
     api_keys = [
-        getattr(settings, 'GEMINI_API_KEY', None), 
         os.getenv('GEMINI_API_KEY_1'),
-        os.getenv('GEMINI_API_KEY_2')
+        os.getenv('GEMINI_API_KEY_2'),
+        os.getenv('GEMINI_API_KEY_3'),
+        getattr(settings, 'GEMINI_API_KEY', None)
     ]
+    # None이거나 빈 문자열인 키는 제외
     valid_keys = [k for k in api_keys if k]
 
     if not valid_keys:
-        return JsonResponse({'status': 'error', 'message': "설정된 API 키가 없습니다."}, status=500)
+        return JsonResponse({'status': 'error', 'message': "사용 가능한 API 키가 없습니다."}, status=500)
 
+    last_error_msg = ""
     for key in valid_keys:
         try:
             genai.configure(api_key=key)
+            # 매번 새로운 키로 모델 인스턴스 생성
             model = genai.GenerativeModel("gemini-1.5-flash")
             
-            # [보완] 챗봇 지침 구체화
             instruction = (
                 f"당신은 '어항 도우미'입니다.\n"
                 f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
-                f"2. 특수기호(*, #, -) 절대 금지. 3. 아주 짧게 핵심만 말할 것.\n"
-                f"4. 줄바꿈을 문장마다 아주 자주 할 것."
+                f"2. 특수기호(*, #, -) 절대 금지. 3. 문장마다 줄바꿈 필수.\n"
+                f"4. 아주 친절하고 짧게 핵심만 말할 것."
             )
             
             prompt_parts = [instruction]
             
             if image_file:
                 try:
+                    # PIL 이미지를 열기 전에 포인터를 처음으로 되돌림 (반복 시도 대비)
+                    image_file.seek(0)
                     img = PIL.Image.open(image_file)
                     prompt_parts.append(img)
-                    prompt_parts.append(user_message if user_message else "이 사진 속 물고기 상태나 어항 환경을 분석해줘.")
+                    prompt_parts.append(user_message if user_message else "이 사진을 분석해줘.")
                 except:
-                    return JsonResponse({'status': 'error', 'message': "이미지 형식이 올바르지 않습니다."}, status=400)
+                    return JsonResponse({'status': 'error', 'message': "이미지 파일에 문제가 있습니다."}, status=400)
             else:
+                if not user_message:
+                    return JsonResponse({'status': 'error', 'message': "메시지를 입력해주세요."}, status=400)
                 prompt_parts.append(user_message)
             
+            # 답변 생성 시도
             response = model.generate_content(prompt_parts)
+            
+            if not response or not response.text:
+                continue # 응답이 없으면 다음 키로
+
             reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
 
-            # 동적 모델 로딩 (순환 참조 방지)
+            # 채팅 내역 저장 (데이터베이스 저장 실패가 챗봇 응답을 막지 않도록 try-except)
             try:
                 ChatMessage = apps.get_model('chatbot', 'ChatMessage')
                 ChatMessage.objects.create(
                     user=request.user, 
-                    message=user_message or "(사진 분석 요청)", 
+                    message=user_message or "(사진 분석)", 
                     response=reply
                 )
-            except:
-                pass # 모델 저장 실패 시에도 응답은 보내줌
+            except Exception as db_err:
+                print(f"DB Save Error: {db_err}")
             
+            # 성공 시 즉시 반환
             return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
             
         except Exception as e:
-            if "429" in str(e): # 할당량 초과 시 다음 키로 이동
-                continue
-            print(f"Chat API Error: {e}")
-            return JsonResponse({'status': 'error', 'message': "답변 생성 중 오류가 발생했습니다."}, status=500)
+            last_error_msg = str(e)
+            print(f"API Key Error: {last_error_msg}")
+            # 429(할당량 초과) 혹은 기타 API 에러 발생 시 다음 키로 루프 진행
+            continue
 
-    return JsonResponse({'status': 'error', 'message': "모든 API 키의 할당량이 초과되었습니다."}, status=500)
+    # 모든 키를 다 돌았는데 실패한 경우
+    return JsonResponse({
+        'status': 'error', 
+        'message': f"모든 AI 엔진이 응답하지 않습니다. (에러: {last_error_msg})"
+    }, status=500)
