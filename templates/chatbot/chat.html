@@ -3,7 +3,7 @@
 {% block content %}
 <div class="max-w-[450px] mx-auto h-[82vh] flex flex-col shadow-2xl rounded-[2.5rem] overflow-hidden border border-white/50 bg-white/80 backdrop-blur-xl my-4 relative animate-fade-in">
     
-    <div class="p-5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white flex items-center justify-between shadow-md">
+    <div class="p-5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white flex items-center justify-between shadow-md relative z-10">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-inner text-xl">🐠</div>
             <div>
@@ -16,7 +16,7 @@
         </div>
     </div>
 
-    <div id="chat-window" class="flex-1 overflow-y-auto p-5 space-y-6 bg-[#BACEE0]/30 scroll-smooth">
+    <div id="chat-window" class="flex-1 overflow-y-auto p-5 space-y-6 bg-[#BACEE0]/30 scroll-smooth relative" onclick="closeMenuIfOpen()">
         <div class="flex items-start gap-3">
             <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold shadow-lg shrink-0">AI</div>
             <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium max-w-[85%] text-slate-700 leading-relaxed">
@@ -26,27 +26,41 @@
         </div>
     </div>
 
-    <div class="p-5 bg-white border-t border-white shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+    <div class="p-4 bg-white border-t border-white relative z-20">
+        <div id="action-menu" class="hidden absolute bottom-[90px] left-4 right-4 bg-white/95 backdrop-blur-lg rounded-[2rem] shadow-2xl border border-gray-100 p-4 grid grid-cols-2 gap-4 animate-slide-up">
+            <label class="flex flex-col items-center gap-2 p-4 hover:bg-blue-50 rounded-2xl cursor-pointer transition-all group">
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner">🖼️</div>
+                <span class="text-[11px] font-black text-gray-600">사진 보내기</span>
+                <input type="file" id="image-input" name="image" accept="image/*" class="hidden" onchange="handleFileSelect(this, 'image')">
+            </label>
+            <label class="flex flex-col items-center gap-2 p-4 hover:bg-emerald-50 rounded-2xl cursor-pointer transition-all group">
+                <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner">📂</div>
+                <span class="text-[11px] font-black text-gray-600">파일 보내기</span>
+                <input type="file" id="file-input" name="file" class="hidden" onchange="handleFileSelect(this, 'file')">
+            </label>
+        </div>
+
         <form id="chat-form" enctype="multipart/form-data" class="flex flex-col gap-3">
             {% csrf_token %}
             
-            <div id="image-preview" class="hidden p-3 bg-blue-50 rounded-2xl border-2 border-dashed border-blue-200 flex items-center justify-between animate-fade-in">
+            <div id="file-preview-chip" class="hidden p-2 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-between animate-fade-in">
                 <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white text-[10px] font-bold">IMG</div>
-                    <span id="file-name" class="text-xs font-bold text-blue-700 truncate max-w-[150px]"></span>
+                    <span id="preview-icon" class="text-sm"></span>
+                    <span id="preview-name" class="text-[11px] font-bold text-blue-700 truncate max-w-[180px]"></span>
                 </div>
-                <button type="button" onclick="resetImage()" class="text-red-500 font-black hover:scale-125 transition-transform">×</button>
+                <button type="button" onclick="clearFiles()" class="text-blue-400 hover:text-red-500 px-2 font-black text-lg transition-colors">×</button>
             </div>
 
             <div class="flex items-center gap-3">
-                <label class="flex-shrink-0 w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-all shadow-sm">
-                    <input type="file" id="image-input" name="image" accept="image/*" class="hidden">
-                    <span class="text-2xl">📷</span>
-                </label>
+                <button type="button" onclick="toggleActionMenu()" id="plus-btn" class="flex-shrink-0 w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center hover:bg-slate-200 transition-all shadow-sm">
+                    <span class="text-2xl font-light transition-transform duration-300" id="plus-icon">+</span>
+                </button>
+                
                 <div class="flex-1">
                     <input type="text" id="user-input" name="message" placeholder="메시지 입력..." 
                         class="w-full bg-slate-50 border-none focus:ring-2 focus:ring-blue-300 rounded-2xl px-5 py-3.5 outline-none text-sm font-medium transition-all shadow-inner">
                 </div>
+                
                 <button type="submit" class="flex-shrink-0 w-14 h-14 bg-gradient-to-tr from-blue-600 to-cyan-500 text-white rounded-2xl shadow-lg shadow-blue-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group">
                     <span class="text-3xl group-hover:rotate-12 transition-transform">🐠</span>
                 </button>
@@ -56,102 +70,109 @@
 </div>
 
 <style>
-    @keyframes fade-in { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-    .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
+    @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slide-up { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    
+    .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+    .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    
     #chat-window::-webkit-scrollbar { width: 4px; }
     #chat-window::-webkit-scrollbar-thumb { background: rgba(0, 119, 255, 0.1); border-radius: 10px; }
-    .setting-card { margin-top: 12px; padding: 12px; background: rgba(255, 255, 255, 0.9); border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+    
+    .plus-rotate { transform: rotate(45deg); background-color: #64748b !important; color: white !important; }
 </style>
 
 <script>
-    const chatForm = document.getElementById('chat-form');
-    const chatWindow = document.getElementById('chat-window');
-    const userInput = document.getElementById('user-input');
+    const actionMenu = document.getElementById('action-menu');
+    const plusIcon = document.getElementById('plus-icon');
+    const filePreview = document.getElementById('file-preview-chip');
+    const previewName = document.getElementById('preview-name');
+    const previewIcon = document.getElementById('preview-icon');
     const imageInput = document.getElementById('image-input');
-    const imagePreview = document.getElementById('image-preview');
-    const fileNameDisp = document.getElementById('file-name');
+    const fileInput = document.getElementById('file-input');
+    const userInput = document.getElementById('user-input');
+    const chatWindow = document.getElementById('chat-window');
 
-    function scrollToBottom() { chatWindow.scrollTop = chatWindow.scrollHeight; }
+    // 카톡 메뉴 토글 및 닫기
+    function toggleActionMenu() {
+        actionMenu.classList.toggle('hidden');
+        plusIcon.classList.toggle('plus-rotate');
+    }
 
-    imageInput.addEventListener('change', function() {
-        if (this.files && this.files[0]) {
-            fileNameDisp.innerText = this.files[0].name;
-            imagePreview.classList.remove('hidden');
+    function closeMenuIfOpen() {
+        if (!actionMenu.classList.contains('hidden')) {
+            toggleActionMenu();
         }
-    });
+    }
 
-    function resetImage() { imageInput.value = ""; imagePreview.classList.add('hidden'); }
+    // 파일 선택 핸들러
+    function handleFileSelect(input, type) {
+        if (input.files && input.files[0]) {
+            previewName.innerText = input.files[0].name;
+            previewIcon.innerText = type === 'image' ? '🖼️' : '📂';
+            filePreview.classList.remove('hidden');
+            toggleActionMenu();
+            userInput.focus();
+        }
+    }
 
+    // 파일 초기화
+    function clearFiles() {
+        imageInput.value = "";
+        fileInput.value = "";
+        filePreview.classList.add('hidden');
+    }
+
+    // 전송 로직
+    const chatForm = document.getElementById('chat-form');
     chatForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(this);
         const message = userInput.value.trim();
-        if (!message && !imageInput.files[0]) return;
+        
+        // 메시지나 파일이 없으면 전송 방지
+        if (!message && !imageInput.files[0] && !fileInput.files[0]) return;
 
-        appendMessage('user', message || "사진 분석 요청 📸");
+        // 화면에 메시지 추가
+        const userDisplayMsg = message || (imageInput.files[0] ? "사진 분석 요청 📸" : "파일 분석 요청 📂");
+        appendMessage('user', userDisplayMsg);
+        
+        // 입력창 및 파일 상태 초기화
         userInput.value = '';
-        resetImage();
+        clearFiles();
+        closeMenuIfOpen();
 
         const loadingId = 'loading-' + Date.now();
         appendMessage('ai', '어항 도우미가 분석 중입니다... 🫧', loadingId);
 
-        // [중요] 400 에러 방지를 위한 절대 경로 고정
-        fetch("/chatbot/ask/", {
+        // URL은 실제 urls.py 경로에 맞춰 조절 (/monitoring/chat/ 혹은 /chatbot/ask/)
+        fetch("/monitoring/chat/", {
             method: 'POST',
             headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
             body: formData
         })
         .then(res => {
-            if (!res.ok) throw new Error('서버 응답 오류 (400/500)');
+            if (!res.ok) throw new Error('Network response was not ok');
             return res.json();
         })
         .then(data => {
             const lb = document.getElementById(loadingId);
             if (lb) lb.closest('.flex').remove();
             
-            // views.py의 JsonResponse 키값(message 또는 reply)에 맞춰 유연하게 처리
             const botMsg = data.message || data.reply || "대답을 가져오지 못했습니다.";
-            
-            if (data.status === 'success') {
-                appendMessage('ai', botMsg);
-                checkAndRenderSettings(botMsg);
-            } else {
-                appendMessage('ai', "죄송합니다. 오류가 발생했습니다: " + botMsg);
-            }
+            appendMessage('ai', botMsg);
+            if (data.status === 'success') checkAndRenderSettings(botMsg);
         })
         .catch(err => {
             const lb = document.getElementById(loadingId);
             if (lb) lb.closest('.flex').remove();
-            appendMessage('ai', "네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+            appendMessage('ai', "서버와 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
             console.error(err);
         });
     });
 
-    function checkAndRenderSettings(text) {
-        const regex = /\[SETTING:\s*temp=([\d.]+),\s*ph=([\d.]+),\s*cycle=(\d+)\]/;
-        const match = text.match(regex);
-        if (match) {
-            const [_, temp, ph, cycle] = match;
-            const card = document.createElement('div');
-            card.className = 'flex items-start gap-3 mt-2 animate-fade-in';
-            card.innerHTML = `
-                <div class="w-9"></div>
-                <div class="setting-card border-blue-100 bg-blue-50/50 flex-1">
-                    <p class="text-[10px] font-black text-blue-600 mb-2 uppercase tracking-tighter">📋 박사님의 추천 세팅</p>
-                    <div class="grid grid-cols-3 gap-1 text-center mb-3">
-                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">온도</span><b class="text-xs">${temp}°C</b></div>
-                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">pH</span><b class="text-xs">${ph}</b></div>
-                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">주기</span><b class="text-xs">${cycle}일</b></div>
-                    </div>
-                    <button onclick="location.href='/monitoring/tanks/'" class="w-full py-2 bg-blue-600 text-white text-[11px] font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-100">
-                        내 어항에 적용하러 가기
-                    </button>
-                </div>`;
-            chatWindow.appendChild(card);
-            scrollToBottom();
-        }
-    }
-
+    function scrollToBottom() { chatWindow.scrollTop = chatWindow.scrollHeight; }
+    
     function appendMessage(sender, text, id = null) {
         const div = document.createElement('div');
         div.className = sender === 'user' ? 'flex justify-end' : 'flex items-start gap-3';
@@ -165,6 +186,29 @@
         }
         chatWindow.appendChild(div);
         scrollToBottom();
+    }
+
+    function checkAndRenderSettings(text) {
+        const regex = /\[SETTING:\s*temp=([\d.]+),\s*ph=([\d.]+),\s*cycle=(\d+)\]/;
+        const match = text.match(regex);
+        if (match) {
+            const [_, temp, ph, cycle] = match;
+            const card = document.createElement('div');
+            card.className = 'flex items-start gap-3 mt-2 animate-fade-in';
+            card.innerHTML = `
+                <div class="w-9"></div>
+                <div class="bg-blue-50/50 p-4 border border-blue-100 rounded-[2rem] flex-1 shadow-sm">
+                    <p class="text-[10px] font-black text-blue-600 mb-2 uppercase tracking-tighter">📋 박사님의 추천 세팅</p>
+                    <div class="grid grid-cols-3 gap-1 text-center mb-3">
+                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">온도</span><b class="text-xs">${temp}°C</b></div>
+                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">pH</span><b class="text-xs">${ph}</b></div>
+                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">주기</span><b class="text-xs">${cycle}일</b></div>
+                    </div>
+                    <button onclick="location.href='/monitoring/tanks/'" class="w-full py-2 bg-blue-600 text-white text-[11px] font-bold rounded-xl shadow-md transition-transform active:scale-95">내 어항에 적용하기</button>
+                </div>`;
+            chatWindow.appendChild(card);
+            scrollToBottom();
+        }
     }
 </script>
 {% endblock %}
