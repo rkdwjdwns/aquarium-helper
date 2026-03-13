@@ -7,74 +7,73 @@
             <p class="text-slate-400 font-bold text-sm mt-1">우리 물고기들의 환경을 감시 중입니다.</p>
         </div>
         {% if user.is_authenticated %}
-        <a href="{% url 'monitoring:tank_list' %}" class="bg-white border-2 border-slate-800 text-slate-800 px-4 py-3 rounded-2xl font-black text-xs hover:bg-slate-50 transition-all shadow-sm">⚙️ 어항 편집센터</a>
+        <a href="{% url 'monitoring:tank_list' %}" class="bg-white border border-slate-100 text-slate-500 px-4 py-3 rounded-2xl font-black text-xs hover:bg-slate-50 shadow-sm transition-all">⚙️ 어항 편집센터</a>
         {% endif %}
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        <a href="{% url 'monitoring:dashboard_default' %}" class="bg-white p-6 rounded-[2rem] text-center border-2 border-slate-800 hover:border-blue-500 transition-all shadow-sm">
+        <a href="{% url 'monitoring:dashboard_default' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-50 hover:border-blue-200 transition-all">
             <span class="text-3xl mb-2 block">📊</span>
-            <span class="font-black text-slate-800 text-sm">제어판</span>
+            <span class="font-black text-slate-700 text-sm">제어판</span>
         </a>
-        <a href="{% url 'reports:report_list' %}" class="bg-white p-6 rounded-[2rem] text-center border-2 border-slate-800 hover:border-purple-500 transition-all shadow-sm">
+        <a href="{% url 'reports:report_list' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-50 hover:border-purple-200 transition-all">
             <span class="text-3xl mb-2 block">🤖</span>
-            <span class="font-black text-slate-800 text-sm">AI 리포트</span>
+            <span class="font-black text-slate-700 text-sm">AI 리포트</span>
         </a>
-        <a href="{% url 'monitoring:camera_view' %}" class="bg-white p-6 rounded-[2rem] text-center border-2 border-slate-800 hover:border-blue-500 transition-all shadow-sm">
+        <a href="{% url 'monitoring:camera_view' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-50 hover:border-blue-200 transition-all">
             <span class="text-3xl mb-2 block">📷</span>
-            <span class="font-black text-slate-800 text-sm">카메라</span>
+            <span class="font-black text-slate-700 text-sm">카메라</span>
         </a>
-        <a href="{% url 'monitoring:logs' %}" class="bg-white p-6 rounded-[2rem] text-center border-2 border-slate-800 hover:border-blue-500 transition-all shadow-sm">
+        <a href="{% url 'monitoring:logs' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-50 hover:border-blue-200 transition-all">
             <span class="text-3xl mb-2 block">📝</span>
-            <span class="font-black text-slate-800 text-sm">실시간 로그</span>
+            <span class="font-black text-slate-700 text-sm">실시간 로그</span>
         </a>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
         {% for item in tank_data %}
-        <div class="bg-white p-10 rounded-[3rem] border-2 border-slate-800 shadow-xl hover:shadow-2xl transition-all group">
+        <div class="bg-white p-10 rounded-[3rem] shadow-xl border border-white hover:border-blue-100 transition-all group">
             <div class="flex justify-between items-start mb-8">
                 <div>
                     <h3 class="font-black text-3xl text-gray-800 group-hover:text-blue-600 transition-colors">{{ item.tank.name }}</h3>
                     <div class="mt-2 flex gap-2">
-                        <span class="text-xs font-black px-3 py-1 bg-white border border-slate-800 text-slate-800 rounded-full">모드: {{ item.tank.get_filter_mode_display }}</span>
-                        <span class="text-xs font-black px-3 py-1 {% if item.tank.filter_is_on %}bg-green-500{% else %}bg-slate-300{% endif %} border border-slate-800 text-white rounded-full">여과기 {% if item.tank.filter_is_on %}ON{% else %}OFF{% endif %}</span>
+                        <span class="text-xs font-black px-3 py-1 bg-blue-50 text-blue-500 rounded-full">모드: {{ item.tank.get_filter_mode_display }}</span>
+                        <span class="text-xs font-black px-3 py-1 {% if item.tank.filter_is_on %}bg-green-500{% else %}bg-slate-300{% endif %} text-white rounded-full">여과기 {% if item.tank.filter_is_on %}ON{% else %}OFF{% endif %}</span>
                     </div>
                 </div>
                 {% if item.d_day is not None %}
-                <span class="text-sm font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-500{% endif %}">환수 D-{{ item.d_day }}</span>
+                <span class="text-sm font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-400{% endif %}">환수 D-{{ item.d_day }}</span>
                 {% endif %}
             </div>
             
             <div class="grid grid-cols-3 gap-4 mb-8">
-                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border-2 border-slate-800">
-                    <span class="block text-[10px] text-slate-500 font-black mb-1">PH LEVEL</span>
+                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-black mb-1">PH LEVEL</span>
                     <span class="text-2xl font-black text-slate-800">{{ item.latest.ph|default:"--" }}</span>
                 </div>
-                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border-2 border-slate-800">
-                    <span class="block text-[10px] text-slate-500 font-black mb-1">TURBIDITY</span>
+                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-black mb-1">TURBIDITY</span>
                     <span class="text-2xl font-black text-slate-800">{{ item.latest.turbidity|default:"0.0" }}</span>
                 </div>
-                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border-2 border-slate-800">
-                    <span class="block text-[10px] text-blue-500 font-black mb-1">WATER SCORE</span>
-                    <span class="text-2xl font-black text-blue-600">{{ item.latest.water_quality_score|default:"100" }}</span>
+                <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-black mb-1">WATER SCORE</span>
+                    <span class="text-2xl font-black text-blue-500">{{ item.latest.water_quality_score|default:"100" }}</span>
                 </div>
             </div>
 
             <div class="flex gap-3">
-                <a href="{% url 'monitoring:dashboard' item.tank.id %}" class="flex-1 bg-slate-900 text-white py-4 rounded-[1.5rem] text-center font-black text-sm hover:bg-slate-800 border-2 border-slate-900 transition-all">제어판 입장</a>
-                <a href="{% url 'reports:report_list' %}" class="flex-1 bg-white text-slate-900 py-4 rounded-[1.5rem] text-center font-black text-sm hover:bg-slate-50 border-2 border-slate-800 transition-all">AI 분석리포트</a>
+                <a href="{% url 'monitoring:dashboard' item.tank.id %}" class="flex-1 bg-slate-900 text-white py-4 rounded-[1.5rem] text-center font-black text-sm hover:bg-slate-800 transition-all">제어판 입장</a>
+                <a href="{% url 'reports:report_list' %}" class="flex-1 bg-blue-500 text-white py-4 rounded-[1.5rem] text-center font-black text-sm hover:bg-blue-600 transition-all">AI 분석리포트</a>
             </div>
         </div>
         {% empty %}
-        <div class="col-span-full py-20 text-center bg-white rounded-[2.8rem] border-4 border-dashed border-slate-300">
+        <div class="col-span-full py-20 text-center bg-white rounded-[2.8rem] border-4 border-dashed border-slate-100">
             {% if is_guest %}
-                <p class="text-slate-400 font-black text-xl mb-2">물고기 친구들을 만날 준비가 되셨나요? 🐠</p>
-                <p class="text-slate-300 font-bold text-sm mb-6">로그인하시면 스마트한 어항 관리가 시작됩니다.</p>
-                <a href="{% url 'accounts:login' %}" class="inline-block bg-blue-600 text-white px-10 py-4 rounded-2xl font-black border-2 border-slate-800 shadow-lg hover:bg-blue-700 transition-all">지금 로그인하기</a>
+                <p class="text-slate-400 font-black text-xl mb-6">로그인 후 스마트한 어항 관리를 시작하세요! 🐠</p>
+                <a href="{% url 'accounts:login' %}" class="inline-block bg-blue-600 text-white px-10 py-4 rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all">지금 로그인하기</a>
             {% else %}
-                <p class="text-slate-300 font-black text-xl mb-4">아직 등록된 어항이 없습니다. 🐠</p>
-                <a href="{% url 'monitoring:tank_list' %}" class="inline-block bg-blue-600 text-white px-10 py-4 rounded-2xl font-black border-2 border-slate-800 shadow-lg hover:bg-blue-700 transition-all">첫 어항 등록하기</a>
+                <p class="text-slate-400 font-black text-xl mb-4">아직 등록된 어항이 없습니다. 🐠</p>
+                <a href="{% url 'monitoring:tank_list' %}" class="inline-block bg-blue-600 text-white px-10 py-4 rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all">첫 어항 등록하기</a>
             {% endif %}
         </div>
         {% endfor %}

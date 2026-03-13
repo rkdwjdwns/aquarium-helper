@@ -57,7 +57,7 @@ def index(request):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 모델 인식 404 에러 수정 및 다중 키 순환"""
+    """AI 챗봇 API: 모델 인식 404 에러 보완 및 세팅값 안내 기능 강화"""
     user_message = ""
     image_file = None
 
@@ -83,55 +83,68 @@ def chat_api(request):
     if not valid_keys:
         return JsonResponse({'status': 'error', 'message': "사용 가능한 API 키가 없습니다."}, status=500)
 
+    # [보완 1] 현재 라이브러리 버전에서 404가 나지 않도록 폴백 모델 리스트 준비
+    # 이미지 분석 여부에 따라 다른 모델명을 시도합니다.
+    if image_file:
+        model_candidates = ["gemini-1.5-flash", "gemini-pro-vision"]
+    else:
+        model_candidates = ["gemini-1.5-flash", "gemini-pro"]
+
     last_error_msg = ""
     for key in valid_keys:
-        try:
-            genai.configure(api_key=key)
-            
-            # [보완] 404 에러 방지를 위해 모델명을 명확히 지정하고 generation_config 추가 가능
-            model = genai.GenerativeModel(model_name="gemini-1.5-flash")
-            
-            instruction = (
-                f"당신은 '어항 도우미'입니다.\n"
-                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
-                f"2. 특수기호(*, #, -) 절대 금지. 3. 문장마다 줄바꿈 필수.\n"
-                f"4. 아주 친절하고 짧게 핵심만 말할 것."
-            )
-            
-            prompt_parts = [instruction]
-            
-            if image_file:
-                image_file.seek(0)
-                img = PIL.Image.open(image_file)
-                prompt_parts.append(img)
-                prompt_parts.append(user_message if user_message else "이 사진을 분석해줘.")
-            else:
-                if not user_message:
-                    continue
-                prompt_parts.append(user_message)
-            
-            response = model.generate_content(prompt_parts)
-            
-            # response.text 접근 전 유효성 체크
-            if not response or not response.candidates:
-                continue
-
-            reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
-
+        genai.configure(api_key=key)
+        
+        for model_name in model_candidates:
             try:
-                ChatMessage = apps.get_model('chatbot', 'ChatMessage')
-                ChatMessage.objects.create(
-                    user=request.user, 
-                    message=user_message or "(사진 분석)", 
-                    response=reply
+                model = genai.GenerativeModel(model_name=model_name)
+                
+                # [보완 2] 프롬프트 강화: 세팅값(수동/자동)을 반드시 알려주도록 지시
+                instruction = (
+                    f"당신은 '어항 도우미'입니다.\n"
+                    f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
+                    f"2. 특수기호(*, #, -) 절대 금지. 3. 문장마다 줄바꿈 필수.\n"
+                    f"4. 아주 친절하고 짧게 핵심만 말할 것.\n"
+                    f"5. 물고기 사육법을 물으면 반드시 [수동 설정]과 [자동 설정] 값을 나누어 추천할 것.\n"
+                    f"   - 수동 설정: 직접 관리할 때의 환수 주기, 온도 등\n"
+                    f"   - 자동 설정: 우리 서비스 제어판에서 설정할 목표 온도, 센서 기준치 등"
                 )
-            except: pass
-            
-            return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
-            
-        except Exception as e:
-            last_error_msg = str(e)
-            print(f"API Key Error ({key[:5]}...): {last_error_msg}")
-            continue
+                
+                prompt_parts = [instruction]
+                
+                if image_file:
+                    image_file.seek(0)
+                    img = PIL.Image.open(image_file)
+                    prompt_parts.append(img)
+                    prompt_parts.append(user_message if user_message else "이 사진 속 물고기나 어항 상태를 보고 사육 세팅값을 알려줘.")
+                else:
+                    if not user_message:
+                        continue
+                    prompt_parts.append(user_message)
+                
+                # 안전한 응답 생성을 위한 설정 추가
+                response = model.generate_content(prompt_parts)
+                
+                if not response or not response.candidates:
+                    continue
+
+                reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
+
+                # DB 저장 로직 (앱 이름 'chatbot' 확인 필수)
+                try:
+                    ChatMessage = apps.get_model('chatbot', 'ChatMessage')
+                    ChatMessage.objects.create(
+                        user=request.user, 
+                        message=user_message or "(사진 분석)", 
+                        response=reply
+                    )
+                except: pass
+                
+                return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
+                
+            except Exception as e:
+                last_error_msg = str(e)
+                # 404 에러나 모델 지원 에러 발생 시 다음 모델이나 다음 키로 넘어감
+                print(f"Model {model_name} Error ({key[:5]}...): {last_error_msg}")
+                continue
 
     return JsonResponse({'status': 'error', 'message': f"AI 엔진 응답 실패: {last_error_msg}"}, status=500)
