@@ -53,7 +53,7 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
+                'django.template.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
         },
@@ -85,13 +85,15 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# 유저 모델 설정
 AUTH_USER_MODEL = 'accounts.User'
-
-# [수정] 로그인 후 메인 페이지(어항 리스트)로 이동하도록 변경
 LOGIN_REDIRECT_URL = '/' 
 LOGOUT_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
+
+# [추가 및 수정] 세션 관리 설정
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # 브라우저 닫으면 로그아웃 (기본값)
+SESSION_COOKIE_AGE = 1209600           # 로그인 유지 체크 시 최대 2주
+SESSION_SAVE_EVERY_REQUEST = True
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY_1') or os.getenv('GEMINI_API_KEY_2') or ""
 
@@ -103,5 +105,3 @@ if not DEBUG:
     CSRF_COOKIE_HTTPONLY = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-    # 배포 환경에서 세션 유지를 위해 추가
-    SESSION_SAVE_EVERY_REQUEST = True

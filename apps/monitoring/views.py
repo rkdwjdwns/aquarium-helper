@@ -25,7 +25,7 @@ def home(request):
 
 @login_required 
 def index(request):
-    """메인 페이지: 사용자의 어항 목록 및 요약 상태"""
+    """메인 페이지: 사용자의 어항 목록 및 요약 상태 (최신순 정렬)"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 10) 
     page_number = request.GET.get('page')
@@ -70,12 +70,13 @@ def dashboard(request, tank_id=None):
 
 @login_required
 def tank_list(request):
-    """[추가됨] 어항 관리 목록 페이지"""
+    """어항 관리 목록 페이지"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     return render(request, 'monitoring/tank_list.html', {'tanks': all_tanks})
 
 @login_required
 def add_tank(request):
+    """어항 등록 후 메인 대시보드로 리다이렉트"""
     if request.method == 'POST':
         tank = Tank.objects.create(
             user=request.user,
@@ -90,6 +91,7 @@ def add_tank(request):
 
 @login_required
 def edit_tank(request, tank_id):
+    """수정 후 메인 대시보드로 리다이렉트"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     if request.method == 'POST':
         tank.name = request.POST.get('name', tank.name)
@@ -101,6 +103,7 @@ def edit_tank(request, tank_id):
 
 @login_required
 def delete_tank(request, tank_id):
+    """삭제 후 메인 대시보드로 리다이렉트"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     tank.delete()
     messages.success(request, "어항이 삭제되었습니다.")
@@ -109,7 +112,7 @@ def delete_tank(request, tank_id):
 @login_required
 @require_POST
 def delete_tanks(request):
-    """일괄 삭제 기능"""
+    """일괄 삭제 후 메인 대시보드로 리다이렉트"""
     tank_ids = request.POST.getlist('tank_ids')
     if tank_ids:
         deleted_count, _ = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
@@ -131,7 +134,6 @@ def toggle_device(request, tank_id):
 @login_required
 @require_POST
 def perform_water_change(request, tank_id):
-    """[추가됨] 환수 완료 처리"""
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     tank.last_water_change = date.today()
     tank.save()
@@ -163,6 +165,60 @@ def get_chat_message_model():
 @login_required
 @require_POST
 def chat_api(request):
-    """챗봇 API (이전 로직 유지)"""
-    # 텍스트 및 이미지 처리 로직...
-    return JsonResponse({'status': 'success', 'reply': "어항 도우미입니다! 🌊 무엇을 도와드릴까요?"})
+    """AI 챗봇 API: 보완된 프롬프트와 기호 제거 로직 반영"""
+    user_message = ""
+    image_file = None
+
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body)
+            user_message = data.get('message', '').strip()
+        except: pass
+    else:
+        user_message = request.POST.get('message', '').strip()
+        image_file = request.FILES.get('image')
+    
+    # 실시간 어항 데이터 연동
+    user_tanks = Tank.objects.filter(user=request.user)
+    tank_info = ", ".join([f"{t.name}({t.fish_type})" for t in user_tanks]) if user_tanks else "없음"
+    display_name = getattr(request.user, 'nickname', None) or request.user.username
+
+    api_keys = [os.getenv('GEMINI_API_KEY_1'), os.getenv('GEMINI_API_KEY_2'), getattr(settings, 'GEMINI_API_KEY', None)]
+    valid_keys = [k for k in api_keys if k]
+
+    if not valid_keys:
+        return JsonResponse({'status': 'error', 'message': "API 키 부족"}, status=500)
+
+    for key in valid_keys:
+        try:
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel('gemini-1.5-flash') # 가용 모델 사용
+            
+            instruction = (
+                f"당신은 '어항 도우미'입니다.\n"
+                f"사용자: {display_name}님 / 보유어항: {tank_info}\n\n"
+                f"핵심규칙:\n"
+                f"1. 첫인사는 {display_name}님! 🌊 으로 시작.\n"
+                f"2. 별표(*), 샵(#), 대시(-) 기호 절대 금지.\n"
+                f"3. 모든 구분은 문장 줄바꿈(엔터)으로만 할 것.\n"
+                f"4. 아주 친절하고 부드럽게 대답할 것."
+            )
+            
+            prompt_parts = [instruction, user_message]
+            if image_file:
+                image_file.seek(0)
+                prompt_parts.insert(1, PIL.Image.open(image_file))
+
+            response = model.generate_content(prompt_parts)
+            if response and response.text:
+                reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
+                
+                ChatMessage = get_chat_message_model()
+                if ChatMessage:
+                    ChatMessage.objects.create(user=request.user, message=user_message or "(사진)", response=reply)
+                
+                return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
+        except:
+            continue
+
+    return JsonResponse({'status': 'error', 'message': "연결 실패"}, status=500)

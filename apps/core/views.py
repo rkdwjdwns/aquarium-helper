@@ -9,15 +9,15 @@ from django.apps import apps
 from datetime import date, timedelta
 from django.core.paginator import Paginator
 
-# [수정 확인] 모델 가져오기
+# 모델 가져오기
 from monitoring.models import Tank, SensorReading
 
 def index(request):
-    """메인 대시보드: 삭제/수정 즉시 반영을 위해 항상 DB 최신 데이터를 조회"""
+    """메인 대시보드: 데이터 정합성을 위해 항상 DB에서 최신순 조회"""
     if not request.user.is_authenticated:
         return render(request, 'core/index.html', {'tank_data': [], 'is_guest': True})
 
-    # 정렬 순서를 명확히 하여 메인과 편집센터의 일치감을 높임
+    # 편집 센터와 순서를 맞추기 위해 최신순(-id) 정렬
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     paginator = Paginator(all_tanks, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -58,7 +58,7 @@ def index(request):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 특수기호 제거, 가독성 강화, 어항 데이터 실시간 연동"""
+    """AI 챗봇 API: 특수기호 완전 제거 및 실시간 데이터 연동"""
     user_message = ""
     image_file = None
 
@@ -71,11 +71,10 @@ def chat_api(request):
         user_message = request.POST.get('message', '').strip()
         image_file = request.FILES.get('image')
     
-    # [데이터 동기화 핵심] 현재 로그인한 유저의 어항 리스트를 가져와서 챗봇에게 알려줌
-    current_user_tanks = Tank.objects.filter(user=request.user)
-    tank_info_list = [f"{t.name}(종류: {t.fish_type})" for t in current_user_tanks]
-    tank_context = ", ".join(tank_info_list) if tank_info_list else "현재 등록된 어항이 없습니다."
-
+    # [데이터 동기화] 현재 유저의 어항 정보를 실시간으로 조회하여 챗봇에게 주입
+    user_tanks = Tank.objects.filter(user=request.user)
+    tank_info = ", ".join([f"{t.name}({t.fish_type})" for t in user_tanks]) if user_tanks else "현재 등록된 어항 없음"
+    
     display_name = getattr(request.user, 'nickname', None) or request.user.username
 
     api_keys = [
@@ -87,7 +86,7 @@ def chat_api(request):
     valid_keys = [k for k in api_keys if k]
 
     if not valid_keys:
-        return JsonResponse({'status': 'error', 'message': "API 키가 설정되지 않았습니다."}, status=500)
+        return JsonResponse({'status': 'error', 'message': "API 키가 없습니다."}, status=500)
 
     last_error_msg = ""
     for key in valid_keys:
@@ -95,7 +94,6 @@ def chat_api(request):
             genai.configure(api_key=key)
             available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
             
-            # 2026년 최신 모델 우선 순위
             selected_model = None
             candidates = ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-flash-latest"]
             for cand in candidates:
@@ -110,29 +108,28 @@ def chat_api(request):
 
             model = genai.GenerativeModel(model_name=selected_model)
             
-            # [가독성 및 데이터 정합성 지시사항]
+            # [가독성 극대화 지시사항] 특수문자 금지 및 문장별 줄바꿈 강조
             instruction = (
                 f"당신은 '어항 도우미'입니다.\n"
-                f"현재 사용자: {display_name}님\n"
-                f"현재 등록된 어항 정보: {tank_context}\n\n"
-                f"답변 규칙:\n"
-                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작할 것.\n"
-                f"2. 별표(*), 샵(#), 대시(-) 같은 특수기호는 절대 사용하지 말 것.\n"
-                f"3. 모든 답변은 문장 단위로 줄바꿈을 하고, 문단 사이에는 빈 줄을 넣어 깔끔하게 보여줄 것.\n"
-                f"4. 중요 항목은 [제목] 형태를 사용하고, 지금 상담원과 대화하는 것처럼 친절하게 말할 것.\n"
-                f"5. 어종 질문 시 [수동 설정 추천]과 [자동 설정 추천]을 나누어 친절하게 설명할 것."
+                f"사용자: {display_name}님 / 현재 보유 어항: {tank_info}\n\n"
+                f"답변 규칙 (엄격 준수):\n"
+                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작하세요.\n"
+                f"2. 별표(*), 샵(#), 대시(-) 같은 모든 특수기호를 절대 사용하지 마세요.\n"
+                f"3. 오직 문장과 줄바꿈(엔터)만 사용하여 내용을 구분하세요.\n"
+                f"4. 중요 항목은 [제목] 처럼 대괄호를 사용하고, 각 문단 사이에는 빈 줄을 넣어 간격을 벌리세요.\n"
+                f"5. 지금 상담원과 대화하는 것처럼 부드럽고 친절한 말투를 유지하세요.\n"
+                f"6. 사육법 질문 시 [수동 관리 추천]과 [자동 기기 세팅값]을 나누어 상세히 설명하세요."
             )
             
             prompt_parts = [instruction, user_message]
             if image_file:
                 image_file.seek(0)
-                img = PIL.Image.open(image_file)
-                prompt_parts.insert(1, img)
+                prompt_parts.insert(1, PIL.Image.open(image_file))
 
             response = model.generate_content(prompt_parts)
             
             if response and response.text:
-                # 기호 제거 및 깔끔한 정리
+                # 기호 강제 제거 (2중 필터)
                 reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
                 
                 try:
