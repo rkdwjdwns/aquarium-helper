@@ -149,7 +149,7 @@ def perform_water_change(request, tank_id):
     tank.save()
     return JsonResponse({'status': 'success'})
 
-# --- [4. AI 리포트 관리 (정렬, 삭제, 기간별 버튼 기능)] ---
+# --- [4. AI 리포트 관리] ---
 
 @login_required
 def ai_report_list(request):
@@ -160,7 +160,7 @@ def ai_report_list(request):
     tank_id = request.GET.get('tank_id')
     selected_tank = None
     
-    # 어항이 있다면 무조건 하나는 선택되도록 보장
+    # 어항이 존재한다면 무조건 하나를 선택 상태로 만듦
     if has_tanks:
         if tank_id:
             selected_tank = tanks.filter(id=tank_id).first()
@@ -168,7 +168,7 @@ def ai_report_list(request):
             selected_tank = tanks.first()
 
     sort_order = request.GET.get('sort', 'desc')
-    order_by = '-created_at' if sort_order == 'desc' else 'at'
+    order_by = '-created_at' if sort_order == 'desc' else 'created_at'
 
     report_data = []
     if selected_tank:
@@ -211,7 +211,7 @@ def download_report(request, tank_id):
     response['Content-Disposition'] = f'attachment; filename="{tank.name}_{period}.txt"'
     return response
 
-# --- [5. AI 챗봇 API: 초고속 최적화] ---
+# --- [5. AI 챗봇 API] ---
 
 @login_required
 @require_POST
