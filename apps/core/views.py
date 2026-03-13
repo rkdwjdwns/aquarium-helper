@@ -57,7 +57,7 @@ def index(request):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 모델 인식 404 에러 보완 및 세팅값 안내 기능 강화"""
+    """AI 챗봇 API: 모델 인식 404 에러 강제 해결 및 세팅값 자동화"""
     user_message = ""
     image_file = None
 
@@ -83,68 +83,78 @@ def chat_api(request):
     if not valid_keys:
         return JsonResponse({'status': 'error', 'message': "사용 가능한 API 키가 없습니다."}, status=500)
 
-    # [보완 1] 현재 라이브러리 버전에서 404가 나지 않도록 폴백 모델 리스트 준비
-    # 이미지 분석 여부에 따라 다른 모델명을 시도합니다.
-    if image_file:
-        model_candidates = ["gemini-1.5-flash", "gemini-pro-vision"]
-    else:
-        model_candidates = ["gemini-1.5-flash", "gemini-pro"]
-
     last_error_msg = ""
+
     for key in valid_keys:
-        genai.configure(api_key=key)
-        
-        for model_name in model_candidates:
-            try:
-                model = genai.GenerativeModel(model_name=model_name)
-                
-                # [보완 2] 프롬프트 강화: 세팅값(수동/자동)을 반드시 알려주도록 지시
-                instruction = (
-                    f"당신은 '어항 도우미'입니다.\n"
-                    f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
-                    f"2. 특수기호(*, #, -) 절대 금지. 3. 문장마다 줄바꿈 필수.\n"
-                    f"4. 아주 친절하고 짧게 핵심만 말할 것.\n"
-                    f"5. 물고기 사육법을 물으면 반드시 [수동 설정]과 [자동 설정] 값을 나누어 추천할 것.\n"
-                    f"   - 수동 설정: 직접 관리할 때의 환수 주기, 온도 등\n"
-                    f"   - 자동 설정: 우리 서비스 제어판에서 설정할 목표 온도, 센서 기준치 등"
-                )
-                
-                prompt_parts = [instruction]
-                
-                if image_file:
-                    image_file.seek(0)
-                    img = PIL.Image.open(image_file)
-                    prompt_parts.append(img)
-                    prompt_parts.append(user_message if user_message else "이 사진 속 물고기나 어항 상태를 보고 사육 세팅값을 알려줘.")
-                else:
-                    if not user_message:
-                        continue
-                    prompt_parts.append(user_message)
-                
-                # 안전한 응답 생성을 위한 설정 추가
-                response = model.generate_content(prompt_parts)
-                
-                if not response or not response.candidates:
-                    continue
+        try:
+            genai.configure(api_key=key)
+            
+            # [진단 및 해결] 현재 API 키가 지원하는 모델 목록을 직접 가져옵니다.
+            # 0.5.0 버전 패키지에서도 작동하는 가장 안전한 탐색법입니다.
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            print(f"Available models for this key: {available_models}") # Render 로그에서 확인용
 
+            # 우선순위대로 모델을 선정합니다.
+            selected_model = None
+            if image_file:
+                # 이미지 분석이 가능한 모델 찾기
+                for m in ["models/gemini-1.5-flash", "models/gemini-pro-vision", "models/gemini-1.0-pro-vision-latest"]:
+                    if m in available_models:
+                        selected_model = m
+                        break
+            else:
+                # 텍스트 전용 모델 찾기
+                for m in ["models/gemini-1.5-flash", "models/gemini-pro", "models/gemini-1.0-pro"]:
+                    if m in available_models:
+                        selected_model = m
+                        break
+            
+            # 목록에서 못 찾았다면 하드코딩된 이름으로 최후의 시도
+            if not selected_model:
+                selected_model = "gemini-pro" if not image_file else "gemini-pro-vision"
+
+            model = genai.GenerativeModel(model_name=selected_model)
+            
+            # [규칙 보완] 사육 세팅값(수동/자동) 안내 강화
+            instruction = (
+                f"당신은 '어항 도우미'입니다.\n"
+                f"1. 첫 인사는 반드시 '{display_name}님! 🌊'으로 시작.\n"
+                f"2. 특수기호(*, #, -) 절대 금지. 3. 문장마다 줄바꿈 필수.\n"
+                f"4. 아주 친절하고 짧게 핵심만 말할 것.\n"
+                f"5. 어종 추천이나 사육법 질문 시 반드시 다음 형식으로 답변할 것:\n"
+                f"   [수동 설정 추천]\n"
+                f"   - 환수 주기: X일마다\n"
+                f"   - 적정 온도: X도\n"
+                f"   [자동 설정 추천]\n"
+                f"   - 목표 온도 세팅: X도\n"
+                f"   - 조명/여과기 자동화 팁"
+            )
+            
+            prompt_parts = [instruction]
+            if image_file:
+                image_file.seek(0)
+                img = PIL.Image.open(image_file)
+                prompt_parts.append(img)
+                prompt_parts.append(user_message if user_message else "이 사진 속 환경의 세팅값을 알려줘.")
+            else:
+                if not user_message: continue
+                prompt_parts.append(user_message)
+            
+            response = model.generate_content(prompt_parts)
+            
+            if response and response.text:
                 reply = response.text.replace('*', '').replace('#', '').replace('-', '').strip()
-
-                # DB 저장 로직 (앱 이름 'chatbot' 확인 필수)
+                
                 try:
                     ChatMessage = apps.get_model('chatbot', 'ChatMessage')
-                    ChatMessage.objects.create(
-                        user=request.user, 
-                        message=user_message or "(사진 분석)", 
-                        response=reply
-                    )
+                    ChatMessage.objects.create(user=request.user, message=user_message or "(사진)", response=reply)
                 except: pass
                 
                 return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
-                
-            except Exception as e:
-                last_error_msg = str(e)
-                # 404 에러나 모델 지원 에러 발생 시 다음 모델이나 다음 키로 넘어감
-                print(f"Model {model_name} Error ({key[:5]}...): {last_error_msg}")
-                continue
 
-    return JsonResponse({'status': 'error', 'message': f"AI 엔진 응답 실패: {last_error_msg}"}, status=500)
+        except Exception as e:
+            last_error_msg = str(e)
+            print(f"Chat API Retry Log: {last_error_msg}")
+            continue
+
+    return JsonResponse({'status': 'error', 'message': f"현재 사용 가능한 AI 모델이 없습니다. (사유: {last_error_msg})"}, status=500)
