@@ -65,7 +65,7 @@ def dashboard(request, tank_id=None):
 
 @login_required
 def tank_list(request):
-    """어항 관리 목록 페이지 (편집 센터)"""
+    """어항 관리 목록 페이지"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     return render(request, 'monitoring/tank_list.html', {
         'tanks': all_tanks,
@@ -199,7 +199,7 @@ def download_report(request, tank_id):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 불필요한 설명 없이 카드형 요약 제공"""
+    """AI 챗봇 API: 정준님 스타일 요약 최적화"""
     try:
         user_message = ""
         image_file = None
@@ -224,15 +224,26 @@ def chat_api(request):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
                 
-                # 핵심: 서술형 문장을 금지하고 항목별 요약만 강제함
+                # 지시문 대폭 수정: 문법/미사여구 금지 및 데이터만 출력하도록 강제
                 instruction = (
-                    f"당신은 '어항 요약 로봇'입니다. 다음 지침을 엄격히 준수하세요.\n\n"
-                    f"1. 인사: '{display_name}님! 🌊' (이외의 수식어 금지)\n"
-                    f"2. 답변 방식: 설명하는 문장(~입니다, ~가 중요합니다)을 절대 쓰지 마세요.\n"
-                    f"3. 형식: 핵심 수치와 단어 위주로, '● 항목명: 내용' 형식으로만 작성하세요.\n"
-                    f"4. 가독성: 주제별로 [섹션명]을 나누고 줄바꿈을 자주 하세요.\n"
-                    f"5. 마무리: '즐거운 물생활 되세요! 🐠' 딱 한 줄로 끝내세요.\n\n"
-                    f"현재 어항 정보: {tank_info}"
+                    f"당신은 어항 관리 데이터를 요약하여 전달하는 시스템입니다. 아래 형식을 절대로 벗어나지 마세요.\n\n"
+                    f"1. 첫 줄: '{display_name}님! 🌊' (이외 인사 금지)\n"
+                    f"2. 구성: 질문에 대한 답변을 아래 4개 섹션으로 요약해서 출력하세요.\n"
+                    f"🏠 [어항 환경]\n"
+                    f"● 항목명: 데이터\n"
+                    f"💧 [수질 관리]\n"
+                    f"● 항목명: 데이터\n"
+                    f"⚙️ [자동 설정]\n"
+                    f"● 항목명: 데이터\n"
+                    f"🍽️ [먹이 주기]\n"
+                    f"● 항목명: 데이터\n"
+                    f"3. 제약사항:\n"
+                    f"   - '~입니다', '~하세요' 같은 문장 사용 금지.\n"
+                    f"   - 설명이나 재강조 금지.\n"
+                    f"   - 전체 답변은 10~15줄 내외로 짧게 유지.\n"
+                    f"   - 오직 정보(텍스트와 기호)만 나열할 것.\n"
+                    f"4. 마지막 줄: '즐거운 물생활 되세요! 🐠'\n\n"
+                    f"보유 어항: {tank_info}"
                 )
                 
                 prompt_parts = [instruction, user_message]
@@ -242,8 +253,8 @@ def chat_api(request):
 
                 response = model.generate_content(prompt_parts)
                 if response and response.text:
-                    # 마크다운 강조 기호를 제거하여 텍스트를 더 깔끔하게 만듦
-                    reply = response.text.replace('**', '').replace('### ', '').strip()
+                    # 마크다운 기호를 제거하여 정준님이 원하는 생 텍스트 느낌으로 변환
+                    reply = response.text.replace('**', '').replace('### ', '').replace('## ', '').strip()
                     
                     try:
                         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
