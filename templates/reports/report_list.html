@@ -4,26 +4,44 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 px-4">
         <div>
             <h2 class="text-4xl font-black text-gray-800 tracking-tight">📊 데이터 리포트</h2>
-            <p class="text-gray-500 font-bold mt-2">기간별 수질 변화를 분석한 결과입니다.</p>
+            <p class="text-gray-500 font-bold mt-2">
+                {% if selected_tank %}
+                    <span class="text-blue-600">[{{ selected_tank.name }}]</span>의 수질 변화를 분석합니다.
+                {% else %}
+                    기간별 수질 변화를 분석한 결과입니다.
+                {% endif %}
+            </p>
         </div>
         
-        <div class="flex flex-wrap gap-3">
-            {% if first_tank %}
-                <a href="{% url 'reports:create_stat_report' first_tank.id %}?period=daily" 
-                   class="bg-blue-600 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100">
-                    일간 분석
+        <div class="flex flex-col gap-4 w-full md:w-auto">
+            <div class="flex flex-wrap gap-2">
+                {% for tank in tanks %}
+                <a href="?tank_id={{ tank.id }}" 
+                   class="px-4 py-2 rounded-xl text-xs font-black transition shadow-sm 
+                   {% if selected_tank.id == tank.id %} bg-blue-600 text-white {% else %} bg-white text-gray-400 border border-gray-100 hover:bg-gray-50 {% endif %}">
+                    {{ tank.name }}
                 </a>
-                <a href="{% url 'reports:create_stat_report' first_tank.id %}?period=weekly" 
-                   class="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
-                    주간 분석
-                </a>
-                <a href="{% url 'reports:create_stat_report' first_tank.id %}?period=monthly" 
-                   class="bg-slate-800 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-black transition shadow-lg shadow-slate-200">
-                    월간 분석
-                </a>
-            {% else %}
-                <p class="text-amber-500 font-bold text-sm">리포트를 생성하려면 먼저 어항을 등록해주세요!</p>
-            {% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                {% if selected_tank %}
+                    <a href="{% url 'monitoring:ai_report_list' %}?tank_id={{ selected_tank.id }}&period=daily" 
+                       class="bg-blue-600 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100">
+                        일간 분석
+                    </a>
+                    <a href="{% url 'monitoring:ai_report_list' %}?tank_id={{ selected_tank.id }}&period=weekly" 
+                       class="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
+                        주간 분석
+                    </a>
+                    <a href="{% url 'monitoring:ai_report_list' %}?tank_id={{ selected_tank.id }}&period=monthly" 
+                       class="bg-slate-800 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-black transition shadow-lg shadow-slate-200">
+                        월간 분석
+                    </a>
+                {% else %}
+                    <p class="text-amber-500 font-bold text-sm">리포트를 생성하려면 먼저 어항을 등록해주세요!</p>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -43,10 +61,10 @@
             </p>
             
             <div class="flex flex-col gap-3">
-                <a href="{% url 'reports:download_report' report.id %}" class="w-full text-center bg-slate-50 text-slate-700 py-3 rounded-2xl text-xs font-black hover:bg-slate-100 transition border border-slate-100">
+                <a href="{% url 'monitoring:download_report' report.tank.id %}" class="w-full text-center bg-slate-50 text-slate-700 py-3 rounded-2xl text-xs font-black hover:bg-slate-100 transition border border-slate-100">
                     📄 텍스트 다운로드
                 </a>
-                <a href="{% url 'reports:download_report_csv' report.id %}" class="w-full text-center bg-emerald-50 text-emerald-700 py-3 rounded-2xl text-xs font-black hover:bg-emerald-100 transition border border-emerald-100">
+                <a href="#" class="w-full text-center bg-emerald-50 text-emerald-700 py-3 rounded-2xl text-xs font-black hover:bg-emerald-100 transition border border-emerald-100">
                     Excel(CSV) 다운로드
                 </a>
             </div>
@@ -54,7 +72,13 @@
         {% empty %}
         <div class="col-span-full py-32 text-center bg-white rounded-[3.5rem] border-4 border-dashed border-slate-50">
             <div class="text-6xl mb-6">📊</div>
-            <p class="text-slate-400 font-black text-xl">아직 생성된 리포트가 없습니다.</p>
+            <p class="text-slate-400 font-black text-xl">
+                {% if selected_tank %}
+                    [{{ selected_tank.name }}]의 리포트가 없습니다.
+                {% else %}
+                    아직 생성된 리포트가 없습니다.
+                {% endif %}
+            </p>
             <p class="text-slate-300 font-bold mt-2">상단의 분석 버튼을 눌러 리포트를 생성해보세요!</p>
         </div>
         {% endfor %}
