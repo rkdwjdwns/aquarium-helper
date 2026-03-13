@@ -199,7 +199,7 @@ def download_report(request, tank_id):
 @login_required
 @require_POST
 def chat_api(request):
-    """AI 챗봇 API: 대시보드 수치 가이드 및 10줄 이내 요약"""
+    """AI 챗봇 API: 불필요한 설명 제거 및 10줄 이내 요약"""
     try:
         user_message = ""
         image_file = None
@@ -224,22 +224,25 @@ def chat_api(request):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
                 
-                # 핵심: 서술형 완전 금지, 대시보드 수치 포함, 10줄 제한
+                # 강제 지침: 문장 사용 금지, 섹션 구분 및 줄바꿈 필수
                 instruction = (
-                    f"당신은 어항 관리 데이터를 요약하는 시스템입니다. 아래 형식을 절대로 벗어나지 마세요.\n\n"
-                    f"1. 첫 줄: '{display_name}님! 🌊' (이외 인사 금지)\n"
-                    f"2. 구성: 아래 4개 섹션으로 요약하되, 설명 문장(~입니다, ~하세요)은 절대 쓰지 마세요.\n\n"
-                    f"🏠 [권장 수치]\n"
-                    f"● Temp: 24~26°C / pH: 6.5~7.5 / Level: 80%↑\n"
+                    f"당신은 '어항 관리 요약 봇'입니다. 반드시 다음 형식을 지키세요.\n\n"
+                    f"1. 첫 줄: '{display_name}님! 🌊' (이외 인사말 절대 금지)\n"
+                    f"2. 본문 형식: 아래 섹션별로 '항목: 수치'만 나열하세요.\n"
+                    f"🏠 [어항 환경]\n"
+                    f"● Temp: 24~26°C / pH: 6.5~7.5 / 탁도: 80%↑\n"
                     f"💧 [수질 관리]\n"
-                    f"● 환수: 주 1회 30% / 탁도: 80% 이상 유지\n"
+                    f"● 환수: 주 1회 30% / 사이펀 청소 필수\n"
                     f"⚙️ [기기 설정]\n"
-                    f"● 여과기: 수동/자동 24시간 / 조명: 8~10시간\n"
+                    f"● 여과기: 24시간 가동 / 조명: 8~10시간\n"
                     f"🍽️ [먹이 주기]\n"
                     f"● 횟수: 1일 1~2회 (2분 내 소진)\n\n"
-                    f"3. 제약사항: 전체 답변은 10줄 이하. 설명이나 미사여구 삭제. 오직 팩트만 나열.\n"
+                    f"3. 절대 금지 사항:\n"
+                    f"   - '~입니다', '~추천합니다', '요청하셨군요' 등 모든 서술형 문장 금지.\n"
+                    f"   - 재강조나 안내 멘트 금지.\n"
+                    f"   - 전체 답변은 반드시 '10줄 이내'로 유지.\n"
                     f"4. 마지막 줄: '즐거운 물생활 되세요! 🐠'\n\n"
-                    f"보유 어항: {tank_info}"
+                    f"어항 정보: {tank_info}"
                 )
                 
                 prompt_parts = [instruction, user_message]
@@ -249,11 +252,11 @@ def chat_api(request):
 
                 response = model.generate_content(prompt_parts)
                 if response and response.text:
-                    # 마크다운 강조 기호를 제거하여 정준님이 원하는 생 텍스트 느낌으로 변환
+                    # 마크다운 및 불필요한 공백 제거
                     reply = response.text.replace('**', '').replace('### ', '').replace('## ', '').strip()
                     
-                    # 10줄 초과 방지를 위한 물리적 커팅
-                    lines = [line for line in reply.split('\n') if line.strip()][:10]
+                    # 10줄 강제 커팅 및 가공
+                    lines = [line.strip() for line in reply.split('\n') if line.strip()][:10]
                     reply = '\n'.join(lines)
                     
                     try:
