@@ -98,8 +98,21 @@ def edit_tank(request, tank_id):
 
 @login_required
 def delete_tank(request, tank_id):
+    """단일 어항 삭제"""
     get_object_or_404(Tank, id=tank_id, user=request.user).delete()
     messages.success(request, "삭제 완료.")
+    return redirect('monitoring:tank_list')
+
+@login_required
+@require_POST
+def delete_tanks(request):
+    """[추가됨] 선택된 여러 개의 어항을 한꺼번에 삭제하는 함수"""
+    tank_ids = request.POST.getlist('tank_ids')
+    if tank_ids:
+        deleted_count, _ = Tank.objects.filter(id__in=tank_ids, user=request.user).delete()
+        messages.success(request, f"{deleted_count}개의 어항이 성공적으로 삭제되었습니다.")
+    else:
+        messages.warning(request, "삭제할 어항을 선택해주세요.")
     return redirect('monitoring:tank_list')
 
 # --- [3. 제어 및 로그] ---
@@ -128,7 +141,6 @@ def ai_report_list(request):
     """리포트 목록: 정렬 및 어항 존재 여부 체크 강화"""
     tanks = Tank.objects.filter(user=request.user).order_by('-id')
     
-    # 1. 어항 선택 (어항이 있는데 없다고 뜨는 현상 방지)
     tank_id = request.GET.get('tank_id')
     selected_tank = None
     if tank_id:
@@ -137,11 +149,9 @@ def ai_report_list(request):
     if not selected_tank:
         selected_tank = tanks.first()
 
-    # 2. 정렬 기능 (최신순/과거순)
     sort_order = request.GET.get('sort', 'desc')
     order_by = '-created_at' if sort_order == 'desc' else 'created_at'
 
-    # 3. 데이터 로드
     report_data = []
     if selected_tank:
         report_data = selected_tank.readings.all().order_by(order_by)
@@ -151,7 +161,7 @@ def ai_report_list(request):
         'selected_tank': selected_tank,
         'report_data': report_data,
         'sort': sort_order,
-        'has_tanks': tanks.exists() # 템플릿에서 '어항을 생성해주세요' 제어
+        'has_tanks': tanks.exists()
     })
 
 @login_required
@@ -192,7 +202,6 @@ def download_report(request, tank_id):
 @require_POST
 def chat_api(request):
     try:
-        # 1. 데이터 파싱
         if request.content_type == 'application/json':
             user_message = json.loads(request.body).get('message', '').strip()
             image_file = None
@@ -206,7 +215,6 @@ def chat_api(request):
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name="gemini-1.5-flash-8b")
         
-        # 2. 이미지 최적화 (속도 향상의 핵심!)
         prompt_parts = [
             f"Role: minimalist expert for {display_name}.\n"
             f"Rule: No sentences. No '~요', '~다'. Only nouns.\n"
@@ -215,27 +223,23 @@ def chat_api(request):
         
         if image_file:
             img = PIL.Image.open(image_file)
-            # 이미지가 너무 크면 512px로 줄여서 AI에게 전송 (속도 2배 빨라짐)
             img.thumbnail((512, 512)) 
             prompt_parts.append(img)
             
         prompt_parts.append(f"질문: {user_message}")
 
-        # 3. AI 호출 (초고속 설정)
         response = model.generate_content(
             prompt_parts,
             generation_config=genai.types.GenerationConfig(max_output_tokens=120, temperature=0.0)
         )
 
         if response and response.text:
-            # 설명형 문장 강제 필터링
             lines = [l.strip() for l in response.text.replace('**', '').split('\n') if l.strip()]
             reply = '\n'.join([l for l in lines if not any(l.endswith(e) for e in ['다.', '요.', '죠.'])][:8])
             
-            if len(reply) < 15: # 결과가 부실할 경우 기본값
+            if len(reply) < 15:
                 reply = f"{display_name}님! 🌊\n\n🏠 [환경]: 26°C\n💧 [관리]: 환수 주기 확인\n⚙️ [기기]: 정상 가동\n🍽️ [급여]: 1일 1회\n\n즐거운 물생활 되세요! 🐠"
 
-            # DB 저장
             try:
                 ChatMessage = apps.get_model('chatbot', 'ChatMessage')
                 ChatMessage.objects.create(user=request.user, message=user_message or "사진 분석", response=reply)
