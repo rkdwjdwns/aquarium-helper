@@ -16,7 +16,7 @@ if str(APPS_DIR) not in sys.path:
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-# ALLOWED_HOSTS 설정 (Render 도메인 명시 권장)
+# ALLOWED_HOSTS 설정
 ALLOWED_HOSTS = ['*', 'aquarium-helper.onrender.com']
 
 # CSRF 신뢰 도메인
@@ -36,7 +36,7 @@ INSTALLED_APPS = [
     
     # 서드파티 앱
     'rest_framework',
-    'whitenoise.runserver_nostatic', # 개발 환경에서도 whitenoise 테스트 가능하게 추가
+    'whitenoise.runserver_nostatic', 
     
     # 로컬 앱 (apps 디렉토리 내)
     'accounts.apps.AccountsConfig',
@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'chatbot.apps.ChatbotConfig',
 ]
 
-# 미들웨어 (WhiteNoise는 Security 바로 아래 위치가 최적)
+# 미들웨어
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware', 
@@ -80,81 +80,69 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fish.wsgi.application'
 
-# 데이터베이스 (PostgreSQL & SQLite 호환)
+# --- [데이터베이스 설정 - Render 최적화 로직 적용] ---
+
+db_url = os.getenv('DATABASE_URL')
+
+# 1. Render DNS 인식 오류 방지 (dpg- 호스트 자동 완성)
+if db_url and "dpg-" in db_url and ".render.com" not in db_url:
+    parts = db_url.split("@")
+    if len(parts) > 1:
+        auth_part = parts[0]
+        host_db_part = parts[1]
+        if "/" in host_db_part:
+            host, db_name = host_db_part.split("/", 1)
+            # 내부 주소를 전체 도메인 주소로 보완
+            db_url = f"{auth_part}@{host}.render.com/{db_name}"
+
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL', f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+        default=db_url or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
-        ssl_require=not DEBUG
+        conn_health_checks=True, # 연결 안정성 체크
     )
 }
 
-# 비밀번호 검증
-AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
-]
-
-# 언어 및 시간
-LANGUAGE_CODE = 'ko-kr'
-TIME_ZONE = 'Asia/Seoul'
-USE_I18N = True
-USE_TZ = True
+# 2. 배포 환경 SSL 설정 강제 (OperationalError 방지 핵심)
+if not DEBUG:
+    DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 
 # --- [정적 파일 및 미디어 파일 설정] ---
 
-# 1. 정적 파일 (CSS, JS)
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 
-# 배포 환경에서 정적 파일 효율화 (WhiteNoise 최신 설정)
 if not DEBUG:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# 2. 미디어 파일 (유저 업로드 이미지 등)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+os.makedirs(MEDIA_ROOT, exist_ok=True)
 
-# 실제 경로가 없을 경우 생성 (오류 방지)
-if not os.path.exists(MEDIA_ROOT):
-    os.makedirs(MEDIA_ROOT, exist_ok=True)
-
-# --- [인증 및 유저 모델] ---
+# --- [인증 및 기타 설정] ---
 
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_REDIRECT_URL = '/' 
 LOGOUT_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
 
-# 세션 관리
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_COOKIE_AGE = 1209600
-SESSION_SAVE_EVERY_REQUEST = True
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+LANGUAGE_CODE = 'ko-kr'
+TIME_ZONE = 'Asia/Seoul'
+USE_I18N = True
+USE_TZ = True
 
 # AI API 설정
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY_1') or os.getenv('GEMINI_API_KEY_2') or ""
 
-# --- [배포 환경 보안 설정] ---
-
+# 배포 보안 설정
 if not DEBUG:
-    # Render와 같은 Proxy 뒤에 있을 때 HTTPS 인식 설정
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
-    
-    # 쿠키 보안
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True
-    CSRF_COOKIE_HTTPONLY = True
-    
-    # HSTS 설정 (브라우저가 HTTPS로만 접속하도록 강제)
-    SECURE_HSTS_SECONDS = 31536000 # 1년
+    SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-# 기본 자동 필드 설정
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
