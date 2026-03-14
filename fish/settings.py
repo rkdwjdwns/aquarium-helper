@@ -3,29 +3,19 @@ from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
 
-# 기본 경로 설정
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
-# 앱 디렉토리 추가 (apps 폴더 내의 앱들을 인식하게 함)
 APPS_DIR = BASE_DIR / 'apps'
 if str(APPS_DIR) not in sys.path:
     sys.path.insert(0, str(APPS_DIR))
 
-# 보안 및 환경 설정
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-# ALLOWED_HOSTS 설정
 ALLOWED_HOSTS = ['*', 'aquarium-helper.onrender.com']
+CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com', 'https://aquarium-helper.onrender.com']
 
-# CSRF 신뢰 도메인
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.onrender.com', 
-    'https://aquarium-helper.onrender.com'
-]
-
-# 설치된 앱 목록
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -33,12 +23,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
-    # 서드파티 앱
     'rest_framework',
-    'whitenoise.runserver_nostatic', 
-    
-    # 로컬 앱 (apps 디렉토리 내)
+    'whitenoise.runserver_nostatic',
     'accounts.apps.AccountsConfig',
     'core.apps.CoreConfig',
     'monitoring.apps.MonitoringConfig',
@@ -47,7 +33,6 @@ INSTALLED_APPS = [
     'chatbot.apps.ChatbotConfig',
 ]
 
-# 미들웨어
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware', 
@@ -61,7 +46,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'fish.urls'
 
-# 템플릿 설정
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -80,35 +64,32 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fish.wsgi.application'
 
-# --- [데이터베이스 설정 - Render 최적화 로직 적용] ---
-
+# --- [데이터베이스 설정: Render DNS 이슈 해결 로직] ---
 db_url = os.getenv('DATABASE_URL')
 
-# 1. Render DNS 인식 오류 방지 (dpg- 호스트 자동 완성)
+# "dpg-"로 시작하는데 ".render.com"이 없는 경우 자동 보정
 if db_url and "dpg-" in db_url and ".render.com" not in db_url:
     parts = db_url.split("@")
     if len(parts) > 1:
         auth_part = parts[0]
-        host_db_part = parts[1]
-        if "/" in host_db_part:
-            host, db_name = host_db_part.split("/", 1)
-            # 내부 주소를 전체 도메인 주소로 보완
+        rest = parts[1]
+        if "/" in rest:
+            host, db_name = rest.split("/", 1)
+            # 주소에 .render.com을 붙여서 DNS 에러 방지
             db_url = f"{auth_part}@{host}.render.com/{db_name}"
 
 DATABASES = {
     'default': dj_database_url.config(
         default=db_url or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
-        conn_health_checks=True, # 연결 안정성 체크
+        conn_health_checks=True,
     )
 }
 
-# 2. 배포 환경 SSL 설정 강제 (OperationalError 방지 핵심)
 if not DEBUG:
     DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
 
-# --- [정적 파일 및 미디어 파일 설정] ---
-
+# --- [정적 및 미디어 파일] ---
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
@@ -120,8 +101,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
-# --- [인증 및 기타 설정] ---
-
+# --- [인증 및 보안] ---
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_REDIRECT_URL = '/' 
 LOGOUT_REDIRECT_URL = '/'
@@ -132,10 +112,8 @@ TIME_ZONE = 'Asia/Seoul'
 USE_I18N = True
 USE_TZ = True
 
-# AI API 설정
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY_1') or os.getenv('GEMINI_API_KEY_2') or ""
 
-# 배포 보안 설정
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
