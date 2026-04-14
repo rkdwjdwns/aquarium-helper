@@ -278,23 +278,40 @@ def _build_prompt(display_name: str, user_message: str) -> str:
 
 def _format_reply(raw: str, display_name: str) -> str:
     """
-    AI 응답을 5줄 이내로 정제.
-    빈 줄 제거 → 최대 5줄만 유지.
+    AI 응답을 5줄 이내로 강제 정제.
+    Gemini가 줄바꿈 없이 한 덩어리로 보낼 경우
+    마침표/이모지 기준으로 강제 분리.
     """
-    lines = [line.strip() for line in raw.replace('**', '').split('\n') if line.strip()]
+    import re
 
-    # 5줄 초과 시 자르기
+    raw = raw.replace('**', '').strip()
+
+    # 1차: 줄바꿈으로 분리
+    lines = [l.strip() for l in raw.split('\n') if l.strip()]
+
+    # 2차: 줄바꿈이 없으면 문장/이모지 기준으로 강제 분리
+    if len(lines) <= 1:
+        # 마침표/느낌표/물음표 뒤 공백 또는 이모지 앞에서 분리
+        lines = re.split(r'(?<=[.!?])\s+|(?<=\s)(?=[\U0001F300-\U0001FAFF])', raw)
+        lines = [l.strip() for l in lines if l.strip()]
+
+    # 3차: 그래도 1줄이면 [대괄호] 섹션 기준으로 분리
+    if len(lines) <= 1:
+        lines = re.split(r'\s*\[.*?\]\s*', raw)
+        lines = [l.strip() for l in lines if l.strip()]
+
+    # 5줄로 강제 자르기
     lines = lines[:5]
 
     reply = '\n'.join(lines)
 
-    # 너무 짧거나 비어있으면 기본 응답
+    # 비어있으면 기본 응답
     if len(reply) < 10:
         reply = (
-            f"🌊 {display_name}님 안녕하세요!\n"
+            f"🌊 {display_name}님!\n"
             f"🌡️ 수온: 25~27°C\n"
             f"💧 환수: 주 1회 30%\n"
-            f"⚙️ 여과기: 정상 가동 확인\n"
+            f"⚙️ 여과기: 24시간 가동\n"
             f"🐠 즐거운 물생활!"
         )
 
