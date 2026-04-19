@@ -1,94 +1,255 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="max-w-5xl mx-auto py-8">
+
+    {{-- ── 헤더 ── --}}
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 px-4">
         <div>
             <h2 class="text-4xl font-black text-gray-800 tracking-tight">📊 데이터 리포트</h2>
             <p class="text-gray-500 font-bold mt-2">
                 {% if selected_tank %}
-                    <span class="text-blue-600">[{{ selected_tank.name }}]</span>의 수질 변화를 분석합니다.
+                    <span class="text-blue-600">[{{ selected_tank.name }}]</span>의 수질 및 행동 데이터를 분석합니다.
                 {% else %}
                     어항 데이터를 분석합니다.
                 {% endif %}
             </p>
         </div>
-        
+
         <div class="flex flex-col gap-4 w-full md:w-auto">
+            {{-- 어항 탭 --}}
             <div class="flex flex-wrap gap-2">
                 {% for tank in tanks %}
-                <a href="?tank_id={{ tank.id }}&sort={{ sort }}" 
-                   class="px-4 py-2 rounded-xl text-xs font-black transition shadow-sm 
-                   {% if selected_tank.id == tank.id %} bg-blue-600 text-white {% else %} bg-white text-gray-400 border border-gray-100 hover:bg-gray-50 {% endif %}">
+                <a href="?tank_id={{ tank.id }}&sort={{ sort }}"
+                   class="px-4 py-2 rounded-xl text-xs font-black transition shadow-sm
+                   {% if selected_tank.id == tank.id %}bg-blue-600 text-white{% else %}bg-white text-gray-400 border border-gray-100 hover:bg-gray-50{% endif %}">
                     {{ tank.name }}
                 </a>
                 {% endfor %}
             </div>
 
+            {{-- 리포트 다운로드 + 정렬 --}}
+            {% if selected_tank %}
             <div class="flex flex-wrap items-center gap-3">
-                {% if selected_tank %}
-                    <div class="flex gap-2">
-                        <a href="{% url 'reports:create_stat_report' selected_tank.id %}?period=daily" 
-                           class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100">일간 분석</a>
-                        <a href="{% url 'reports:create_stat_report' selected_tank.id %}?period=weekly" 
-                           class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">주간 분석</a>
-                        <a href="{% url 'reports:create_stat_report' selected_tank.id %}?period=monthly" 
-                           class="bg-slate-800 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-black transition shadow-lg shadow-slate-200">월간 분석</a>
-                    </div>
-                    
-                    <div class="flex bg-gray-100 p-1 rounded-xl ml-2">
-                        <a href="?tank_id={{ selected_tank.id }}&sort=desc" class="px-3 py-1.5 text-[10px] font-black rounded-lg {% if sort == 'desc' %}bg-white shadow-sm text-blue-600{% else %}text-gray-400{% endif %}">최신순</a>
-                        <a href="?tank_id={{ selected_tank.id }}&sort=asc" class="px-3 py-1.5 text-[10px] font-black rounded-lg {% if sort == 'asc' %}bg-white shadow-sm text-blue-600{% else %}text-gray-400{% endif %}">과거순</a>
-                    </div>
-                {% endif %}
+                <div class="flex gap-2">
+                    <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=daily"
+                       class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100">일간 다운로드</a>
+                    <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=weekly"
+                       class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">주간 다운로드</a>
+                    <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=monthly"
+                       class="bg-slate-800 text-white px-5 py-2.5 rounded-xl text-[11px] font-black hover:bg-black transition shadow-lg shadow-slate-200">월간 다운로드</a>
+                </div>
+
+                <div class="flex bg-gray-100 p-1 rounded-xl ml-2">
+                    <a href="?tank_id={{ selected_tank.id }}&sort=desc"
+                       class="px-3 py-1.5 text-[10px] font-black rounded-lg {% if sort == 'desc' %}bg-white shadow-sm text-blue-600{% else %}text-gray-400{% endif %}">최신순</a>
+                    <a href="?tank_id={{ selected_tank.id }}&sort=asc"
+                       class="px-3 py-1.5 text-[10px] font-black rounded-lg {% if sort == 'asc' %}bg-white shadow-sm text-blue-600{% else %}text-gray-400{% endif %}">과거순</a>
+                </div>
             </div>
+            {% endif %}
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-4">
-        {% for report in report_data %} 
-        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl transition group relative">
-            <form action="{% url 'monitoring:delete_report_data' report.id %}" method="POST" class="absolute top-6 right-6">
-                {% csrf_token %}
-                <button type="submit" onclick="return confirm('이 기록을 삭제하시겠습니까?')" class="text-slate-300 hover:text-red-500 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </form>
+    {{-- ── 탭: 센서 데이터 / AI 행동 분석 ── --}}
+    <div class="flex gap-2 px-4 mb-8">
+        <button onclick="showTab('sensor')" id="tab-sensor"
+                class="px-6 py-2.5 rounded-xl text-xs font-black transition bg-blue-600 text-white shadow-lg">
+            💧 센서 데이터
+        </button>
+        <button onclick="showTab('behavior')" id="tab-behavior"
+                class="px-6 py-2.5 rounded-xl text-xs font-black transition bg-white text-gray-400 border border-gray-100">
+            🤖 AI 행동 분석
+        </button>
+    </div>
 
-            <div class="flex justify-between items-start mb-6">
-                <span class="px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">SENSOR DATA</span>
-                <span class="text-slate-400 font-bold text-[10px] mr-6">{{ report.created_at|date:"Y.m.d H:i" }}</span>
-            </div>
-            
-            <h3 class="text-xl font-black text-gray-800 mb-3 group-hover:text-blue-600 transition">{{ selected_tank.name }}</h3>
-            
-            <div class="bg-slate-50 rounded-2xl p-4 mb-6">
-                <div class="flex justify-between items-center">
-                    <span class="text-slate-500 text-xs font-bold">현재 수온</span>
-                    <span class="text-blue-600 font-black text-lg">{{ report.temperature }}°C</span>
-                </div>
-            </div>
-            
-            <div class="flex flex-col gap-3">
-                <a href="{% url 'monitoring:download_report' selected_tank.id %}?period=daily" class="w-full text-center bg-white text-slate-700 py-3 rounded-2xl text-xs font-black hover:bg-slate-50 transition border border-slate-100">
-                    📄 분석 파일 다운로드
-                </a>
+    {{-- ── 센서 데이터 탭 ── --}}
+    <div id="panel-sensor" class="px-4">
+        {% if report_data %}
+        <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-50/80 border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">시간</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">🌡️ 수온</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">💧 pH</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">🫧 DO</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">🌊 탁도</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">⭐ 수질점수</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        {% for r in report_data %}
+                        <tr class="hover:bg-blue-50/30 transition-colors">
+                            <td class="px-6 py-4 text-xs text-gray-400 font-mono whitespace-nowrap">{{ r.created_at|date:"Y-m-d H:i" }}</td>
+
+                            {{-- 수온 --}}
+                            <td class="px-6 py-4">
+                                <span class="font-black text-sm
+                                    {% if r.temperature >= 24 and r.temperature <= 28 %}text-emerald-500
+                                    {% else %}text-red-500{% endif %}">
+                                    {{ r.temperature }}°C
+                                </span>
+                            </td>
+
+                            {{-- pH --}}
+                            <td class="px-6 py-4">
+                                <span class="font-black text-sm
+                                    {% if r.ph >= 6.5 and r.ph <= 7.5 %}text-emerald-500
+                                    {% else %}text-orange-500{% endif %}">
+                                    {{ r.ph }}
+                                </span>
+                            </td>
+
+                            {{-- DO --}}
+                            <td class="px-6 py-4">
+                                <span class="font-black text-sm
+                                    {% if r.dissolved_oxygen >= 5 %}text-emerald-500
+                                    {% else %}text-red-500{% endif %}">
+                                    {{ r.dissolved_oxygen }} mg/L
+                                </span>
+                            </td>
+
+                            {{-- 탁도 --}}
+                            <td class="px-6 py-4">
+                                <span class="font-black text-sm
+                                    {% if r.turbidity <= 30 %}text-emerald-500
+                                    {% elif r.turbidity <= 50 %}text-orange-500
+                                    {% else %}text-red-500{% endif %}">
+                                    {{ r.turbidity }} NTU
+                                </span>
+                            </td>
+
+                            {{-- 수질 점수 --}}
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-16 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full
+                                            {% if r.water_quality_score >= 80 %}bg-emerald-400
+                                            {% elif r.water_quality_score >= 50 %}bg-orange-400
+                                            {% else %}bg-red-400{% endif %}"
+                                             style="width: {{ r.water_quality_score }}%"></div>
+                                    </div>
+                                    <span class="text-xs font-black text-gray-600">{{ r.water_quality_score }}</span>
+                                </div>
+                            </td>
+
+                            {{-- 삭제 --}}
+                            <td class="px-6 py-4">
+                                <form action="{% url 'monitoring:delete_report_data' r.id %}" method="POST">
+                                    {% csrf_token %}
+                                    <button type="submit" onclick="return confirm('삭제하시겠습니까?')"
+                                            class="text-slate-300 hover:text-red-500 transition text-lg">✕</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-        {% empty %}
-        <div class="col-span-full py-32 text-center bg-white rounded-[3.5rem] border-4 border-dashed border-slate-50">
+        {% else %}
+        <div class="py-32 text-center bg-white rounded-[3.5rem] border-4 border-dashed border-slate-100">
             <div class="text-6xl mb-6">📊</div>
             <p class="text-slate-400 font-black text-xl">
                 {% if selected_tank %}
-                    [{{ selected_tank.name }}]의 수집된 데이터가 아직 없습니다.
+                    [{{ selected_tank.name }}]의 수집된 센서 데이터가 아직 없습니다.
                 {% else %}
-                    표시할 데이터가 없습니다. 어항을 먼저 등록해 주세요!
+                    어항을 먼저 등록해 주세요.
                 {% endif %}
             </p>
-            <p class="text-slate-300 font-bold mt-2">센서가 작동하여 데이터가 쌓이면 자동으로 리포트가 생성됩니다!</p>
+            <p class="text-slate-300 font-bold mt-2">센서가 연동되면 데이터가 자동으로 쌓입니다.</p>
         </div>
-        {% endfor %}
+        {% endif %}
     </div>
+
+    {{-- ── AI 행동 분석 탭 ── --}}
+    <div id="panel-behavior" class="px-4 hidden">
+        {% if behaviors %}
+        <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-50/80 border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">시간</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">🐟 개체수</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">⚡ 활동량</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">📍 주 구역</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">🍽️ 급이점수</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">상태</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">이상</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        {% for b in behaviors %}
+                        <tr class="hover:bg-blue-50/30 transition-colors {% if b.is_anomaly %}bg-red-50/30{% endif %}">
+                            <td class="px-6 py-4 text-xs text-gray-400 font-mono whitespace-nowrap">{{ b.created_at|date:"Y-m-d H:i" }}</td>
+                            <td class="px-6 py-4 font-black text-sm text-slate-700">{{ b.fish_count }}마리</td>
+                            <td class="px-6 py-4 font-black text-sm text-slate-700">{{ b.activity_level|floatformat:1 }}</td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 rounded-lg text-[10px] font-black
+                                    {% if b.dominant_zone == 'TOP' %}bg-sky-100 text-sky-600
+                                    {% elif b.dominant_zone == 'MID' %}bg-blue-100 text-blue-600
+                                    {% else %}bg-slate-100 text-slate-600{% endif %}">
+                                    {{ b.get_dominant_zone_display }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-16 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full
+                                            {% if b.feeding_score >= 70 %}bg-emerald-400
+                                            {% elif b.feeding_score >= 40 %}bg-orange-400
+                                            {% else %}bg-red-400{% endif %}"
+                                             style="width: {{ b.feeding_score }}%"></div>
+                                    </div>
+                                    <span class="text-xs font-black text-gray-600">{{ b.feeding_score }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 rounded-lg text-[10px] font-black
+                                    {% if b.status == 'EXCELLENT' %}bg-emerald-100 text-emerald-600
+                                    {% elif b.status == 'GOOD' %}bg-blue-100 text-blue-600
+                                    {% elif b.status == 'WARNING' %}bg-orange-100 text-orange-600
+                                    {% elif b.status == 'POOR' %}bg-red-100 text-red-600
+                                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                    {{ b.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if b.is_anomaly %}
+                                    <span class="text-red-500 font-black text-sm" title="{{ b.note }}">⚠️ 감지</span>
+                                {% else %}
+                                    <span class="text-emerald-500 font-black text-sm">✓ 정상</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="py-32 text-center bg-white rounded-[3.5rem] border-4 border-dashed border-slate-100">
+            <div class="text-6xl mb-6">🤖</div>
+            <p class="text-slate-400 font-black text-xl">AI 행동 분석 데이터가 아직 없습니다.</p>
+            <p class="text-slate-300 font-bold mt-2">Raspberry Pi가 연동되면 자동으로 분석 데이터가 쌓입니다.</p>
+        </div>
+        {% endif %}
+    </div>
+
 </div>
+
+<script>
+function showTab(tab) {
+    // 패널 전환
+    document.getElementById('panel-sensor').classList.toggle('hidden', tab !== 'sensor');
+    document.getElementById('panel-behavior').classList.toggle('hidden', tab !== 'behavior');
+
+    // 탭 버튼 스타일 전환
+    document.getElementById('tab-sensor').className   = `px-6 py-2.5 rounded-xl text-xs font-black transition ${tab === 'sensor'   ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`;
+    document.getElementById('tab-behavior').className = `px-6 py-2.5 rounded-xl text-xs font-black transition ${tab === 'behavior' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`;
+}
+</script>
 {% endblock %}
