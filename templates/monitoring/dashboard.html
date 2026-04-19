@@ -1,102 +1,253 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="py-6">
+
+    {{-- 어항 탭 --}}
     <div class="flex gap-2 overflow-x-auto pb-4 mb-6 px-4 no-scrollbar">
         {% for t in user_tanks %}
-        <a href="{% url 'monitoring:dashboard' t.id %}" 
+        <a href="{% url 'monitoring:dashboard' t.id %}"
            class="px-6 py-3 rounded-2xl font-black text-sm whitespace-nowrap transition-all
-           {% if t.id == tank.id %}bg-blue-600 text-white shadow-lg shadow-blue-100{% else %}bg-white text-slate-400 border border-slate-100 hover:bg-slate-50{% endif %}">
+           {% if t.id == tank.id %}bg-blue-600 text-white shadow-lg shadow-blue-100
+           {% else %}bg-white text-slate-400 border border-slate-100 hover:bg-slate-50{% endif %}">
             {{ t.name }}
         </a>
         {% endfor %}
     </div>
 
+    {% if not tank %}
+    <div class="text-center py-32">
+        <p class="text-6xl mb-4">🐠</p>
+        <p class="text-slate-400 font-black text-xl">등록된 어항이 없습니다.</p>
+        <a href="{% url 'monitoring:add_tank' %}" class="mt-6 inline-block bg-blue-600 text-white px-8 py-3 rounded-2xl font-black">어항 등록하기</a>
+    </div>
+    {% else %}
+
     <div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-10 md:p-14 mb-10">
+
+        {{-- 헤더 --}}
         <div class="flex justify-between items-start mb-12">
             <div>
                 <span class="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em] block mb-2">Aquarium Unit</span>
                 <h2 class="text-4xl font-black text-slate-800">{{ tank.name }}</h2>
             </div>
-            <span class="px-6 py-2 rounded-full text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
+            <div class="flex flex-col items-end gap-2">
+                <span class="px-6 py-2 rounded-full text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
+                <span id="last-updated" class="text-[10px] text-slate-300 font-bold">마지막 업데이트: 방금</span>
+            </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
+        {{-- ── 센서 카드 4개 ── --}}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+
+            {{-- 수온 --}}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
-                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">Temp</p>
+                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🌡️ Temp</p>
                 <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.temperature|default:"--" }}°C</p>
                 {% if latest.temperature %}
-                    {% if latest.temperature >= tank.target_temp|add:"-1" and latest.temperature <= tank.target_temp|add:"1" %}
+                    {% if latest.temperature >= 24 and latest.temperature <= 28 %}
                         <span class="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full">● 적정</span>
                     {% else %}
                         <span class="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full animate-pulse">● 주의</span>
                     {% endif %}
+                {% else %}
+                    <span class="text-[10px] font-bold text-slate-300">센서 미연결</span>
                 {% endif %}
             </div>
 
+            {{-- pH --}}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
-                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">pH</p>
+                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">💧 pH</p>
                 <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.ph|default:"--" }}</p>
-                <span class="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full">● 안정</span>
+                {% if latest.ph %}
+                    {% if latest.ph >= 6.5 and latest.ph <= 7.5 %}
+                        <span class="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full">● 안정</span>
+                    {% else %}
+                        <span class="text-[10px] font-bold text-orange-500 bg-orange-50 px-3 py-1 rounded-full animate-pulse">● 확인 필요</span>
+                    {% endif %}
+                {% else %}
+                    <span class="text-[10px] font-bold text-slate-300">센서 미연결</span>
+                {% endif %}
             </div>
 
+            {{-- DO(용존산소) --}}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
-                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">Level</p>
-                <p class="text-3xl font-black text-slate-800 mb-2">--%</p>
-                <span class="text-[10px] font-bold text-slate-300">센서 미연결</span>
+                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🫧 DO</p>
+                <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.dissolved_oxygen|default:"--" }}<span class="text-sm font-bold text-slate-400"> mg/L</span></p>
+                {% if latest.dissolved_oxygen %}
+                    {% if latest.dissolved_oxygen >= 5 %}
+                        <span class="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full">● 정상</span>
+                    {% else %}
+                        <span class="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full animate-pulse">● 산소 부족</span>
+                    {% endif %}
+                {% else %}
+                    <span class="text-[10px] font-bold text-slate-300">센서 미연결</span>
+                {% endif %}
             </div>
 
+            {{-- 환수 D-day --}}
             <div class="bg-blue-50/30 rounded-[2.5rem] p-8 text-center border border-blue-100/50">
-                <p class="text-[10px] text-blue-400 font-black uppercase mb-3 tracking-widest">Water Change</p>
-                <p class="text-3xl font-black text-slate-800">D-{{ d_day }}</p>
+                <p class="text-[10px] text-blue-400 font-black uppercase mb-3 tracking-widest">🗑️ Water Change</p>
+                <p class="text-3xl font-black text-slate-800 mb-2">
+                    {% if d_day < 0 %}
+                        <span class="text-red-500">D+{{ d_day|slice:"1:" }}</span>
+                    {% else %}
+                        D-{{ d_day }}
+                    {% endif %}
+                </p>
+                {% if d_day <= 0 %}
+                    <span class="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full animate-pulse">● 환수 필요</span>
+                {% elif d_day <= 2 %}
+                    <span class="text-[10px] font-bold text-orange-500 bg-orange-50 px-3 py-1 rounded-full">● 곧 환수</span>
+                {% else %}
+                    <span class="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full">● 양호</span>
+                {% endif %}
+            </div>
+
+        </div>
+
+        {{-- ── AI 어류 행동 분석 ── --}}
+        {% if latest_behavior %}
+        <div class="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-[2.5rem] p-8 mb-10 border border-blue-100">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xs font-black text-blue-500 uppercase tracking-widest">🤖 AI 어류 행동 분석</h3>
+                <span class="text-[10px] text-slate-400 font-bold">{{ latest_behavior.created_at|date:"H:i" }} 분석</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-2xl p-4 text-center">
+                    <p class="text-[10px] text-slate-400 font-black mb-1">개체 수</p>
+                    <p class="text-2xl font-black text-slate-800">{{ latest_behavior.fish_count }}마리</p>
+                </div>
+                <div class="bg-white rounded-2xl p-4 text-center">
+                    <p class="text-[10px] text-slate-400 font-black mb-1">활동량</p>
+                    <p class="text-2xl font-black text-slate-800">{{ latest_behavior.activity_level|floatformat:1 }}</p>
+                </div>
+                <div class="bg-white rounded-2xl p-4 text-center">
+                    <p class="text-[10px] text-slate-400 font-black mb-1">급이 반응</p>
+                    <p class="text-2xl font-black text-slate-800">{{ latest_behavior.feeding_score }}점</p>
+                </div>
+                <div class="bg-white rounded-2xl p-4 text-center">
+                    <p class="text-[10px] text-slate-400 font-black mb-1">상태</p>
+                    <p class="text-lg font-black
+                        {% if latest_behavior.status == 'EXCELLENT' %}text-emerald-500
+                        {% elif latest_behavior.status == 'GOOD' %}text-blue-500
+                        {% elif latest_behavior.status == 'WARNING' %}text-orange-500
+                        {% elif latest_behavior.status == 'POOR' %}text-red-500
+                        {% else %}text-slate-500{% endif %}">
+                        {{ latest_behavior.get_status_display }}
+                    </p>
+                </div>
+            </div>
+            {% if latest_behavior.is_anomaly %}
+            <div class="mt-4 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
+                <span class="text-2xl">⚠️</span>
+                <p class="text-sm font-bold text-red-600">{{ latest_behavior.note|default:"이상 행동이 감지되었습니다. 어류 상태를 확인하세요." }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {{-- ── 장치 제어 ── --}}
+        <div class="mb-10">
+            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">⚙️ 장치 제어</h3>
+            <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
+
+                <button onclick="controlDevice('HEATER')"
+                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
+                        {% if heater_on %}bg-white border-red-400 shadow-xl shadow-red-50 text-red-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
+                    <span class="text-2xl">🔥</span>
+                    <span class="font-black text-[10px]">히터</span>
+                    <span class="text-[9px] font-bold {% if heater_on %}text-red-400{% else %}text-slate-300{% endif %}">{% if heater_on %}ON{% else %}OFF{% endif %}</span>
+                </button>
+
+                <button onclick="controlDevice('COOLING')"
+                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
+                        {% if cooling_on %}bg-white border-cyan-400 shadow-xl shadow-cyan-50 text-cyan-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
+                    <span class="text-2xl">❄️</span>
+                    <span class="font-black text-[10px]">냉각팬</span>
+                    <span class="text-[9px] font-bold {% if cooling_on %}text-cyan-400{% else %}text-slate-300{% endif %}">{% if cooling_on %}ON{% else %}OFF{% endif %}</span>
+                </button>
+
+                <button onclick="controlDevice('FILTER')"
+                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
+                        {% if filter_on %}bg-white border-blue-400 shadow-xl shadow-blue-50 text-blue-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
+                    <span class="text-2xl">🌀</span>
+                    <span class="font-black text-[10px]">여과기</span>
+                    <span class="text-[9px] font-bold {% if filter_on %}text-blue-400{% else %}text-slate-300{% endif %}">{% if filter_on %}ON{% else %}OFF{% endif %}</span>
+                </button>
+
+                <button onclick="controlDevice('AIR_PUMP')"
+                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
+                        {% if air_pump_on %}bg-white border-sky-400 shadow-xl shadow-sky-50 text-sky-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
+                    <span class="text-2xl">🫧</span>
+                    <span class="font-black text-[10px]">에어펌프</span>
+                    <span class="text-[9px] font-bold {% if air_pump_on %}text-sky-400{% else %}text-slate-300{% endif %}">{% if air_pump_on %}ON{% else %}OFF{% endif %}</span>
+                </button>
+
+                <button onclick="controlDevice('FEEDER')"
+                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
+                        {% if feeder_on %}bg-white border-amber-400 shadow-xl shadow-amber-50 text-amber-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
+                    <span class="text-2xl">🍽️</span>
+                    <span class="font-black text-[10px]">급이기</span>
+                    <span class="text-[9px] font-bold {% if feeder_on %}text-amber-400{% else %}text-slate-300{% endif %}">{% if feeder_on %}ON{% else %}OFF{% endif %}</span>
+                </button>
+
+                <button onclick="controlDevice('LIGHT')"
+                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
+                        {% if light_on %}bg-white border-yellow-400 shadow-xl shadow-yellow-50 text-yellow-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
+                    <span class="text-2xl">💡</span>
+                    <span class="font-black text-[10px]">조명</span>
+                    <span class="text-[9px] font-bold {% if light_on %}text-yellow-400{% else %}text-slate-300{% endif %}">{% if light_on %}ON{% else %}OFF{% endif %}</span>
+                </button>
+
             </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-6 mb-12">
-            <button onclick="controlDevice('LIGHT')" 
-                    class="flex flex-col items-center justify-center gap-3 py-8 rounded-[2rem] transition-all border-2 
-                    {% if light_on %}bg-white border-yellow-400 shadow-xl shadow-yellow-50 text-yellow-600{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
-                <span class="text-3xl">💡</span>
-                <span class="font-black text-xs">조명</span>
-            </button>
-            <button onclick="controlDevice('FILTER')" 
-                    class="flex flex-col items-center justify-center gap-3 py-8 rounded-[2rem] transition-all border-2 
-                    {% if filter_on %}bg-white border-blue-400 shadow-xl shadow-blue-50 text-blue-600{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
-                <span class="text-3xl">🌀</span>
-                <span class="font-black text-xs">여과기</span>
-            </button>
-            
-            <button id="waterChangeBtn" onclick="completeWaterChange()" 
-                    class="flex flex-col items-center justify-center gap-3 py-8 rounded-[2rem] border-2 transition-all
-                    {% if is_water_changed_today %}bg-emerald-500 border-emerald-400 text-white shadow-xl shadow-emerald-100{% else %}bg-white border-blue-500 shadow-xl shadow-blue-50 hover:bg-blue-50 text-blue-600{% endif %}"
+        {{-- ── 환수하기 ── --}}
+        <div class="mb-10">
+            <button id="waterChangeBtn" onclick="completeWaterChange()"
+                    class="w-full flex items-center justify-center gap-3 py-5 rounded-[2rem] border-2 transition-all font-black
+                    {% if is_water_changed_today %}bg-emerald-500 border-emerald-400 text-white shadow-xl shadow-emerald-100
+                    {% else %}bg-white border-blue-400 text-blue-600 hover:bg-blue-50{% endif %}"
                     {% if is_water_changed_today %}disabled{% endif %}>
-                <span class="text-3xl">{% if is_water_changed_today %}✅{% else %}🗑️{% endif %}</span>
-                <span class="font-black text-xs">{% if is_water_changed_today %}환수완료{% else %}환수하기{% endif %}</span>
+                <span class="text-2xl">{% if is_water_changed_today %}✅{% else %}🗑️{% endif %}</span>
+                <span>{% if is_water_changed_today %}오늘 환수 완료{% else %}환수하기{% endif %}</span>
             </button>
         </div>
 
+        {{-- ── 실시간 로그 ── --}}
         <div class="border-t border-slate-50 pt-8">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest italic">Live Activity</h3>
-                <a href="{% url 'monitoring:logs' %}" class="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-lg text-slate-500">전체보기</a>
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest italic">📜 Live Activity</h3>
+                <a href="{% url 'monitoring:logs' %}?tank_id={{ tank.id }}"
+                   class="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-lg text-slate-500">전체보기</a>
             </div>
-            <div class="space-y-4">
-                {% for log in logs|slice:":3" %}
-                <div class="flex justify-between items-center bg-white">
+            <div class="space-y-3">
+                {% for log in logs %}
+                <div class="flex justify-between items-center bg-slate-50/50 rounded-2xl px-5 py-3">
                     <p class="text-sm font-bold text-slate-700 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                        {% if log.level == 'DANGER' %}
+                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                        {% elif log.level == 'WARNING' %}
+                            <span class="w-2 h-2 rounded-full bg-orange-400"></span>
+                        {% else %}
+                            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                        {% endif %}
                         {{ log.message }}
                     </p>
-                    <span class="text-[10px] font-black text-slate-300">{{ log.created_at|date:"H:i" }}</span>
+                    <span class="text-[10px] font-black text-slate-300 ml-4 whitespace-nowrap">{{ log.created_at|date:"H:i:s" }}</span>
                 </div>
                 {% empty %}
-                <p class="text-sm font-bold text-slate-300 italic">기록이 없습니다.</p>
+                <p class="text-sm font-bold text-slate-300 italic text-center py-4">기록이 없습니다.</p>
                 {% endfor %}
             </div>
         </div>
+
     </div>
+    {% endif %}
 </div>
 
 <script>
+// ── 장치 제어 ──
 function controlDevice(deviceType) {
     fetch(`/monitoring/toggle-device/{{ tank.id }}/`, {
         method: 'POST',
@@ -107,27 +258,29 @@ function controlDevice(deviceType) {
         body: `device_type=${deviceType}`
     })
     .then(res => res.json())
-    .then(data => {
-        if(data.status === 'success') location.reload();
-    });
+    .then(data => { if (data.status === 'success') location.reload(); });
 }
 
+// ── 환수 완료 ──
 function completeWaterChange() {
-    if(!confirm('환수를 완료하셨습니까? 오늘 날짜로 기록됩니다.')) return;
-    
+    if (!confirm('환수를 완료하셨습니까? 오늘 날짜로 기록됩니다.')) return;
     fetch(`/monitoring/water-change/{{ tank.id }}/`, {
         method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}'
-        }
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
     })
     .then(res => res.json())
-    .then(data => {
-        if(data.status === 'success') {
-            location.reload();
-        }
-    })
-    .catch(err => alert('오류가 발생했습니다.'));
+    .then(data => { if (data.status === 'success') location.reload(); })
+    .catch(() => alert('오류가 발생했습니다.'));
 }
+
+// ── 5초 자동 새로고침 ──
+let countdown = 5;
+const label   = document.getElementById('last-updated');
+
+setInterval(() => {
+    countdown--;
+    if (label) label.textContent = `${countdown}초 후 자동 업데이트`;
+    if (countdown <= 0) location.reload();
+}, 1000);
 </script>
 {% endblock %}

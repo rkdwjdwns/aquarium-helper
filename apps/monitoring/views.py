@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import PIL.Image
 import google.generativeai as genai
 from django.shortcuts import render, redirect, get_object_or_404
@@ -14,7 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import date, timedelta
 
-from .models import Tank, EventLog, DeviceControl, SensorReading
+from .models import Tank, EventLog, DeviceControl, SensorReading, FishBehavior
 
 
 # ──────────────────────────────────────────────
@@ -62,9 +63,59 @@ def index(request):
 @login_required
 def dashboard(request, tank_id=None):
     """특정 어항 상세 대시보드"""
-    tank     = get_object_or_404(Tank, id=tank_id, user=request.user) if tank_id else Tank.objects.filter(user=request.user).first()
-    readings = tank.readings.all().order_by('-created_at')[:20] if tank else []
-    return render(request, 'monitoring/dashboard.html', {'tank': tank, 'readings': readings})
+    if tank_id:
+        tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    else:
+        tank = Tank.objects.filter(user=request.user).first()
+
+    if not tank:
+        return render(request, 'monitoring/dashboard.html', {'tank': None})
+
+    # 최신 센서 데이터
+    latest = tank.readings.order_by('-created_at').first()
+
+    # 최신 AI 행동 분석
+    latest_behavior = tank.behaviors.order_by('-created_at').first() if hasattr(tank, 'behaviors') else None
+
+    # 장치 상태
+    devices = {d.type: d for d in DeviceControl.objects.filter(tank=tank)}
+
+    # 최근 로그 3개
+    logs = EventLog.objects.filter(tank=tank).order_by('-created_at')[:3]
+
+    # 환수 D-day
+    d_day = 7
+    if tank.last_water_change:
+        try:
+            period      = int(tank.water_change_period or 7)
+            next_change = tank.last_water_change + timedelta(days=period)
+            d_day       = (next_change - date.today()).days
+        except:
+            pass
+
+    # 오늘 환수 여부
+    is_water_changed_today = (tank.last_water_change == date.today())
+
+    # 사용자 전체 어항 목록 (탭용)
+    user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+
+    return render(request, 'monitoring/dashboard.html', {
+        'tank':                  tank,
+        'latest':                latest,
+        'latest_behavior':       latest_behavior,
+        'devices':               devices,
+        'logs':                  logs,
+        'd_day':                 d_day,
+        'is_water_changed_today': is_water_changed_today,
+        'user_tanks':            user_tanks,
+        # 장치별 ON/OFF 편의 변수
+        'heater_on':   devices.get('HEATER',   None) and devices['HEATER'].is_on,
+        'cooling_on':  devices.get('COOLING',  None) and devices['COOLING'].is_on,
+        'filter_on':   devices.get('FILTER',   None) and devices['FILTER'].is_on,
+        'air_pump_on': devices.get('AIR_PUMP', None) and devices['AIR_PUMP'].is_on,
+        'feeder_on':   devices.get('FEEDER',   None) and devices['FEEDER'].is_on,
+        'light_on':    devices.get('LIGHT',    None) and devices['LIGHT'].is_on,
+    })
 
 
 @login_required
@@ -137,10 +188,22 @@ def delete_tanks(request):
 
 @login_required
 def logs_view(request):
-    logs      = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
+    # 어항 필터
+    tank_id   = request.GET.get('tank_id')
+    user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+
+    logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
+    if tank_id:
+        logs = logs.filter(tank_id=tank_id)
+
     paginator = Paginator(logs, 20)
     page_obj  = paginator.get_page(request.GET.get('page'))
-    return render(request, 'monitoring/logs.html', {'page_obj': page_obj})
+
+    return render(request, 'monitoring/logs.html', {
+        'page_obj':   page_obj,
+        'user_tanks': user_tanks,
+        'tank_id':    tank_id,
+    })
 
 
 @login_required
@@ -156,6 +219,14 @@ def toggle_device(request, tank_id):
     device, _ = DeviceControl.objects.get_or_create(tank=tank, type=request.POST.get('device_type'))
     device.is_on = not device.is_on
     device.save()
+
+    # 이벤트 로그 기록
+    state = "ON" if device.is_on else "OFF"
+    EventLog.objects.create(
+        tank=tank,
+        level='INFO',
+        message=f"[수동제어] {device.get_type_display()} {state}"
+    )
     return JsonResponse({'status': 'success', 'is_on': device.is_on})
 
 
@@ -165,6 +236,7 @@ def perform_water_change(request, tank_id):
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     tank.last_water_change = date.today()
     tank.save()
+    EventLog.objects.create(tank=tank, level='INFO', message="환수 완료 기록")
     return JsonResponse({'status': 'success'})
 
 
@@ -191,10 +263,12 @@ def ai_report_list(request):
     order_by   = '-created_at' if sort_order == 'desc' else 'created_at'
 
     report_data = []
+    behaviors   = []
     reports     = []
 
     if selected_tank:
         report_data = selected_tank.readings.all().order_by(order_by)
+        behaviors   = selected_tank.behaviors.all().order_by(order_by)[:10] if hasattr(selected_tank, 'behaviors') else []
         try:
             ReportModel = apps.get_model('reports', 'Report')
             reports     = ReportModel.objects.filter(tank=selected_tank).order_by('-created_at')
@@ -205,6 +279,7 @@ def ai_report_list(request):
         'tanks':         tanks,
         'selected_tank': selected_tank,
         'report_data':   report_data,
+        'behaviors':     behaviors,
         'reports':       reports,
         'sort':          sort_order,
         'has_tanks':     has_tanks,
@@ -243,7 +318,14 @@ def download_report(request, tank_id):
     )
     if readings.exists():
         for r in readings:
-            content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} : {r.temperature}°C\n"
+            content += (
+                f"{r.created_at.strftime('%Y-%m-%d %H:%M')} | "
+                f"수온:{r.temperature}°C | "
+                f"pH:{r.ph} | "
+                f"DO:{r.dissolved_oxygen}mg/L | "
+                f"탁도:{r.turbidity}NTU | "
+                f"수질점수:{r.water_quality_score}\n"
+            )
     else:
         content += "데이터가 없습니다."
 
@@ -257,12 +339,6 @@ def download_report(request, tank_id):
 # ──────────────────────────────────────────────
 
 def _build_prompt(display_name: str, user_message: str) -> str:
-    """
-    챗봇 프롬프트 생성.
-    - 반드시 5줄 이내, 줄바꿈으로 구분
-    - 각 줄은 이모지 + 핵심 내용만
-    - 긴 문장, 설명체, 어항 등록 언급 금지
-    """
     return (
         f"너는 어항 관리 전문가 챗봇이야.\n\n"
         f"[절대 규칙 - 하나라도 어기면 안 됨]\n"
@@ -277,35 +353,24 @@ def _build_prompt(display_name: str, user_message: str) -> str:
 
 
 def _format_reply(raw: str, display_name: str) -> str:
-    """
-    AI 응답을 5줄 이내로 강제 정제.
-    Gemini가 줄바꿈 없이 한 덩어리로 보낼 경우
-    마침표/이모지 기준으로 강제 분리.
-    """
-    import re
-
     raw = raw.replace('**', '').strip()
 
     # 1차: 줄바꿈으로 분리
     lines = [l.strip() for l in raw.split('\n') if l.strip()]
 
-    # 2차: 줄바꿈이 없으면 문장/이모지 기준으로 강제 분리
+    # 2차: 줄바꿈 없으면 마침표/이모지 기준 강제 분리
     if len(lines) <= 1:
-        # 마침표/느낌표/물음표 뒤 공백 또는 이모지 앞에서 분리
         lines = re.split(r'(?<=[.!?])\s+|(?<=\s)(?=[\U0001F300-\U0001FAFF])', raw)
         lines = [l.strip() for l in lines if l.strip()]
 
-    # 3차: 그래도 1줄이면 [대괄호] 섹션 기준으로 분리
+    # 3차: 그래도 1줄이면 [대괄호] 섹션 기준 분리
     if len(lines) <= 1:
         lines = re.split(r'\s*\[.*?\]\s*', raw)
         lines = [l.strip() for l in lines if l.strip()]
 
-    # 5줄로 강제 자르기
     lines = lines[:5]
-
     reply = '\n'.join(lines)
 
-    # 비어있으면 기본 응답
     if len(reply) < 10:
         reply = (
             f"🌊 {display_name}님!\n"
@@ -314,7 +379,6 @@ def _format_reply(raw: str, display_name: str) -> str:
             f"⚙️ 여과기: 24시간 가동\n"
             f"🐠 즐거운 물생활!"
         )
-
     return reply
 
 
@@ -322,7 +386,6 @@ def _format_reply(raw: str, display_name: str) -> str:
 @require_POST
 def chat_api(request):
     try:
-        # ── 요청 파싱 ──
         if request.content_type == 'application/json':
             user_message = json.loads(request.body).get('message', '').strip()
             image_file   = None
@@ -333,11 +396,9 @@ def chat_api(request):
         display_name = getattr(request.user, 'nickname', None) or request.user.username
         api_key      = os.getenv('GEMINI_API_KEY_1') or getattr(settings, 'GEMINI_API_KEY', None)
 
-        # ── Gemini 설정 ──
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name="gemini-1.5-flash-8b")
 
-        # ── 프롬프트 구성 ──
         prompt_parts = [_build_prompt(display_name, user_message)]
 
         if image_file:
@@ -345,20 +406,17 @@ def chat_api(request):
             img.thumbnail((512, 512))
             prompt_parts.append(img)
 
-        # ── API 호출 ──
         response = model.generate_content(
             prompt_parts,
             generation_config=genai.types.GenerationConfig(
-                max_output_tokens=150,  # 5줄 × 30자 기준
-                temperature=0.3,        # 너무 창의적이면 규칙 무시하므로 낮게
+                max_output_tokens=150,
+                temperature=0.3,
             ),
         )
 
-        # ── 응답 정제 ──
         raw   = response.text if response and response.text else ""
         reply = _format_reply(raw, display_name)
 
-        # ── 채팅 기록 저장 ──
         try:
             ChatMessage = apps.get_model('chatbot', 'ChatMessage')
             ChatMessage.objects.create(
