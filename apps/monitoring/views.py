@@ -188,13 +188,15 @@ def delete_tanks(request):
 
 @login_required
 def logs_view(request):
-    # 어항 필터
-    tank_id   = request.GET.get('tank_id')
+    tank_id    = request.GET.get('tank_id')
+    level      = request.GET.get('level')
     user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
 
     logs = EventLog.objects.filter(tank__user=request.user).order_by('-created_at')
     if tank_id:
         logs = logs.filter(tank_id=tank_id)
+    if level:
+        logs = logs.filter(level=level)
 
     paginator = Paginator(logs, 20)
     page_obj  = paginator.get_page(request.GET.get('page'))
@@ -203,6 +205,7 @@ def logs_view(request):
         'page_obj':   page_obj,
         'user_tanks': user_tanks,
         'tank_id':    tank_id,
+        'level':      level,
     })
 
 

@@ -1,54 +1,114 @@
 {% extends 'base.html' %}
-
 {% block content %}
 <div class="max-w-6xl mx-auto py-10 px-4">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+
+    {# ── 헤더 ── #}
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-            <h2 class="text-4xl font-black text-gray-900 tracking-tight italic flex items-center gap-3">
-                <span class="not-italic">📜</span> 실시간 이벤트 로그
+            <h2 class="text-4xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+                <span>📜</span> 실시간 이벤트 로그
             </h2>
-            <p class="text-gray-500 text-sm mt-2 font-medium">어항의 모든 상태 변화와 AI 진단 기록을 실시간으로 확인합니다.</p>
+            <p class="text-gray-500 text-sm mt-2 font-medium">어항의 모든 상태 변화와 AI 진단 기록을 확인합니다.</p>
         </div>
-        <button onclick="location.reload()" class="bg-white border-2 border-gray-100 text-gray-700 px-6 py-3 rounded-2xl text-sm font-bold hover:bg-gray-50 hover:border-blue-200 transition-all shadow-sm flex items-center gap-2">
-            🔄 기록 새로고침
+        <button onclick="location.reload()"
+                class="bg-white border-2 border-gray-100 text-gray-700 px-6 py-3 rounded-2xl text-sm font-bold hover:bg-gray-50 hover:border-blue-200 transition-all shadow-sm flex items-center gap-2">
+            🔄 새로고침
         </button>
     </div>
 
-    <div class="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+    {# ── 필터 바 ── #}
+    <div class="flex flex-wrap gap-3 mb-6">
+
+        {# 어항 필터 #}
+        <div class="flex flex-wrap gap-2 items-center">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">어항</span>
+            <a href="?{% if level %}level={{ level }}{% endif %}"
+               class="px-4 py-2 rounded-xl text-xs font-black transition
+               {% if not tank_id %}bg-blue-600 text-white{% else %}bg-white text-gray-400 border border-gray-100 hover:bg-gray-50{% endif %}">
+                전체
+            </a>
+            {% for tank in user_tanks %}
+            <a href="?tank_id={{ tank.id }}{% if level %}&level={{ level }}{% endif %}"
+               class="px-4 py-2 rounded-xl text-xs font-black transition
+               {% if tank_id == tank.id|stringformat:'s' %}bg-blue-600 text-white{% else %}bg-white text-gray-400 border border-gray-100 hover:bg-gray-50{% endif %}">
+                {{ tank.name }}
+            </a>
+            {% endfor %}
+        </div>
+
+        {# 레벨 필터 #}
+        <div class="flex gap-2 items-center ml-auto">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">레벨</span>
+            <a href="?{% if tank_id %}tank_id={{ tank_id }}{% endif %}"
+               class="px-4 py-2 rounded-xl text-xs font-black transition
+               {% if not level %}bg-slate-700 text-white{% else %}bg-white text-gray-400 border border-gray-100{% endif %}">
+                전체
+            </a>
+            <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=INFO"
+               class="px-4 py-2 rounded-xl text-xs font-black transition
+               {% if level == 'INFO' %}bg-blue-500 text-white{% else %}bg-blue-50 text-blue-500{% endif %}">
+                정보
+            </a>
+            <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=WARNING"
+               class="px-4 py-2 rounded-xl text-xs font-black transition
+               {% if level == 'WARNING' %}bg-orange-500 text-white{% else %}bg-orange-50 text-orange-500{% endif %}">
+                경고
+            </a>
+            <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=DANGER"
+               class="px-4 py-2 rounded-xl text-xs font-black transition
+               {% if level == 'DANGER' %}bg-red-500 text-white{% else %}bg-red-50 text-red-500{% endif %}">
+                위험
+            </a>
+        </div>
+    </div>
+
+    {# ── 로그 테이블 ── #}
+    <div class="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden mb-8">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead class="bg-gray-50/80 border-b border-gray-100">
                     <tr>
-                        <th class="px-8 py-6 text-xs font-black text-gray-400 uppercase tracking-widest">발생 시간</th>
-                        <th class="px-8 py-6 text-xs font-black text-gray-400 uppercase tracking-widest">해당 어항</th>
-                        <th class="px-8 py-6 text-xs font-black text-gray-400 uppercase tracking-widest">상태 레벨</th>
-                        <th class="px-8 py-6 text-xs font-black text-gray-400 uppercase tracking-widest">상세 메시지</th>
+                        <th class="px-8 py-5 text-xs font-black text-gray-400 uppercase tracking-widest">발생 시간</th>
+                        <th class="px-8 py-5 text-xs font-black text-gray-400 uppercase tracking-widest">어항</th>
+                        <th class="px-8 py-5 text-xs font-black text-gray-400 uppercase tracking-widest">레벨</th>
+                        <th class="px-8 py-5 text-xs font-black text-gray-400 uppercase tracking-widest">메시지</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
-                    {% for log in logs %}
-                    <tr class="hover:bg-blue-50/30 transition-colors">
-                        <td class="px-8 py-6 text-sm text-gray-400 font-mono">{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
-                        <td class="px-8 py-6 text-sm font-black text-gray-700">
-                            <span class="bg-gray-100 px-3 py-1 rounded-lg">{{ log.tank.name|default:"기본 수조" }}</span>
+                    {% for log in page_obj %}
+                    <tr class="hover:bg-blue-50/30 transition-colors
+                        {% if log.level == 'DANGER' %}bg-red-50/20{% elif log.level == 'WARNING' %}bg-orange-50/20{% endif %}">
+
+                        <td class="px-8 py-5 text-sm text-gray-400 font-mono whitespace-nowrap">
+                            {{ log.created_at|date:"Y-m-d H:i:s" }}
                         </td>
-                        <td class="px-8 py-6">
+
+                        <td class="px-8 py-5">
+                            <span class="bg-gray-100 text-gray-700 text-xs font-black px-3 py-1 rounded-lg">
+                                {{ log.tank.name|default:"기본 수조" }}
+                            </span>
+                        </td>
+
+                        <td class="px-8 py-5">
                             {% if log.level == 'DANGER' %}
-                                <span class="px-4 py-1.5 bg-red-100 text-red-600 text-[10px] font-black rounded-xl border border-red-200">위험</span>
+                                <span class="px-4 py-1.5 bg-red-100 text-red-600 text-[10px] font-black rounded-xl border border-red-200">⛔ 위험</span>
                             {% elif log.level == 'WARNING' %}
-                                <span class="px-4 py-1.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-xl border border-orange-200">경고</span>
+                                <span class="px-4 py-1.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-xl border border-orange-200">⚠️ 경고</span>
                             {% else %}
-                                <span class="px-4 py-1.5 bg-blue-100 text-blue-600 text-[10px] font-black rounded-xl border border-blue-200">정보</span>
+                                <span class="px-4 py-1.5 bg-blue-100 text-blue-600 text-[10px] font-black rounded-xl border border-blue-200">ℹ️ 정보</span>
                             {% endif %}
                         </td>
-                        <td class="px-8 py-6 text-sm text-gray-600 font-bold leading-relaxed">{{ log.message }}</td>
+
+                        <td class="px-8 py-5 text-sm text-gray-600 font-bold leading-relaxed">
+                            {{ log.message }}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
                         <td colspan="4" class="px-8 py-32 text-center">
                             <div class="text-6xl mb-6">🏜️</div>
-                            <p class="text-gray-400 font-black text-lg">아직 기록된 시스템 로그가 없습니다.</p>
-                            <p class="text-gray-300 text-sm mt-2">센서 데이터가 수집되면 로그가 자동으로 생성됩니다.</p>
+                            <p class="text-gray-400 font-black text-lg">기록된 로그가 없습니다.</p>
+                            <p class="text-gray-300 text-sm mt-2">센서 데이터가 수집되면 자동으로 생성됩니다.</p>
                         </td>
                     </tr>
                     {% endfor %}
@@ -56,5 +116,43 @@
             </table>
         </div>
     </div>
+
+    {# ── 페이지네이션 ── #}
+    {% if page_obj.has_other_pages %}
+    <div class="flex justify-center items-center gap-2">
+
+        {# 이전 #}
+        {% if page_obj.has_previous %}
+        <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}page={{ page_obj.previous_page_number }}"
+           class="px-5 py-2.5 bg-white border border-gray-100 rounded-xl text-xs font-black text-gray-500 hover:bg-gray-50 transition">
+            ← 이전
+        </a>
+        {% endif %}
+
+        {# 페이지 번호 #}
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <span class="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-100">
+                {{ num }}
+            </span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}page={{ num }}"
+               class="px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-xs font-black text-gray-500 hover:bg-gray-50 transition">
+                {{ num }}
+            </a>
+            {% endif %}
+        {% endfor %}
+
+        {# 다음 #}
+        {% if page_obj.has_next %}
+        <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}page={{ page_obj.next_page_number }}"
+           class="px-5 py-2.5 bg-white border border-gray-100 rounded-xl text-xs font-black text-gray-500 hover:bg-gray-50 transition">
+            다음 →
+        </a>
+        {% endif %}
+
+    </div>
+    {% endif %}
+
 </div>
-{% endblock %}  
+{% endblock %}
