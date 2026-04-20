@@ -96,7 +96,7 @@
                 });
                 const data = await response.json();
                 document.getElementById(loadingId).remove();
-                chatWin.innerHTML += `<div class="bg-white border text-slate-700 p-4 rounded-2xl rounded-tl-none text-sm font-bold shadow-sm inline-block max-w-[80%] mb-2">${data.reply}</div>`;
+                chatWin.innerHTML += `<div class="bg-white border text-slate-700 p-4 rounded-2xl rounded-tl-none text-sm font-bold shadow-sm inline-block max-w-[80%] mb-2" style="white-space: pre-line;">${data.reply}</div>`;
             } catch (error) {
                 document.getElementById(loadingId).innerText = "앗, 서버와 연결이 끊겼어요.";
             }
