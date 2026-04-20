@@ -2,7 +2,7 @@
 {% block content %}
 <div class="max-w-5xl mx-auto py-8">
 
-    {{-- ── 헤더 ── --}}
+    {# ── 헤더 ── #}
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 px-4">
         <div>
             <h2 class="text-4xl font-black text-gray-800 tracking-tight">📊 데이터 리포트</h2>
@@ -16,7 +16,7 @@
         </div>
 
         <div class="flex flex-col gap-4 w-full md:w-auto">
-            {{-- 어항 탭 --}}
+            {# 어항 탭 #}
             <div class="flex flex-wrap gap-2">
                 {% for tank in tanks %}
                 <a href="?tank_id={{ tank.id }}&sort={{ sort }}"
@@ -27,7 +27,7 @@
                 {% endfor %}
             </div>
 
-            {{-- 리포트 다운로드 + 정렬 --}}
+            {# 리포트 다운로드 + 정렬 #}
             {% if selected_tank %}
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex gap-2">
@@ -50,7 +50,7 @@
         </div>
     </div>
 
-    {{-- ── 탭: 센서 데이터 / AI 행동 분석 ── --}}
+    {# ── 탭: 센서 데이터 / AI 행동 분석 ── #}
     <div class="flex gap-2 px-4 mb-8">
         <button onclick="showTab('sensor')" id="tab-sensor"
                 class="px-6 py-2.5 rounded-xl text-xs font-black transition bg-blue-600 text-white shadow-lg">
@@ -62,7 +62,7 @@
         </button>
     </div>
 
-    {{-- ── 센서 데이터 탭 ── --}}
+    {# ── 센서 데이터 탭 ── #}
     <div id="panel-sensor" class="px-4">
         {% if report_data %}
         <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
@@ -84,7 +84,7 @@
                         <tr class="hover:bg-blue-50/30 transition-colors">
                             <td class="px-6 py-4 text-xs text-gray-400 font-mono whitespace-nowrap">{{ r.created_at|date:"Y-m-d H:i" }}</td>
 
-                            {{-- 수온 --}}
+                            {# 수온 #}
                             <td class="px-6 py-4">
                                 <span class="font-black text-sm
                                     {% if r.temperature >= 24 and r.temperature <= 28 %}text-emerald-500
@@ -93,7 +93,7 @@
                                 </span>
                             </td>
 
-                            {{-- pH --}}
+                            {# pH #}
                             <td class="px-6 py-4">
                                 <span class="font-black text-sm
                                     {% if r.ph >= 6.5 and r.ph <= 7.5 %}text-emerald-500
@@ -102,7 +102,7 @@
                                 </span>
                             </td>
 
-                            {{-- DO --}}
+                            {# DO #}
                             <td class="px-6 py-4">
                                 <span class="font-black text-sm
                                     {% if r.dissolved_oxygen >= 5 %}text-emerald-500
@@ -111,7 +111,7 @@
                                 </span>
                             </td>
 
-                            {{-- 탁도 --}}
+                            {# 탁도 #}
                             <td class="px-6 py-4">
                                 <span class="font-black text-sm
                                     {% if r.turbidity <= 30 %}text-emerald-500
@@ -121,7 +121,7 @@
                                 </span>
                             </td>
 
-                            {{-- 수질 점수 --}}
+                            {# 수질 점수 #}
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-2">
                                     <div class="w-16 h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -135,7 +135,7 @@
                                 </div>
                             </td>
 
-                            {{-- 삭제 --}}
+                            {# 삭제 #}
                             <td class="px-6 py-4">
                                 <form action="{% url 'monitoring:delete_report_data' r.id %}" method="POST">
                                     {% csrf_token %}
@@ -164,7 +164,7 @@
         {% endif %}
     </div>
 
-    {{-- ── AI 행동 분석 탭 ── --}}
+    {# ── AI 행동 분석 탭 ── #}
     <div id="panel-behavior" class="px-4 hidden">
         {% if behaviors %}
         <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">

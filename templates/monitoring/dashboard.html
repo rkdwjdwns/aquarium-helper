@@ -2,7 +2,7 @@
 {% block content %}
 <div class="py-6">
 
-    {{-- 어항 탭 --}}
+    {# 어항 탭 #}
     <div class="flex gap-2 overflow-x-auto pb-4 mb-6 px-4 no-scrollbar">
         {% for t in user_tanks %}
         <a href="{% url 'monitoring:dashboard' t.id %}"
@@ -24,7 +24,7 @@
 
     <div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-10 md:p-14 mb-10">
 
-        {{-- 헤더 --}}
+        {# 헤더 #}
         <div class="flex justify-between items-start mb-12">
             <div>
                 <span class="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em] block mb-2">Aquarium Unit</span>
@@ -36,10 +36,10 @@
             </div>
         </div>
 
-        {{-- ── 센서 카드 4개 ── --}}
+        {# ── 센서 카드 4개 ── #}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
 
-            {{-- 수온 --}}
+            {# 수온 #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🌡️ Temp</p>
                 <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.temperature|default:"--" }}°C</p>
@@ -54,7 +54,7 @@
                 {% endif %}
             </div>
 
-            {{-- pH --}}
+            {# pH #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">💧 pH</p>
                 <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.ph|default:"--" }}</p>
@@ -69,7 +69,7 @@
                 {% endif %}
             </div>
 
-            {{-- DO(용존산소) --}}
+            {# DO(용존산소) #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🫧 DO</p>
                 <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.dissolved_oxygen|default:"--" }}<span class="text-sm font-bold text-slate-400"> mg/L</span></p>
@@ -84,7 +84,7 @@
                 {% endif %}
             </div>
 
-            {{-- 환수 D-day --}}
+            {# 환수 D-day #}
             <div class="bg-blue-50/30 rounded-[2.5rem] p-8 text-center border border-blue-100/50">
                 <p class="text-[10px] text-blue-400 font-black uppercase mb-3 tracking-widest">🗑️ Water Change</p>
                 <p class="text-3xl font-black text-slate-800 mb-2">
@@ -105,7 +105,7 @@
 
         </div>
 
-        {{-- ── AI 어류 행동 분석 ── --}}
+        {# ── AI 어류 행동 분석 ── #}
         {% if latest_behavior %}
         <div class="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-[2.5rem] p-8 mb-10 border border-blue-100">
             <div class="flex justify-between items-center mb-6">
@@ -146,7 +146,7 @@
         </div>
         {% endif %}
 
-        {{-- ── 장치 제어 ── --}}
+        {# ── 장치 제어 ── #}
         <div class="mb-10">
             <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">⚙️ 장치 제어</h3>
             <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
@@ -202,7 +202,7 @@
             </div>
         </div>
 
-        {{-- ── 환수하기 ── --}}
+        {# ── 환수하기 ── #}
         <div class="mb-10">
             <button id="waterChangeBtn" onclick="completeWaterChange()"
                     class="w-full flex items-center justify-center gap-3 py-5 rounded-[2rem] border-2 transition-all font-black
@@ -214,7 +214,7 @@
             </button>
         </div>
 
-        {{-- ── 실시간 로그 ── --}}
+        {# ── 실시간 로그 ── #}
         <div class="border-t border-slate-50 pt-8">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest italic">📜 Live Activity</h3>
