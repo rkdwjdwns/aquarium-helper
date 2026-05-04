@@ -1,34 +1,290 @@
 {% extends 'base.html' %}
-
 {% block content %}
-<div class="max-w-4xl mx-auto py-10">
-    <h2 class="text-3xl font-bold text-gray-800 mb-8">📹 실시간 카메라 모니터링</h2>
-    
-    <div class="bg-black rounded-[2.5rem] aspect-video shadow-2xl flex items-center justify-center border-8 border-white relative overflow-hidden">
-        <div class="text-center">
-            <div class="inline-block p-4 rounded-full bg-gray-900 mb-4 animate-pulse">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
+<div class="max-w-5xl mx-auto py-10 px-4">
+
+    {# ── 헤더 ── #}
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-3xl font-black text-gray-800">📹 실시간 카메라 모니터링</h2>
+            <p class="text-gray-400 text-sm font-bold mt-1">
+                {% if tank %}[{{ tank.name }}]{% endif %}
+                · Pi 연동 전 시뮬레이터 모드
+            </p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
+            <span class="text-xs font-black text-yellow-500 uppercase tracking-widest">Simulator</span>
+        </div>
+    </div>
+
+    {# ── 카메라 화면 ── #}
+    <div class="relative bg-[#0a1628] rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-[#1a2a4a]"
+         style="aspect-ratio: 16/9;">
+
+        {# 수조 배경 그라데이션 #}
+        <div class="absolute inset-0"
+             style="background: linear-gradient(180deg, #0d3b6e 0%, #0a2a52 40%, #061a38 100%);">
+        </div>
+
+        {# 물 흔들림 효과 #}
+        <div class="absolute inset-0 opacity-20"
+             style="background: repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.03) 40px, rgba(255,255,255,0.03) 80px);
+                    animation: waterShimmer 3s ease-in-out infinite alternate;">
+        </div>
+
+        {# 수초 #}
+        <div class="absolute bottom-0 left-8 w-4 bg-green-800 rounded-t-full opacity-60"
+             style="height: 30%; animation: sway 2s ease-in-out infinite alternate;"></div>
+        <div class="absolute bottom-0 left-12 w-3 bg-green-700 rounded-t-full opacity-50"
+             style="height: 40%; animation: sway 2.5s ease-in-out infinite alternate-reverse;"></div>
+        <div class="absolute bottom-0 right-10 w-4 bg-green-800 rounded-t-full opacity-60"
+             style="height: 35%; animation: sway 1.8s ease-in-out infinite alternate;"></div>
+        <div class="absolute bottom-0 right-16 w-3 bg-green-700 rounded-t-full opacity-50"
+             style="height: 25%; animation: sway 2.2s ease-in-out infinite alternate-reverse;"></div>
+
+        {# 바닥재 #}
+        <div class="absolute bottom-0 left-0 right-0 h-6 bg-amber-900 opacity-40 rounded-b-[2rem]"></div>
+
+        {# Zone 구분선 #}
+        <div class="absolute left-0 right-0 border-t border-dashed border-white/10"
+             style="top: 33%;"></div>
+        <div class="absolute left-0 right-0 border-t border-dashed border-white/10"
+             style="top: 67%;"></div>
+        <div class="absolute right-3 text-[9px] font-black text-white/20 uppercase" style="top: 34%;">MID</div>
+        <div class="absolute right-3 text-[9px] font-black text-white/20 uppercase" style="top: 68%;">BOT</div>
+        <div class="absolute right-3 text-[9px] font-black text-white/20 uppercase" style="top: 3%;">TOP</div>
+
+        {# 금붕어 3마리 #}
+        <canvas id="fishCanvas" class="absolute inset-0 w-full h-full"></canvas>
+
+        {# YOLO 탐지 박스 오버레이 #}
+        <canvas id="yoloCanvas" class="absolute inset-0 w-full h-full"></canvas>
+
+        {# 좌상단 LIVE 배지 #}
+        <div class="absolute top-4 left-4 flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-xl backdrop-blur-sm">
+            <span class="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
+            <span class="text-white text-[10px] font-black uppercase tracking-widest">Live · Simulator</span>
+        </div>
+
+        {# 우상단 FPS #}
+        <div class="absolute top-4 right-4 bg-black/40 px-3 py-1.5 rounded-xl backdrop-blur-sm">
+            <span class="text-green-400 text-[10px] font-black" id="fpsDisplay">14 FPS</span>
+        </div>
+
+        {# 하단 센서 오버레이 #}
+        <div class="absolute bottom-4 left-4 right-4 flex gap-3">
+            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
+                <p class="text-[9px] text-gray-400 font-black uppercase">🌡️ 수온</p>
+                <p class="text-white font-black text-sm" id="sim-temp">22.3°C</p>
             </div>
-            <p class="text-gray-500 font-bold">카메라 신호를 기다리는 중...</p>
+            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
+                <p class="text-[9px] text-gray-400 font-black uppercase">💧 pH</p>
+                <p class="text-white font-black text-sm" id="sim-ph">7.4</p>
+            </div>
+            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
+                <p class="text-[9px] text-gray-400 font-black uppercase">🫧 DO</p>
+                <p class="text-white font-black text-sm" id="sim-do">6.8mg/L</p>
+            </div>
+            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
+                <p class="text-[9px] text-gray-400 font-black uppercase">🐟 개체</p>
+                <p class="text-white font-black text-sm" id="sim-count">3마리</p>
+            </div>
+            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
+                <p class="text-[9px] text-gray-400 font-black uppercase">⚡ 활동량</p>
+                <p class="text-white font-black text-sm" id="sim-activity">32.4</p>
+            </div>
         </div>
-        
-        <div class="absolute top-6 left-6 flex items-center space-x-2">
-            <span class="w-2 h-2 bg-red-600 rounded-full animate-ping"></span>
-            <span class="text-white text-xs font-bold tracking-widest uppercase">Live Stream</span>
+
+    </div>
+
+    {# ── 하단 패널 ── #}
+    <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+
+        {# AI 상태 #}
+        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+            <p class="text-[10px] text-slate-400 font-black uppercase mb-2">🤖 AI 상태</p>
+            <p class="font-black text-emerald-500 text-sm" id="ai-status">탐지 중</p>
+            <p class="text-[10px] text-slate-300 mt-1">YOLOv11n · ByteTrack</p>
+        </div>
+
+        {# 현재 구역 #}
+        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+            <p class="text-[10px] text-slate-400 font-black uppercase mb-2">📍 주 체류 구역</p>
+            <p class="font-black text-blue-500 text-sm" id="zone-display">MID</p>
+            <p class="text-[10px] text-slate-300 mt-1" id="zone-ratio">상 10% · 중 60% · 하 30%</p>
+        </div>
+
+        {# 이상 감지 #}
+        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+            <p class="text-[10px] text-slate-400 font-black uppercase mb-2">⚠️ 이상 감지</p>
+            <p class="font-black text-emerald-500 text-sm" id="anomaly-display">정상</p>
+            <p class="text-[10px] text-slate-300 mt-1">ABR: <span id="abr-display">0.02</span></p>
+        </div>
+
+        {# 급이 반응 #}
+        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+            <p class="text-[10px] text-slate-400 font-black uppercase mb-2">🍽️ FRS 점수</p>
+            <p class="font-black text-blue-500 text-sm" id="frs-display">78점</p>
+            <p class="text-[10px] text-slate-300 mt-1">급이 반응 양호</p>
+        </div>
+
+    </div>
+
+    {# Pi 연동 안내 #}
+    <div class="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-5 flex items-start gap-4">
+        <span class="text-2xl">ℹ️</span>
+        <div>
+            <p class="font-black text-blue-700 text-sm">Raspberry Pi 연동 후 실제 영상으로 전환됩니다.</p>
+            <p class="text-blue-500 text-xs mt-1 font-bold">현재는 시뮬레이터 모드로 동작 중입니다. Pi가 연결되면 카메라 스트림이 자동으로 표시됩니다.</p>
         </div>
     </div>
-    
-    <div class="mt-8 grid grid-cols-2 gap-4">
-        <button class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition text-center">
-            <p class="text-xs text-gray-400 font-bold mb-1">카메라 제어</p>
-            <p class="font-bold text-gray-700">스크린샷 저장</p>
-        </button>
-        <button class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition text-center">
-            <p class="text-xs text-gray-400 font-bold mb-1">상태</p>
-            <p class="font-bold text-green-500">연결됨 (Online)</p>
-        </button>
-    </div>
+
 </div>
+
+<style>
+@keyframes waterShimmer {
+    from { transform: translateX(0); }
+    to   { transform: translateX(20px); }
+}
+@keyframes sway {
+    from { transform: rotate(-5deg); transform-origin: bottom; }
+    to   { transform: rotate(5deg);  transform-origin: bottom; }
+}
+</style>
+
+<script>
+// ── 금붕어 시뮬레이터 ──
+const fishCanvas  = document.getElementById('fishCanvas');
+const yoloCanvas  = document.getElementById('yoloCanvas');
+const fCtx        = fishCanvas.getContext('2d');
+const yCtx        = yoloCanvas.getContext('2d');
+
+function resizeCanvas() {
+    const rect = fishCanvas.parentElement.getBoundingClientRect();
+    fishCanvas.width  = yoloCanvas.width  = rect.width;
+    fishCanvas.height = yoloCanvas.height = rect.height;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// 금붕어 3마리
+const fishes = [
+    { x: 0.3, y: 0.5, vx: 0.002, vy: 0.001, size: 28, color: '#f97316', id: 1 },
+    { x: 0.6, y: 0.4, vx: -0.003, vy: 0.002, size: 24, color: '#fb923c', id: 2 },
+    { x: 0.5, y: 0.7, vx: 0.001, vy: -0.002, size: 26, color: '#fdba74', id: 3 },
+];
+
+function drawFish(ctx, x, y, size, color, dir) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (dir < 0) ctx.scale(-1, 1);
+
+    // 몸통
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size, size * 0.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // 꼬리
+    ctx.beginPath();
+    ctx.moveTo(-size, 0);
+    ctx.lineTo(-size * 1.6, -size * 0.5);
+    ctx.lineTo(-size * 1.6,  size * 0.5);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // 눈
+    ctx.beginPath();
+    ctx.arc(size * 0.6, -size * 0.1, size * 0.12, 0, Math.PI * 2);
+    ctx.fillStyle = '#1e293b';
+    ctx.fill();
+
+    ctx.restore();
+}
+
+let frame = 0;
+function animate() {
+    const W = fishCanvas.width;
+    const H = fishCanvas.height;
+
+    fCtx.clearRect(0, 0, W, H);
+    yCtx.clearRect(0, 0, W, H);
+
+    fishes.forEach(f => {
+        // 랜덤 방향 전환
+        if (Math.random() < 0.01) f.vx *= -1;
+        if (Math.random() < 0.01) f.vy *= -1;
+
+        // 물결 효과
+        f.x += f.vx + Math.sin(frame * 0.05 + f.id) * 0.0005;
+        f.y += f.vy + Math.cos(frame * 0.03 + f.id) * 0.0005;
+
+        // 경계 반사
+        if (f.x < 0.05 || f.x > 0.95) f.vx *= -1;
+        if (f.y < 0.05 || f.y > 0.85) f.vy *= -1;
+        f.x = Math.max(0.05, Math.min(0.95, f.x));
+        f.y = Math.max(0.05, Math.min(0.85, f.y));
+
+        const px = f.x * W;
+        const py = f.y * H;
+
+        // 금붕어 그리기
+        drawFish(fCtx, px, py, f.size, f.color, f.vx > 0 ? 1 : -1);
+
+        // YOLO bbox
+        const bw = f.size * 3.5;
+        const bh = f.size * 2.5;
+        yCtx.strokeStyle = '#00ff88';
+        yCtx.lineWidth   = 1.5;
+        yCtx.strokeRect(px - bw/2, py - bh/2, bw, bh);
+
+        // ID 라벨
+        yCtx.fillStyle = '#00ff88';
+        yCtx.font = `bold ${Math.max(9, f.size * 0.4)}px monospace`;
+        yCtx.fillText(`ID:${f.id} ${(0.75 + Math.random() * 0.15).toFixed(2)}`, px - bw/2, py - bh/2 - 4);
+    });
+
+    // 스캔라인 효과
+    if (frame % 60 < 2) {
+        yCtx.fillStyle = 'rgba(0,255,136,0.05)';
+        yCtx.fillRect(0, 0, W, H);
+    }
+
+    frame++;
+    requestAnimationFrame(animate);
+}
+animate();
+
+// ── 센서 수치 랜덤 변동 ──
+function updateSensors() {
+    const temp     = (22.0 + Math.random() * 2).toFixed(1);
+    const ph       = (7.2  + Math.random() * 0.4).toFixed(1);
+    const doVal    = (5.5  + Math.random() * 2).toFixed(1);
+    const activity = (20   + Math.random() * 30).toFixed(1);
+    const abr      = (Math.random() * 0.05).toFixed(2);
+    const frs      = Math.floor(65 + Math.random() * 30);
+
+    document.getElementById('sim-temp').textContent     = `${temp}°C`;
+    document.getElementById('sim-ph').textContent       = ph;
+    document.getElementById('sim-do').textContent       = `${doVal}mg/L`;
+    document.getElementById('sim-activity').textContent = activity;
+    document.getElementById('abr-display').textContent  = abr;
+    document.getElementById('frs-display').textContent  = `${frs}점`;
+
+    // 구역 판단
+    const zones    = ['TOP', 'MID', 'BOT'];
+    const dominant = zones[Math.floor(Math.random() * 3)];
+    document.getElementById('zone-display').textContent = dominant;
+
+    // 이상 감지
+    const isAnomaly = Math.random() < 0.05;
+    const anomalyEl = document.getElementById('anomaly-display');
+    anomalyEl.textContent  = isAnomaly ? '⚠️ 이상 감지' : '정상';
+    anomalyEl.className    = `font-black text-sm ${isAnomaly ? 'text-red-500' : 'text-emerald-500'}`;
+}
+
+setInterval(updateSensors, 3000);
+updateSensors();
+</script>
 {% endblock %}
