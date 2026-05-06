@@ -1,214 +1,338 @@
 {% extends 'base.html' %}
-
 {% block content %}
-<div class="max-w-[450px] mx-auto h-[82vh] flex flex-col shadow-2xl rounded-[2.5rem] overflow-hidden border border-white/50 bg-white/80 backdrop-blur-xl my-4 relative animate-fade-in">
-    
-    <div class="p-5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white flex items-center justify-between shadow-md relative z-10">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-inner text-xl">🐠</div>
+
+<div class="flex gap-4 py-6" style="height: calc(100vh - 7rem);">
+
+    {# ── 왼쪽: 대화 내역 목록 ── #}
+    <div class="hidden md:flex flex-col w-64 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden flex-shrink-0">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-50">
+            <span class="text-xs font-black text-slate-400 uppercase tracking-widest">대화 내역</span>
+            <button onclick="clearHistory()"
+                    class="text-[10px] font-black text-slate-300 hover:text-red-400 transition-colors">
+                전체 삭제
+            </button>
+        </div>
+
+        <div id="history-list" class="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+            <p class="text-[11px] text-slate-300 font-bold text-center py-8">불러오는 중...</p>
+        </div>
+    </div>
+
+    {# ── 오른쪽: 채팅 창 ── #}
+    <div class="flex-1 flex flex-col bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-w-0">
+
+        {# 채팅 헤더 #}
+        <div class="flex items-center justify-between px-8 py-5 border-b border-slate-50">
             <div>
-                <h2 class="font-black text-sm leading-tight text-white">어항 도우미 라이브</h2>
-                <div class="flex items-center gap-1.5 mt-0.5">
-                    <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                    <span class="text-[10px] font-bold opacity-80 uppercase tracking-widest">AI Analyst</span>
+                <h2 class="text-lg font-black text-slate-800">어항 도우미</h2>
+                <p class="text-[10px] text-slate-400 font-bold">어항 세팅 · 물고기 추천 · 수질 관리</p>
+            </div>
+            <button onclick="clearHistory()"
+                    class="md:hidden text-[10px] font-black text-slate-300 hover:text-red-400">
+                내역 삭제
+            </button>
+        </div>
+
+        {# 메시지 영역 #}
+        <div id="chat-messages" class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+
+            {# 웰컴 메시지 #}
+            <div id="welcome-msg" class="flex justify-start">
+                <div class="max-w-sm bg-slate-50 rounded-[1.5rem] rounded-tl-sm px-5 py-4">
+                    <p class="text-sm font-bold text-slate-700 leading-relaxed">
+                        어항 관련 무엇이든 물어보세요.<br>
+                        물고기 추천, 수질 설정, 장비 선택 등 도움을 드립니다.
+                    </p>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div id="chat-window" class="flex-1 overflow-y-auto p-5 space-y-6 bg-[#BACEE0]/30 scroll-smooth relative" onclick="closeMenuIfOpen()">
-        <div class="flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold shadow-lg shrink-0">AI</div>
-            <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium max-w-[85%] text-slate-700 leading-relaxed">
-                안녕하세요! <strong>{{ user.nickname|default:user.username }}</strong>님 🌊<br>
-                궁금한 점이 있다면 물어봐 주세요!
-            </div>
-        </div>
-    </div>
-
-    <div class="p-4 bg-white border-t border-white relative z-20">
-        <div id="action-menu" class="hidden absolute bottom-[90px] left-4 right-4 bg-white/95 backdrop-blur-lg rounded-[2rem] shadow-2xl border border-gray-100 p-4 grid grid-cols-2 gap-4 animate-slide-up">
-            <label class="flex flex-col items-center gap-2 p-4 hover:bg-blue-50 rounded-2xl cursor-pointer transition-all group">
-                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner">🖼️</div>
-                <span class="text-[11px] font-black text-gray-600">사진 보내기</span>
-                <input type="file" id="image-input" name="image" accept="image/*" class="hidden" onchange="handleFileSelect(this, 'image')">
-            </label>
-            <label class="flex flex-col items-center gap-2 p-4 hover:bg-emerald-50 rounded-2xl cursor-pointer transition-all group">
-                <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner">📂</div>
-                <span class="text-[11px] font-black text-gray-600">파일 보내기</span>
-                <input type="file" id="file-input" name="file" class="hidden" onchange="handleFileSelect(this, 'file')">
-            </label>
-        </div>
-
-        <form id="chat-form" enctype="multipart/form-data" class="flex flex-col gap-3">
-            {% csrf_token %}
-            
-            <div id="file-preview-chip" class="hidden p-2 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-between animate-fade-in">
-                <div class="flex items-center gap-2">
-                    <span id="preview-icon" class="text-sm"></span>
-                    <span id="preview-name" class="text-[11px] font-bold text-blue-700 truncate max-w-[180px]"></span>
-                </div>
-                <button type="button" onclick="clearFiles()" class="text-blue-400 hover:text-red-500 px-2 font-black text-lg transition-colors">×</button>
-            </div>
-
-            <div class="flex items-center gap-3">
-                <button type="button" onclick="toggleActionMenu()" id="plus-btn" class="flex-shrink-0 w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center hover:bg-slate-200 transition-all shadow-sm">
-                    <span class="text-2xl font-light transition-transform duration-300" id="plus-icon">+</span>
+            {# 빠른 질문 버튼 #}
+            <div id="quick-btns" class="flex flex-wrap gap-2">
+                <button onclick="quickAsk('초보자에게 맞는 물고기 추천해줘')"
+                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
+                    물고기 추천
                 </button>
-                
-                <div class="flex-1">
-                    <input type="text" id="user-input" name="message" placeholder="메시지 입력..." 
-                        class="w-full bg-slate-50 border-none focus:ring-2 focus:ring-blue-300 rounded-2xl px-5 py-3.5 outline-none text-sm font-medium transition-all shadow-inner">
-                </div>
-                
-                <button type="submit" class="flex-shrink-0 w-14 h-14 bg-gradient-to-tr from-blue-600 to-cyan-500 text-white rounded-2xl shadow-lg shadow-blue-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group">
-                    <span class="text-3xl group-hover:rotate-12 transition-transform">🐠</span>
+                <button onclick="quickAsk('금붕어 적정 수온과 pH 알려줘')"
+                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
+                    금붕어 수질
+                </button>
+                <button onclick="quickAsk('처음 어항 세팅하는 방법 알려줘')"
+                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
+                    어항 세팅
+                </button>
+                <button onclick="quickAsk('여과기 종류와 선택 기준 알려줘')"
+                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
+                    여과기 선택
+                </button>
+                <button onclick="quickAsk('물고기 먹이 양과 횟수 알려줘')"
+                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
+                    급이 방법
                 </button>
             </div>
-        </form>
+        </div>
+
+        {# 입력 영역 #}
+        <div class="px-6 py-4 border-t border-slate-50">
+            <div class="flex items-end gap-3 bg-slate-50 rounded-[1.5rem] px-4 py-3">
+                {# 이미지 첨부 #}
+                <label class="cursor-pointer text-slate-400 hover:text-blue-500 transition-colors flex-shrink-0 mb-1">
+                    <input type="file" id="image-input" accept="image/*" class="hidden" onchange="previewImage(this)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </label>
+
+                <textarea id="chat-input"
+                          placeholder="어항에 대해 궁금한 점을 물어보세요..."
+                          rows="1"
+                          class="flex-1 bg-transparent text-sm font-medium text-slate-700 placeholder-slate-300 resize-none focus:outline-none leading-relaxed"
+                          style="max-height: 120px;"
+                          onkeydown="handleKey(event)"
+                          oninput="autoResize(this)"></textarea>
+
+                <button id="send-btn"
+                        onclick="sendMessage()"
+                        class="flex-shrink-0 w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-40 mb-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z"/>
+                    </svg>
+                </button>
+            </div>
+
+            {# 이미지 미리보기 #}
+            <div id="image-preview" class="hidden mt-2 flex items-center gap-2 px-2">
+                <img id="preview-img" class="w-12 h-12 rounded-xl object-cover">
+                <button onclick="removeImage()" class="text-[10px] font-bold text-red-400 hover:text-red-500">제거</button>
+            </div>
+        </div>
     </div>
 </div>
 
-<style>
-    @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes slide-up { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-    
-    .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-    .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-    
-    #chat-window::-webkit-scrollbar { width: 4px; }
-    #chat-window::-webkit-scrollbar-thumb { background: rgba(0, 119, 255, 0.1); border-radius: 10px; }
-    
-    .plus-rotate { transform: rotate(45deg); background-color: #64748b !important; color: white !important; }
-</style>
-
 <script>
-    const actionMenu = document.getElementById('action-menu');
-    const plusIcon = document.getElementById('plus-icon');
-    const filePreview = document.getElementById('file-preview-chip');
-    const previewName = document.getElementById('preview-name');
-    const previewIcon = document.getElementById('preview-icon');
-    const imageInput = document.getElementById('image-input');
-    const fileInput = document.getElementById('file-input');
-    const userInput = document.getElementById('user-input');
-    const chatWindow = document.getElementById('chat-window');
+const CSRF = '{{ csrf_token }}';
+let isLoading = false;
+let currentHistoryId = null;
 
-    // 카톡 메뉴 토글 및 닫기
-    function toggleActionMenu() {
-        actionMenu.classList.toggle('hidden');
-        plusIcon.classList.toggle('plus-rotate');
-    }
+// ── 초기 로드 ──────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    loadHistory();
+});
 
-    function closeMenuIfOpen() {
-        if (!actionMenu.classList.contains('hidden')) {
-            toggleActionMenu();
+// ── 대화 내역 불러오기 ─────────────────────────
+async function loadHistory() {
+    try {
+        const res  = await fetch('/chatbot/history/');
+        const data = await res.json();
+
+        const list = document.getElementById('history-list');
+        if (!data.history || data.history.length === 0) {
+            list.innerHTML = '<p class="text-[11px] text-slate-300 font-bold text-center py-8">대화 내역 없음</p>';
+            return;
         }
-    }
 
-    // 파일 선택 핸들러
-    function handleFileSelect(input, type) {
-        if (input.files && input.files[0]) {
-            previewName.innerText = input.files[0].name;
-            previewIcon.innerText = type === 'image' ? '🖼️' : '📂';
-            filePreview.classList.remove('hidden');
-            toggleActionMenu();
-            userInput.focus();
-        }
-    }
-
-    // 파일 초기화
-    function clearFiles() {
-        imageInput.value = "";
-        fileInput.value = "";
-        filePreview.classList.add('hidden');
-    }
-
-    // 전송 로직
-    const chatForm = document.getElementById('chat-form');
-    chatForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
-        const message = userInput.value.trim();
-        
-        // 메시지나 파일이 없으면 전송 방지
-        if (!message && !imageInput.files[0] && !fileInput.files[0]) return;
-
-        // 화면에 메시지 추가
-        const userDisplayMsg = message || (imageInput.files[0] ? "사진 분석 요청 📸" : "파일 분석 요청 📂");
-        appendMessage('user', userDisplayMsg);
-        
-        // 입력창 및 파일 상태 초기화
-        userInput.value = '';
-        clearFiles();
-        closeMenuIfOpen();
-
-        const loadingId = 'loading-' + Date.now();
-        appendMessage('ai', '어항 도우미가 분석 중입니다... 🫧', loadingId);
-
-        // URL은 실제 urls.py 경로에 맞춰 조절 (/monitoring/chat/ 혹은 /chatbot/ask/)
-        fetch("/monitoring/chat/", {
-            method: 'POST',
-            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-            body: formData
-        })
-        .then(res => {
-            if (!res.ok) throw new Error('Network response was not ok');
-            return res.json();
-        })
-        .then(data => {
-            const lb = document.getElementById(loadingId);
-            if (lb) lb.closest('.flex').remove();
-            
-            const botMsg = data.message || data.reply || "대답을 가져오지 못했습니다.";
-            appendMessage('ai', botMsg);
-            if (data.status === 'success') checkAndRenderSettings(botMsg);
-        })
-        .catch(err => {
-            const lb = document.getElementById(loadingId);
-            if (lb) lb.closest('.flex').remove();
-            appendMessage('ai', "서버와 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
-            console.error(err);
+        // 날짜별 그룹핑
+        const groups = {};
+        data.history.forEach(m => {
+            const date = m.created_at.split(' ')[0];
+            if (!groups[date]) groups[date] = [];
+            groups[date].push(m);
         });
-    });
 
-    function scrollToBottom() { chatWindow.scrollTop = chatWindow.scrollHeight; }
-    
-    function appendMessage(sender, text, id = null) {
-        const div = document.createElement('div');
-        div.className = sender === 'user' ? 'flex justify-end' : 'flex items-start gap-3';
-        const cleanText = text.replace(/\[SETTING:.*?\]/g, '').replace(/\n/g, '<br>');
-        if (sender === 'user') {
-            div.innerHTML = `<div class="bg-blue-600 text-white p-4 rounded-3xl rounded-tr-none shadow-md text-sm font-bold max-w-[85%] animate-fade-in">${cleanText}</div>`;
+        let html = '';
+        Object.entries(groups).reverse().forEach(([date, msgs]) => {
+            html += `<p class="text-[9px] font-black text-slate-300 uppercase px-3 pt-3 pb-1">${date}</p>`;
+            msgs.reverse().forEach(m => {
+                const preview = m.message.length > 20 ? m.message.slice(0, 20) + '...' : m.message;
+                html += `
+                <button onclick="loadConversation(${m.id})"
+                        class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
+                        id="hist-${m.id}">
+                    <p class="text-[12px] font-bold text-slate-600 group-hover:text-slate-800 truncate">${preview}</p>
+                    <p class="text-[10px] text-slate-300 font-bold mt-0.5">${m.created_at.split(' ')[1]}</p>
+                </button>`;
+            });
+        });
+
+        list.innerHTML = html;
+
+    } catch(e) {
+        console.error('[HISTORY]', e);
+    }
+}
+
+// ── 특정 대화 불러오기 ─────────────────────────
+async function loadConversation(id) {
+    try {
+        const res  = await fetch('/chatbot/history/');
+        const data = await res.json();
+
+        const msg = data.history.find(m => m.id === id);
+        if (!msg) return;
+
+        // 기존 메시지 초기화
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = '';
+
+        appendMessage('user', msg.message);
+        appendMessage('bot',  msg.response);
+
+        // 선택 표시
+        document.querySelectorAll('[id^="hist-"]').forEach(el => el.classList.remove('bg-blue-50'));
+        document.getElementById(`hist-${id}`)?.classList.add('bg-blue-50');
+
+        currentHistoryId = id;
+        scrollToBottom();
+
+    } catch(e) {
+        console.error('[LOAD_CONV]', e);
+    }
+}
+
+// ── 메시지 전송 ────────────────────────────────
+async function sendMessage() {
+    const input   = document.getElementById('chat-input');
+    const message = input.value.trim();
+    const imgFile = document.getElementById('image-input').files[0];
+
+    if (!message && !imgFile) return;
+    if (isLoading) return;
+
+    // 웰컴/빠른질문 숨기기
+    document.getElementById('welcome-msg')?.remove();
+    document.getElementById('quick-btns')?.remove();
+
+    isLoading = true;
+    document.getElementById('send-btn').disabled = true;
+    input.value = '';
+    autoResize(input);
+
+    appendMessage('user', message || '(사진 분석)');
+    const loadingEl = appendLoading();
+    scrollToBottom();
+
+    try {
+        let body, headers = { 'X-CSRFToken': CSRF };
+
+        if (imgFile) {
+            const fd = new FormData();
+            fd.append('message', message);
+            fd.append('image', imgFile);
+            body = fd;
         } else {
-            div.innerHTML = `
-                <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[10px] font-black shadow-lg shrink-0">AI</div>
-                <div id="${id || ''}" class="bg-white p-4 rounded-3xl rounded-tl-none shadow-sm border border-blue-50 text-sm font-medium text-slate-700 max-w-[85%] leading-relaxed animate-fade-in">${cleanText}</div>`;
+            body    = JSON.stringify({ message });
+            headers['Content-Type'] = 'application/json';
         }
-        chatWindow.appendChild(div);
+
+        const res  = await fetch('/chatbot/ask/', { method: 'POST', headers, body });
+        const data = await res.json();
+
+        loadingEl.remove();
+
+        if (data.status === 'success') {
+            appendMessage('bot', data.reply || data.response);
+            removeImage();
+            loadHistory();   // 내역 갱신
+        } else {
+            appendMessage('bot', '오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        }
+
+    } catch(e) {
+        loadingEl.remove();
+        appendMessage('bot', '서버 연결에 실패했습니다.');
+    } finally {
+        isLoading = false;
+        document.getElementById('send-btn').disabled = false;
         scrollToBottom();
     }
+}
 
-    function checkAndRenderSettings(text) {
-        const regex = /\[SETTING:\s*temp=([\d.]+),\s*ph=([\d.]+),\s*cycle=(\d+)\]/;
-        const match = text.match(regex);
-        if (match) {
-            const [_, temp, ph, cycle] = match;
-            const card = document.createElement('div');
-            card.className = 'flex items-start gap-3 mt-2 animate-fade-in';
-            card.innerHTML = `
-                <div class="w-9"></div>
-                <div class="bg-blue-50/50 p-4 border border-blue-100 rounded-[2rem] flex-1 shadow-sm">
-                    <p class="text-[10px] font-black text-blue-600 mb-2 uppercase tracking-tighter">📋 박사님의 추천 세팅</p>
-                    <div class="grid grid-cols-3 gap-1 text-center mb-3">
-                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">온도</span><b class="text-xs">${temp}°C</b></div>
-                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">pH</span><b class="text-xs">${ph}</b></div>
-                        <div class="bg-white rounded-lg p-1 shadow-sm"><span class="block text-[10px] text-slate-400">주기</span><b class="text-xs">${cycle}일</b></div>
-                    </div>
-                    <button onclick="location.href='/monitoring/tanks/'" class="w-full py-2 bg-blue-600 text-white text-[11px] font-bold rounded-xl shadow-md transition-transform active:scale-95">내 어항에 적용하기</button>
-                </div>`;
-            chatWindow.appendChild(card);
-            scrollToBottom();
-        }
+function quickAsk(text) {
+    document.getElementById('chat-input').value = text;
+    sendMessage();
+}
+
+// ── 메시지 렌더링 ──────────────────────────────
+function appendMessage(role, text) {
+    const container = document.getElementById('chat-messages');
+    const isUser    = role === 'user';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+
+    const bubble = document.createElement('div');
+    bubble.className = isUser
+        ? 'max-w-xs lg:max-w-md bg-blue-600 text-white rounded-[1.5rem] rounded-tr-sm px-5 py-3'
+        : 'max-w-xs lg:max-w-md bg-slate-50 text-slate-700 rounded-[1.5rem] rounded-tl-sm px-5 py-4';
+
+    // 줄바꿈 처리
+    const p = document.createElement('p');
+    p.className = 'text-sm font-medium leading-relaxed whitespace-pre-line';
+    p.textContent = text;
+    bubble.appendChild(p);
+
+    wrapper.appendChild(bubble);
+    container.appendChild(wrapper);
+    return wrapper;
+}
+
+function appendLoading() {
+    const container = document.getElementById('chat-messages');
+    const wrapper   = document.createElement('div');
+    wrapper.className = 'flex justify-start';
+    wrapper.innerHTML = `
+        <div class="bg-slate-50 rounded-[1.5rem] rounded-tl-sm px-5 py-4">
+            <div class="flex gap-1.5 items-center h-5">
+                <span class="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style="animation-delay:0ms"></span>
+                <span class="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style="animation-delay:150ms"></span>
+                <span class="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style="animation-delay:300ms"></span>
+            </div>
+        </div>`;
+    container.appendChild(wrapper);
+    return wrapper;
+}
+
+// ── 내역 전체 삭제 ─────────────────────────────
+async function clearHistory() {
+    if (!confirm('대화 내역을 모두 삭제할까요?')) return;
+    try {
+        await fetch('/chatbot/clear/', { method: 'POST', headers: { 'X-CSRFToken': CSRF } });
+        document.getElementById('history-list').innerHTML =
+            '<p class="text-[11px] text-slate-300 font-bold text-center py-8">대화 내역 없음</p>';
+        location.reload();
+    } catch(e) {}
+}
+
+// ── 유틸 ───────────────────────────────────────
+function scrollToBottom() {
+    const el = document.getElementById('chat-messages');
+    el.scrollTop = el.scrollHeight;
+}
+
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
     }
+}
+
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function previewImage(input) {
+    if (!input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('preview-img').src = e.target.result;
+        document.getElementById('image-preview').classList.remove('hidden');
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+
+function removeImage() {
+    document.getElementById('image-input').value = '';
+    document.getElementById('image-preview').classList.add('hidden');
+}
 </script>
 {% endblock %}

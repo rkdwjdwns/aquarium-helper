@@ -1,13 +1,10 @@
-# apps/chatbot/urls.py
 from django.urls import path
-try:
-    from core.views import chat_api
-except ImportError:
-    from apps.core.views import chat_api
+from core.views import chat_api, chat_history, chat_clear
 
 app_name = 'chatbot'
 
 urlpatterns = [
-    # base.html의 fetch('/chatbot/ask/')와 매칭됩니다.
-    path('ask/', chat_api, name='ask'),
+    path('ask/',     chat_api,     name='ask'),
+    path('history/', chat_history, name='history'),
+    path('clear/',   chat_clear,   name='clear'),
 ]
