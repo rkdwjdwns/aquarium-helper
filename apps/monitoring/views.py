@@ -66,7 +66,7 @@ def _get_chart_history(tank):
     readings = list(
         SensorReading.objects.filter(tank=tank).order_by('-created_at')[:12]
     )
-    readings.reverse()  # 오래된 것부터 정렬
+    readings.reverse()
     return json.dumps({
         "labels": [r.created_at.strftime("%H:%M") for r in readings],
         "temp":   [r.temperature         for r in readings],
@@ -74,6 +74,42 @@ def _get_chart_history(tank):
         "do":     [r.dissolved_oxygen    for r in readings],
         "turb":   [r.turbidity           for r in readings],
     }, ensure_ascii=False)
+
+
+def _get_growth_chart(tank):
+    """최근 14일 성장 차트 데이터"""
+    from .models import GrowthRecord
+    records = list(
+        GrowthRecord.objects.filter(tank=tank)
+        .order_by('-created_at')[:14]
+    )
+    records.reverse()
+    return json.dumps({
+        "labels": [r.created_at.strftime("%m/%d") for r in records],
+        "length": [r.estimated_length for r in records],
+        "weight": [r.estimated_weight for r in records],
+    }, ensure_ascii=False)
+
+
+def _get_feeding_chart(tank):
+    """최근 7일 급이 차트 데이터"""
+    from .models import FeedingEvent
+    from django.db.models import Sum
+    from django.utils import timezone
+    import datetime
+
+    today = timezone.now().date()
+    labels, amounts = [], []
+    for i in range(6, -1, -1):
+        day = today - datetime.timedelta(days=i)
+        total = FeedingEvent.objects.filter(
+            tank=tank,
+            created_at__date=day
+        ).aggregate(total=Sum('amount_g'))['total'] or 0.0
+        labels.append(day.strftime("%m/%d"))
+        amounts.append(round(total, 3))
+
+    return json.dumps({"labels": labels, "amounts": amounts}, ensure_ascii=False)
 
 
 @login_required
@@ -125,7 +161,9 @@ def dashboard(request, tank_id=None):
         'is_water_changed_today': is_water_changed_today,
         'user_tanks':             user_tanks,
         # ✅ 추가: 차트 초기 데이터
-        'chart_history':          _get_chart_history(tank),
+        'chart_history':   _get_chart_history(tank),
+        'growth_chart':    _get_growth_chart(tank),
+        'feeding_chart':   _get_feeding_chart(tank),
         # 장치별 ON/OFF 편의 변수
         'heater_on':   devices.get('HEATER',   None) and devices['HEATER'].is_on,
         'cooling_on':  devices.get('COOLING',  None) and devices['COOLING'].is_on,
