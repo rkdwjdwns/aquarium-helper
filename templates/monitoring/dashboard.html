@@ -31,68 +31,80 @@
                 <h2 class="text-4xl font-black text-slate-800">{{ tank.name }}</h2>
             </div>
             <div class="flex flex-col items-end gap-2">
-                <span class="px-6 py-2 rounded-full text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
+                <span id="status-badge" class="px-6 py-2 rounded-full text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
                 <span id="last-updated" class="text-[10px] text-slate-300 font-bold">마지막 업데이트: 방금</span>
             </div>
         </div>
 
-        {# ── 센서 카드 4개 ── #}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+        {# ── 센서 카드 6개 ── #}
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
 
             {# 수온 #}
-            <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
+            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🌡️ Temp</p>
-                <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.temperature|default:"--" }}°C</p>
-                {% if latest.temperature %}
-                    {% if latest.temperature >= 24 and latest.temperature <= 28 %}
-                        <span class="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full">● 적정</span>
-                    {% else %}
-                        <span class="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full animate-pulse">● 주의</span>
-                    {% endif %}
-                {% else %}
-                    <span class="text-[10px] font-bold text-slate-300">센서 미연결</span>
-                {% endif %}
+                <p id="val-temp" class="text-3xl font-black text-slate-800 mb-2">{{ latest.temperature|default:"--" }}°C</p>
+                <span id="badge-temp" class="text-[10px] font-bold px-3 py-1 rounded-full
+                    {% if latest.temperature %}
+                        {% if latest.temperature >= 21 and latest.temperature <= 24 %}text-emerald-500 bg-emerald-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
+                    {% else %}text-slate-300{% endif %}">
+                    {% if latest.temperature %}{% if latest.temperature >= 21 and latest.temperature <= 24 %}● 적정{% else %}● 주의{% endif %}{% else %}센서 미연결{% endif %}
+                </span>
             </div>
 
             {# pH #}
-            <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
+            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">💧 pH</p>
-                <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.ph|default:"--" }}</p>
-                {% if latest.ph %}
-                    {% if latest.ph >= 6.5 and latest.ph <= 7.5 %}
-                        <span class="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full">● 안정</span>
-                    {% else %}
-                        <span class="text-[10px] font-bold text-orange-500 bg-orange-50 px-3 py-1 rounded-full animate-pulse">● 확인 필요</span>
-                    {% endif %}
-                {% else %}
-                    <span class="text-[10px] font-bold text-slate-300">센서 미연결</span>
-                {% endif %}
+                <p id="val-ph" class="text-3xl font-black text-slate-800 mb-2">{{ latest.ph|default:"--" }}</p>
+                <span id="badge-ph" class="text-[10px] font-bold px-3 py-1 rounded-full
+                    {% if latest.ph %}
+                        {% if latest.ph >= 6.5 and latest.ph <= 8.0 %}text-emerald-500 bg-emerald-50{% else %}text-orange-500 bg-orange-50 animate-pulse{% endif %}
+                    {% else %}text-slate-300{% endif %}">
+                    {% if latest.ph %}{% if latest.ph >= 6.5 and latest.ph <= 8.0 %}● 안정{% else %}● 확인 필요{% endif %}{% else %}센서 미연결{% endif %}
+                </span>
             </div>
 
-            {# DO(용존산소) #}
-            <div class="bg-slate-50/50 rounded-[2.5rem] p-8 text-center border border-slate-50">
+            {# DO 용존산소 #}
+            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🫧 DO</p>
-                <p class="text-3xl font-black text-slate-800 mb-2">{{ latest.dissolved_oxygen|default:"--" }}<span class="text-sm font-bold text-slate-400"> mg/L</span></p>
-                {% if latest.dissolved_oxygen %}
-                    {% if latest.dissolved_oxygen >= 5 %}
-                        <span class="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full">● 정상</span>
-                    {% else %}
-                        <span class="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full animate-pulse">● 산소 부족</span>
-                    {% endif %}
-                {% else %}
-                    <span class="text-[10px] font-bold text-slate-300">센서 미연결</span>
-                {% endif %}
+                <p id="val-do" class="text-3xl font-black text-slate-800 mb-2">{{ latest.dissolved_oxygen|default:"--" }}<span class="text-sm font-bold text-slate-400"> mg/L</span></p>
+                <span id="badge-do" class="text-[10px] font-bold px-3 py-1 rounded-full
+                    {% if latest.dissolved_oxygen %}
+                        {% if latest.dissolved_oxygen >= 5 %}text-emerald-500 bg-emerald-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
+                    {% else %}text-slate-300{% endif %}">
+                    {% if latest.dissolved_oxygen %}{% if latest.dissolved_oxygen >= 5 %}● 정상{% else %}● 산소 부족{% endif %}{% else %}센서 미연결{% endif %}
+                </span>
+            </div>
+
+            {# ✅ 추가: 탁도 #}
+            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
+                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🌫️ 탁도</p>
+                <p id="val-turb" class="text-3xl font-black text-slate-800 mb-2">{{ latest.turbidity|default:"--" }}<span class="text-sm font-bold text-slate-400"> NTU</span></p>
+                <span id="badge-turb" class="text-[10px] font-bold px-3 py-1 rounded-full
+                    {% if latest.turbidity %}
+                        {% if latest.turbidity <= 50 %}text-emerald-500 bg-emerald-50{% elif latest.turbidity <= 100 %}text-orange-500 bg-orange-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
+                    {% else %}text-slate-300{% endif %}">
+                    {% if latest.turbidity %}{% if latest.turbidity <= 50 %}● 맑음{% elif latest.turbidity <= 100 %}● 탁함{% else %}● 위험{% endif %}{% else %}센서 미연결{% endif %}
+                </span>
+            </div>
+
+            {# ✅ 추가: 수위 #}
+            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
+                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">📏 수위</p>
+                <p id="val-level" class="text-3xl font-black text-slate-800 mb-2">{{ latest.water_level|default:"--" }}<span class="text-sm font-bold text-slate-400">%</span></p>
+                <span id="badge-level" class="text-[10px] font-bold px-3 py-1 rounded-full
+                    {% if latest.water_level %}
+                        {% if latest.water_level >= 80 %}text-emerald-500 bg-emerald-50{% elif latest.water_level >= 60 %}text-orange-500 bg-orange-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
+                    {% else %}text-slate-300{% endif %}">
+                    {% if latest.water_level %}{% if latest.water_level >= 80 %}● 정상{% elif latest.water_level >= 60 %}● 낮음{% else %}● 부족{% endif %}{% else %}센서 미연결{% endif %}
+                </span>
             </div>
 
             {# 환수 D-day #}
-            <div class="bg-blue-50/30 rounded-[2.5rem] p-8 text-center border border-blue-100/50">
-                <p class="text-[10px] text-blue-400 font-black uppercase mb-3 tracking-widest">🗑️ Water Change</p>
+            <div class="bg-blue-50/30 rounded-[2.5rem] p-6 text-center border border-blue-100/50">
+                <p class="text-[10px] text-blue-400 font-black uppercase mb-3 tracking-widest">🗑️ 환수</p>
                 <p class="text-3xl font-black text-slate-800 mb-2">
-                    {% if d_day < 0 %}
-                        <span class="text-red-500">D+{{ d_day|slice:"1:" }}</span>
-                    {% else %}
-                        D-{{ d_day }}
-                    {% endif %}
+                    {% if d_day < 0 %}<span class="text-red-500">D+{{ d_day|slice:"1:" }}</span>
+                    {% else %}D-{{ d_day }}{% endif %}
                 </p>
                 {% if d_day <= 0 %}
                     <span class="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full animate-pulse">● 환수 필요</span>
@@ -105,7 +117,23 @@
 
         </div>
 
-        {# ── AI 어류 행동 분석 ── #}
+        {# ✅ 추가: 수질 트렌드 차트 #}
+        <div class="bg-slate-50/30 rounded-[2.5rem] p-8 mb-10 border border-slate-100">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">📈 수질 트렌드 (최근 12회)</h3>
+                <div class="flex gap-2">
+                    <button onclick="setChart('temp')"   id="btn-temp"   class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-red-100 text-red-500">수온</button>
+                    <button onclick="setChart('ph')"     id="btn-ph"     class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400">pH</button>
+                    <button onclick="setChart('do')"     id="btn-do"     class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400">DO</button>
+                    <button onclick="setChart('turb')"   id="btn-turb"   class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400">탁도</button>
+                </div>
+            </div>
+            <div class="relative h-48">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        {# AI 어류 행동 분석 #}
         {% if latest_behavior %}
         <div class="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-[2.5rem] p-8 mb-10 border border-blue-100">
             <div class="flex justify-between items-center mb-6">
@@ -146,11 +174,10 @@
         </div>
         {% endif %}
 
-        {# ── 장치 제어 ── #}
+        {# 장치 제어 #}
         <div class="mb-10">
             <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">⚙️ 장치 제어</h3>
             <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
-
                 <button onclick="controlDevice('HEATER')"
                         class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
                         {% if heater_on %}bg-white border-red-400 shadow-xl shadow-red-50 text-red-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
@@ -158,7 +185,6 @@
                     <span class="font-black text-[10px]">히터</span>
                     <span class="text-[9px] font-bold {% if heater_on %}text-red-400{% else %}text-slate-300{% endif %}">{% if heater_on %}ON{% else %}OFF{% endif %}</span>
                 </button>
-
                 <button onclick="controlDevice('COOLING')"
                         class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
                         {% if cooling_on %}bg-white border-cyan-400 shadow-xl shadow-cyan-50 text-cyan-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
@@ -166,7 +192,6 @@
                     <span class="font-black text-[10px]">냉각팬</span>
                     <span class="text-[9px] font-bold {% if cooling_on %}text-cyan-400{% else %}text-slate-300{% endif %}">{% if cooling_on %}ON{% else %}OFF{% endif %}</span>
                 </button>
-
                 <button onclick="controlDevice('FILTER')"
                         class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
                         {% if filter_on %}bg-white border-blue-400 shadow-xl shadow-blue-50 text-blue-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
@@ -174,7 +199,6 @@
                     <span class="font-black text-[10px]">여과기</span>
                     <span class="text-[9px] font-bold {% if filter_on %}text-blue-400{% else %}text-slate-300{% endif %}">{% if filter_on %}ON{% else %}OFF{% endif %}</span>
                 </button>
-
                 <button onclick="controlDevice('AIR_PUMP')"
                         class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
                         {% if air_pump_on %}bg-white border-sky-400 shadow-xl shadow-sky-50 text-sky-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
@@ -182,7 +206,6 @@
                     <span class="font-black text-[10px]">에어펌프</span>
                     <span class="text-[9px] font-bold {% if air_pump_on %}text-sky-400{% else %}text-slate-300{% endif %}">{% if air_pump_on %}ON{% else %}OFF{% endif %}</span>
                 </button>
-
                 <button onclick="controlDevice('FEEDER')"
                         class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
                         {% if feeder_on %}bg-white border-amber-400 shadow-xl shadow-amber-50 text-amber-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
@@ -190,7 +213,6 @@
                     <span class="font-black text-[10px]">급이기</span>
                     <span class="text-[9px] font-bold {% if feeder_on %}text-amber-400{% else %}text-slate-300{% endif %}">{% if feeder_on %}ON{% else %}OFF{% endif %}</span>
                 </button>
-
                 <button onclick="controlDevice('LIGHT')"
                         class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
                         {% if light_on %}bg-white border-yellow-400 shadow-xl shadow-yellow-50 text-yellow-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
@@ -198,11 +220,10 @@
                     <span class="font-black text-[10px]">조명</span>
                     <span class="text-[9px] font-bold {% if light_on %}text-yellow-400{% else %}text-slate-300{% endif %}">{% if light_on %}ON{% else %}OFF{% endif %}</span>
                 </button>
-
             </div>
         </div>
 
-        {# ── 환수하기 ── #}
+        {# 환수하기 #}
         <div class="mb-10">
             <button id="waterChangeBtn" onclick="completeWaterChange()"
                     class="w-full flex items-center justify-center gap-3 py-5 rounded-[2rem] border-2 transition-all font-black
@@ -214,24 +235,20 @@
             </button>
         </div>
 
-        {# ── 실시간 로그 ── #}
+        {# 실시간 로그 #}
         <div class="border-t border-slate-50 pt-8">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest italic">📜 Live Activity</h3>
                 <a href="{% url 'monitoring:logs' %}?tank_id={{ tank.id }}"
                    class="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-lg text-slate-500">전체보기</a>
             </div>
-            <div class="space-y-3">
+            <div id="log-list" class="space-y-3">
                 {% for log in logs %}
                 <div class="flex justify-between items-center bg-slate-50/50 rounded-2xl px-5 py-3">
                     <p class="text-sm font-bold text-slate-700 flex items-center gap-2">
-                        {% if log.level == 'DANGER' %}
-                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                        {% elif log.level == 'WARNING' %}
-                            <span class="w-2 h-2 rounded-full bg-orange-400"></span>
-                        {% else %}
-                            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                        {% endif %}
+                        {% if log.level == 'DANGER' %}<span class="w-2 h-2 rounded-full bg-red-500"></span>
+                        {% elif log.level == 'WARNING' %}<span class="w-2 h-2 rounded-full bg-orange-400"></span>
+                        {% else %}<span class="w-2 h-2 rounded-full bg-blue-500"></span>{% endif %}
                         {{ log.message }}
                     </p>
                     <span class="text-[10px] font-black text-slate-300 ml-4 whitespace-nowrap">{{ log.created_at|date:"H:i:s" }}</span>
@@ -246,41 +263,169 @@
     {% endif %}
 </div>
 
+{# Chart.js CDN #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
 <script>
-// ── 장치 제어 ──
+const TANK_ID   = {{ tank.id }};
+const CSRF      = '{{ csrf_token }}';
+
+// ── 장치 제어 ──────────────────────────────────
 function controlDevice(deviceType) {
-    fetch(`/monitoring/toggle-device/{{ tank.id }}/`, {
+    fetch(`/monitoring/toggle-device/${TANK_ID}/`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF },
         body: `device_type=${deviceType}`
     })
-    .then(res => res.json())
-    .then(data => { if (data.status === 'success') location.reload(); });
+    .then(r => r.json())
+    .then(d => { if (d.status === 'success') location.reload(); });
 }
 
-// ── 환수 완료 ──
+// ── 환수 완료 ──────────────────────────────────
 function completeWaterChange() {
-    if (!confirm('환수를 완료하셨습니까? 오늘 날짜로 기록됩니다.')) return;
-    fetch(`/monitoring/water-change/{{ tank.id }}/`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    if (!confirm('환수를 완료하셨습니까?')) return;
+    fetch(`/monitoring/water-change/${TANK_ID}/`, {
+        method: 'POST', headers: { 'X-CSRFToken': CSRF }
     })
-    .then(res => res.json())
-    .then(data => { if (data.status === 'success') location.reload(); })
-    .catch(() => alert('오류가 발생했습니다.'));
+    .then(r => r.json())
+    .then(d => { if (d.status === 'success') location.reload(); });
 }
 
-// ── 5초 자동 새로고침 ──
-let countdown = 5;
-const label   = document.getElementById('last-updated');
+// ✅ AJAX 센서 업데이트 (깜빡임 없이 부분 업데이트)
+function updateSensorCards(d) {
+    const s = d.sensor;
+    if (!s) return;
 
-setInterval(() => {
-    countdown--;
-    if (label) label.textContent = `${countdown}초 후 자동 업데이트`;
-    if (countdown <= 0) location.reload();
-}, 1000);
+    // 수온
+    if (s.temperature !== null) {
+        document.getElementById('val-temp').textContent = s.temperature + '°C';
+        const ok = s.temperature >= 21 && s.temperature <= 24;
+        document.getElementById('badge-temp').textContent = ok ? '● 적정' : '● 주의';
+        document.getElementById('badge-temp').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
+    }
+    // pH
+    if (s.ph !== null) {
+        document.getElementById('val-ph').textContent = s.ph;
+        const ok = s.ph >= 6.5 && s.ph <= 8.0;
+        document.getElementById('badge-ph').textContent = ok ? '● 안정' : '● 확인 필요';
+        document.getElementById('badge-ph').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-orange-500 bg-orange-50 animate-pulse'}`;
+    }
+    // DO
+    if (s.dissolved_oxygen !== null) {
+        document.getElementById('val-do').innerHTML = s.dissolved_oxygen + '<span class="text-sm font-bold text-slate-400"> mg/L</span>';
+        const ok = s.dissolved_oxygen >= 5;
+        document.getElementById('badge-do').textContent = ok ? '● 정상' : '● 산소 부족';
+        document.getElementById('badge-do').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
+    }
+    // 탁도
+    if (s.turbidity !== null) {
+        document.getElementById('val-turb').innerHTML = s.turbidity + '<span class="text-sm font-bold text-slate-400"> NTU</span>';
+        const ok = s.turbidity <= 50, warn = s.turbidity <= 100;
+        document.getElementById('badge-turb').textContent = ok ? '● 맑음' : warn ? '● 탁함' : '● 위험';
+        document.getElementById('badge-turb').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : warn ? 'text-orange-500 bg-orange-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
+    }
+    // 수위
+    if (s.water_level !== null) {
+        document.getElementById('val-level').innerHTML = s.water_level + '<span class="text-sm font-bold text-slate-400">%</span>';
+        const ok = s.water_level >= 80, warn = s.water_level >= 60;
+        document.getElementById('badge-level').textContent = ok ? '● 정상' : warn ? '● 낮음' : '● 부족';
+        document.getElementById('badge-level').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : warn ? 'text-orange-500 bg-orange-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
+    }
+
+    // 업데이트 시각
+    document.getElementById('last-updated').textContent = '마지막 업데이트: ' + new Date().toLocaleTimeString('ko-KR');
+}
+
+// ✅ AJAX 폴링 (5초마다 — location.reload() 대신)
+async function pollDashboard() {
+    try {
+        const res  = await fetch(`/monitoring/api/dashboard-data/${TANK_ID}/`);
+        const data = await res.json();
+        updateSensorCards(data);
+        updateChart(data.history);
+    } catch(e) {
+        console.warn('[POLL] 서버 응답 없음', e);
+    }
+}
+
+setInterval(pollDashboard, 5000);
+
+
+// ✅ Chart.js 수질 트렌드 차트
+const chartColors = {
+    temp: { border: '#ef4444', bg: 'rgba(239,68,68,0.08)', min: 18, max: 30, label: '수온 (°C)' },
+    ph:   { border: '#3b82f6', bg: 'rgba(59,130,246,0.08)', min: 5,  max: 9,  label: 'pH' },
+    do:   { border: '#10b981', bg: 'rgba(16,185,129,0.08)', min: 0,  max: 15, label: 'DO (mg/L)' },
+    turb: { border: '#f59e0b', bg: 'rgba(245,158,11,0.08)', min: 0,  max: 200, label: '탁도 (NTU)' },
+};
+let currentMetric = 'temp';
+let chartHistory  = { labels: [], temp: [], ph: [], do: [], turb: [] };
+
+const ctx = document.getElementById('trendChart').getContext('2d');
+const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: '수온 (°C)',
+            data: [],
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239,68,68,0.08)',
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointBackgroundColor: '#ef4444',
+            tension: 0.4,
+            fill: true,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' } },
+            y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' } }
+        },
+        animation: { duration: 400 }
+    }
+});
+
+function updateChart(history) {
+    if (!history) return;
+    chartHistory = history;
+    setChart(currentMetric);
+}
+
+function setChart(metric) {
+    currentMetric = metric;
+    const c = chartColors[metric];
+
+    // 버튼 스타일 토글
+    ['temp', 'ph', 'do', 'turb'].forEach(m => {
+        const btn = document.getElementById('btn-' + m);
+        if (m === metric) {
+            btn.style.background = chartColors[m].border + '20';
+            btn.style.color = chartColors[m].border;
+        } else {
+            btn.style.background = '';
+            btn.style.color = '';
+            btn.className = 'chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400';
+        }
+    });
+
+    chart.data.labels               = chartHistory.labels || [];
+    chart.data.datasets[0].data     = chartHistory[metric] || [];
+    chart.data.datasets[0].label    = c.label;
+    chart.data.datasets[0].borderColor     = c.border;
+    chart.data.datasets[0].backgroundColor = c.bg;
+    chart.data.datasets[0].pointBackgroundColor = c.border;
+    chart.options.scales.y.min = c.min;
+    chart.options.scales.y.max = c.max;
+    chart.update();
+}
+
+// 초기 차트 데이터 (Django 템플릿에서 주입)
+const initHistory = {{ chart_history|safe|default:"{}" }};
+if (initHistory.labels) updateChart(initHistory);
 </script>
 {% endblock %}

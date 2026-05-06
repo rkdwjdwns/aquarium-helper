@@ -60,6 +60,22 @@ def index(request):
     })
 
 
+# ✅ 추가: 차트용 히스토리 생성 헬퍼
+def _get_chart_history(tank):
+    """최근 12개 센서 데이터로 Chart.js용 JSON 생성"""
+    readings = list(
+        SensorReading.objects.filter(tank=tank).order_by('-created_at')[:12]
+    )
+    readings.reverse()  # 오래된 것부터 정렬
+    return json.dumps({
+        "labels": [r.created_at.strftime("%H:%M") for r in readings],
+        "temp":   [r.temperature         for r in readings],
+        "ph":     [r.ph                  for r in readings],
+        "do":     [r.dissolved_oxygen    for r in readings],
+        "turb":   [r.turbidity           for r in readings],
+    }, ensure_ascii=False)
+
+
 @login_required
 def dashboard(request, tank_id=None):
     """특정 어항 상세 대시보드"""
@@ -100,14 +116,16 @@ def dashboard(request, tank_id=None):
     user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
 
     return render(request, 'monitoring/dashboard.html', {
-        'tank':                  tank,
-        'latest':                latest,
-        'latest_behavior':       latest_behavior,
-        'devices':               devices,
-        'logs':                  logs,
-        'd_day':                 d_day,
+        'tank':                   tank,
+        'latest':                 latest,
+        'latest_behavior':        latest_behavior,
+        'devices':                devices,
+        'logs':                   logs,
+        'd_day':                  d_day,
         'is_water_changed_today': is_water_changed_today,
-        'user_tanks':            user_tanks,
+        'user_tanks':             user_tanks,
+        # ✅ 추가: 차트 초기 데이터
+        'chart_history':          _get_chart_history(tank),
         # 장치별 ON/OFF 편의 변수
         'heater_on':   devices.get('HEATER',   None) and devices['HEATER'].is_on,
         'cooling_on':  devices.get('COOLING',  None) and devices['COOLING'].is_on,
@@ -116,6 +134,42 @@ def dashboard(request, tank_id=None):
         'feeder_on':   devices.get('FEEDER',   None) and devices['FEEDER'].is_on,
         'light_on':    devices.get('LIGHT',    None) and devices['LIGHT'].is_on,
     })
+
+
+# ✅ 추가: AJAX 폴링 엔드포인트
+@login_required
+def dashboard_data(request, tank_id):
+    """
+    대시보드 AJAX 폴링용 — 최신 센서값 + 차트 히스토리 반환
+    GET /monitoring/api/dashboard-data/{tank_id}/
+    """
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+
+    latest   = SensorReading.objects.filter(tank=tank).order_by('-created_at').first()
+    readings = list(
+        SensorReading.objects.filter(tank=tank).order_by('-created_at')[:12]
+    )
+    readings.reverse()
+
+    sensor = None
+    if latest:
+        sensor = {
+            "temperature":      latest.temperature,
+            "ph":               latest.ph,
+            "dissolved_oxygen": latest.dissolved_oxygen,
+            "turbidity":        latest.turbidity,
+            "water_level":      latest.water_level,
+        }
+
+    history = {
+        "labels": [r.created_at.strftime("%H:%M") for r in readings],
+        "temp":   [r.temperature         for r in readings],
+        "ph":     [r.ph                  for r in readings],
+        "do":     [r.dissolved_oxygen    for r in readings],
+        "turb":   [r.turbidity           for r in readings],
+    }
+
+    return JsonResponse({"sensor": sensor, "history": history})
 
 
 @login_required
@@ -223,7 +277,6 @@ def toggle_device(request, tank_id):
     device.is_on = not device.is_on
     device.save()
 
-    # 이벤트 로그 기록
     state = "ON" if device.is_on else "OFF"
     EventLog.objects.create(
         tank=tank,
@@ -249,7 +302,6 @@ def perform_water_change(request, tank_id):
 
 @login_required
 def ai_report_list(request):
-    """리포트 목록"""
     tanks     = Tank.objects.filter(user=request.user).order_by('-id')
     has_tanks = tanks.exists()
 
@@ -358,15 +410,12 @@ def _build_prompt(display_name: str, user_message: str) -> str:
 def _format_reply(raw: str, display_name: str) -> str:
     raw = raw.replace('**', '').strip()
 
-    # 1차: 줄바꿈으로 분리
     lines = [l.strip() for l in raw.split('\n') if l.strip()]
 
-    # 2차: 줄바꿈 없으면 마침표/이모지 기준 강제 분리
     if len(lines) <= 1:
         lines = re.split(r'(?<=[.!?])\s+|(?<=\s)(?=[\U0001F300-\U0001FAFF])', raw)
         lines = [l.strip() for l in lines if l.strip()]
 
-    # 3차: 그래도 1줄이면 [대괄호] 섹션 기준 분리
     if len(lines) <= 1:
         lines = re.split(r'\s*\[.*?\]\s*', raw)
         lines = [l.strip() for l in lines if l.strip()]

@@ -34,11 +34,14 @@ urlpatterns = [
     path('reports/download/<int:tank_id>/',      views.download_report,    name='download_report'),
 
     # ── [7. Raspberry Pi REST API] ─────────────────────────────────
-    path('api/sensor/',                     api_views.receive_sensor_data,    name='api_sensor'),
-    path('api/behavior/',                   api_views.receive_fish_behavior,  name='api_behavior'),
-    path('api/feeding/',                    api_views.receive_feeding_event,  name='api_feeding'),
-    path('api/growth/',                     api_views.receive_growth_record,  name='api_growth'),
-    path('api/pattern/',                    api_views.receive_activity_pattern, name='api_pattern'),
-    path('api/commands/<int:tank_id>/',     api_views.get_pending_commands,   name='api_commands'),
-    path('api/health/',                     api_views.health_check,           name='api_health'),
+    path('api/sensor/',                          api_views.receive_sensor_data,      name='api_sensor'),
+    path('api/behavior/',                        api_views.receive_fish_behavior,    name='api_behavior'),
+    path('api/feeding/',                         api_views.receive_feeding_event,    name='api_feeding'),
+    path('api/growth/',                          api_views.receive_growth_record,    name='api_growth'),
+    path('api/pattern/',                         api_views.receive_activity_pattern, name='api_pattern'),
+    path('api/commands/<int:tank_id>/',          api_views.get_pending_commands,     name='api_commands'),
+    path('api/health/',                          api_views.health_check,             name='api_health'),
+
+    # ── [8. ✅ 추가: 대시보드 AJAX 폴링] ──────────────────────────
+    path('api/dashboard-data/<int:tank_id>/',    views.dashboard_data,               name='dashboard_data'),
 ]
