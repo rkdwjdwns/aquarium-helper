@@ -42,12 +42,12 @@
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
+
     <nav class="bg-white border-b sticky top-0 z-50">
         <div class="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
             <a href="/" class="text-xl font-bold text-blue-600">🐠 어항 도우미</a>
             <div class="flex items-center gap-4">
                 {% if user.is_authenticated %}
-                {# ✅ 수정: chat_page URL로 연결 #}
                 <a href="{% url 'chatbot:chat_page' %}" class="text-xs font-bold text-slate-500 hover:text-blue-500">채팅 내역</a>
                 <span class="text-sm font-bold">{{ user.nickname|default:user.username }}님</span>
                 <form action="{% url 'accounts:logout' %}" method="post">
@@ -74,7 +74,10 @@
             <button onclick="document.getElementById('install-banner').classList.add('hidden')"
                     class="text-white/70 px-2 py-2 text-xs font-bold">닫기</button>
         </div>
-    </div> class="flex-grow container mx-auto px-4 py-10 max-w-6xl">
+    </div>
+
+    {# ── 메인 콘텐츠 ── #}
+    <main class="flex-grow container mx-auto px-4 py-10 max-w-6xl">
         {% block content %}{% endblock %}
     </main>
 
@@ -94,7 +97,6 @@
                 <p class="text-[10px] opacity-80">물고기 추천 · 수질 설정 · 관리법</p>
             </div>
             <div class="flex items-center gap-3">
-                {# ✅ 추가: 전체 대화 내역 페이지 링크 #}
                 {% if user.is_authenticated %}
                 <a href="{% url 'chatbot:chat_page' %}"
                    class="text-[10px] font-bold text-white/70 hover:text-white transition-colors">
@@ -157,21 +159,18 @@
     <script>
         const SIDE_CSRF = '{{ csrf_token }}';
 
-        // ── 챗봇 열기/닫기 ────────────────────────
         function toggleChat() {
             const s    = document.getElementById('chatbot-sidebar');
             const open = s.style.transform === 'translateX(0px)';
             s.style.transform = open ? 'translateX(150%)' : 'translateX(0px)';
         }
 
-        // ── 빠른 질문 ─────────────────────────────
         function quickSend(text) {
             document.getElementById('side-user-input').value = text;
             sendSideMessage();
             document.getElementById('quick-chips')?.remove();
         }
 
-        // ── 메시지 전송 ───────────────────────────
         async function sendSideMessage() {
             const input   = document.getElementById('side-user-input');
             const message = input.value.trim();
@@ -210,7 +209,6 @@
                 });
                 const data = await res.json();
                 document.getElementById(lid)?.remove();
-
                 const reply = data.reply || data.response || '응답을 받지 못했습니다.';
                 win.innerHTML += `
                     <div class="flex justify-start">
@@ -251,7 +249,6 @@
             });
         }
 
-        // ── 앱 설치 배너 ──
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', e => {
             e.preventDefault();
