@@ -31,7 +31,13 @@
                 <h2 class="text-4xl font-black text-slate-800">{{ tank.name }}</h2>
             </div>
             <div class="flex flex-col items-end gap-2">
-                <span id="status-badge" class="px-6 py-2 rounded-full text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
+                <div class="flex items-center gap-2">
+                    <a href="{% url 'monitoring:tank_settings' tank.id %}"
+                       class="px-4 py-2 rounded-full text-xs font-black bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
+                        설정
+                    </a>
+                    <span id="status-badge" class="px-6 py-2 rounded-full text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
+                </div>
                 <span id="last-updated" class="text-[10px] text-slate-300 font-bold">마지막 업데이트: 방금</span>
             </div>
         </div>

@@ -211,7 +211,77 @@ def dashboard_data(request, tank_id):
 
 
 @login_required
-def tank_list(request):
+def tank_settings(request, tank_id):
+    """어항 세부 설정 페이지"""
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+
+    if request.method == 'POST':
+        try:
+            # 수질 기준값
+            tank.temp_min      = float(request.POST.get('temp_min',      21.0))
+            tank.temp_max      = float(request.POST.get('temp_max',      24.0))
+            tank.ph_min        = float(request.POST.get('ph_min',         6.5))
+            tank.ph_max        = float(request.POST.get('ph_max',         8.0))
+            tank.do_min        = float(request.POST.get('do_min',         5.0))
+            tank.turbidity_max = float(request.POST.get('turbidity_max', 50.0))
+
+            # 장치 히스테리시스
+            tank.heater_on_temp   = float(request.POST.get('heater_on_temp',   21.0))
+            tank.heater_off_temp  = float(request.POST.get('heater_off_temp',  22.0))
+            tank.cooling_on_temp  = float(request.POST.get('cooling_on_temp',  24.0))
+            tank.cooling_off_temp = float(request.POST.get('cooling_off_temp', 23.0))
+            tank.filter_on_ntu    = float(request.POST.get('filter_on_ntu',   50.0))
+            tank.filter_off_ntu   = float(request.POST.get('filter_off_ntu',  20.0))
+            tank.airpump_on_do    = float(request.POST.get('airpump_on_do',    4.0))
+            tank.airpump_off_do   = float(request.POST.get('airpump_off_do',   6.0))
+
+            # 급이 설정
+            tank.feeding_times    = request.POST.get('feeding_times', '08:00,12:00,18:00')
+            tank.feeding_amount_g = float(request.POST.get('feeding_amount_g', 0.1))
+            tank.feeding_auto     = request.POST.get('feeding_auto') == 'on'
+
+            # 조명 타이머
+            tank.light_on_hour  = int(request.POST.get('light_on_hour',  8))
+            tank.light_off_hour = int(request.POST.get('light_off_hour', 20))
+            tank.light_auto     = request.POST.get('light_auto') == 'on'
+
+            tank.save()
+            messages.success(request, "설정이 저장되었습니다.")
+            return redirect('monitoring:tank_settings', tank_id=tank.id)
+
+        except Exception as e:
+            messages.error(request, f"저장 실패: {e}")
+
+    return render(request, 'monitoring/tank_settings.html', {'tank': tank})
+
+
+@login_required
+def tank_settings_api(request, tank_id):
+    """설정값 JSON 반환 (Pi용)"""
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    return JsonResponse({
+        'water': {
+            'temp_min': tank.temp_min, 'temp_max': tank.temp_max,
+            'ph_min': tank.ph_min,     'ph_max': tank.ph_max,
+            'do_min': tank.do_min,     'turbidity_max': tank.turbidity_max,
+        },
+        'devices': {
+            'heater_on': tank.heater_on_temp,   'heater_off': tank.heater_off_temp,
+            'cooling_on': tank.cooling_on_temp, 'cooling_off': tank.cooling_off_temp,
+            'filter_on': tank.filter_on_ntu,    'filter_off': tank.filter_off_ntu,
+            'airpump_on': tank.airpump_on_do,   'airpump_off': tank.airpump_off_do,
+        },
+        'feeding': {
+            'times': tank.feeding_times.split(','),
+            'amount_g': tank.feeding_amount_g,
+            'auto': tank.feeding_auto,
+        },
+        'light': {
+            'on_hour': tank.light_on_hour,
+            'off_hour': tank.light_off_hour,
+            'auto': tank.light_auto,
+        },
+    })
     """어항 관리 목록"""
     all_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     return render(request, 'monitoring/tank_list.html', {

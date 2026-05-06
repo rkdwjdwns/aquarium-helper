@@ -136,7 +136,6 @@ def _calc_water_quality(temp, ph, do_val, turbidity) -> int:
 
 def _auto_control(tank: Tank, reading: SensorReading) -> list:
     actions  = []
-    s        = WATER_STANDARDS
     controls = {d.type: d for d in DeviceControl.objects.filter(tank=tank, is_auto=True)}
 
     def _set_device(device_type: str, turn_on: bool, reason: str):
@@ -156,30 +155,48 @@ def _auto_control(tank: Tank, reading: SensorReading) -> list:
     turb = reading.turbidity
     ph   = reading.ph
 
-    if temp < s['temp_min']:
-        _set_device('HEATER', True,  f"수온 {temp}°C → 최솟값 미달")
-    elif temp > s['temp_optimal']:
-        _set_device('HEATER', False, f"수온 {temp}°C → 최적값 도달")
+    # ✅ Tank 설정값 우선 사용, 없으면 기본값(WATER_STANDARDS) 사용
+    heater_on   = getattr(tank, 'heater_on_temp',   WATER_STANDARDS['temp_min'])
+    heater_off  = getattr(tank, 'heater_off_temp',  WATER_STANDARDS['temp_optimal'])
+    cooling_on  = getattr(tank, 'cooling_on_temp',  WATER_STANDARDS['temp_max'])
+    cooling_off = getattr(tank, 'cooling_off_temp', WATER_STANDARDS['temp_max'] - 1)
+    filter_on   = getattr(tank, 'filter_on_ntu',    WATER_STANDARDS['turbidity_max'])
+    filter_off  = getattr(tank, 'filter_off_ntu',   WATER_STANDARDS['turbidity_ok'])
+    airpump_on  = getattr(tank, 'airpump_on_do',    WATER_STANDARDS['do_danger'])
+    airpump_off = getattr(tank, 'airpump_off_do',   6.0)
+    ph_min      = getattr(tank, 'ph_min',           WATER_STANDARDS['ph_min'])
+    ph_max      = getattr(tank, 'ph_max',           WATER_STANDARDS['ph_max'])
+    turb_warn   = getattr(tank, 'turbidity_max',    WATER_STANDARDS['turbidity_max']) * 2
 
-    if temp > s['temp_max']:
-        _set_device('COOLING', True,  f"수온 {temp}°C → 최댓값 초과")
-    elif temp <= s['temp_max'] - 1:
+    # 히터
+    if temp < heater_on:
+        _set_device('HEATER', True,  f"수온 {temp}°C → {heater_on}°C 미달")
+    elif temp > heater_off:
+        _set_device('HEATER', False, f"수온 {temp}°C → {heater_off}°C 도달")
+
+    # 냉각팬
+    if temp > cooling_on:
+        _set_device('COOLING', True,  f"수온 {temp}°C → {cooling_on}°C 초과")
+    elif temp <= cooling_off:
         _set_device('COOLING', False, f"수온 {temp}°C → 정상 범위")
 
-    if turb > s['turbidity_max']:
-        _set_device('FILTER', True,  f"탁도 {turb} NTU → 기준 초과")
-    elif turb <= s['turbidity_ok']:
+    # 여과기
+    if turb > filter_on:
+        _set_device('FILTER', True,  f"탁도 {turb} NTU → {filter_on} 초과")
+    elif turb <= filter_off:
         _set_device('FILTER', False, f"탁도 {turb} NTU → 정상")
 
-    if do_v < s['do_danger']:
-        _set_device('AIR_PUMP', True,  f"DO {do_v} mg/L → 위험")
-    elif do_v >= 6.0:
+    # 에어펌프
+    if do_v < airpump_on:
+        _set_device('AIR_PUMP', True,  f"DO {do_v} mg/L → {airpump_on} 위험")
+    elif do_v >= airpump_off:
         _set_device('AIR_PUMP', False, f"DO {do_v} mg/L → 정상")
 
-    if ph < 6.0 or ph > 8.5:
-        EventLog.objects.create(tank=tank, level='DANGER', message=f"pH 위험 수치: {ph}")
-    if turb > s['turbidity_warn']:
-        EventLog.objects.create(tank=tank, level='WARNING', message=f"탁도 스트레스: {turb} NTU — 환수 권장")
+    # 경보 로그
+    if ph < ph_min or ph > ph_max:
+        EventLog.objects.create(tank=tank, level='DANGER', message=f"pH 이상: {ph}")
+    if turb > turb_warn:
+        EventLog.objects.create(tank=tank, level='WARNING', message=f"탁도 위험: {turb} NTU")
 
     return actions
 

@@ -22,6 +22,34 @@ class Tank(models.Model):
     target_temp = models.FloatField(default=22.0, help_text="권장 수온(°C)")
     target_ph   = models.FloatField(default=7.4,  help_text="권장 pH")
 
+    # ✅ 추가: 수질 기준값 (사용자 설정)
+    temp_min       = models.FloatField(default=21.0, help_text="수온 최솟값(°C)")
+    temp_max       = models.FloatField(default=24.0, help_text="수온 최댓값(°C)")
+    ph_min         = models.FloatField(default=6.5,  help_text="pH 최솟값")
+    ph_max         = models.FloatField(default=8.0,  help_text="pH 최댓값")
+    do_min         = models.FloatField(default=5.0,  help_text="DO 최솟값(mg/L)")
+    turbidity_max  = models.FloatField(default=50.0, help_text="탁도 최댓값(NTU)")
+
+    # ✅ 추가: 장치 자동제어 히스테리시스 기준
+    heater_on_temp   = models.FloatField(default=21.0, help_text="히터 ON 기준(°C)")
+    heater_off_temp  = models.FloatField(default=22.0, help_text="히터 OFF 기준(°C)")
+    cooling_on_temp  = models.FloatField(default=24.0, help_text="냉각팬 ON 기준(°C)")
+    cooling_off_temp = models.FloatField(default=23.0, help_text="냉각팬 OFF 기준(°C)")
+    filter_on_ntu    = models.FloatField(default=50.0, help_text="여과기 ON 기준(NTU)")
+    filter_off_ntu   = models.FloatField(default=20.0, help_text="여과기 OFF 기준(NTU)")
+    airpump_on_do    = models.FloatField(default=4.0,  help_text="에어펌프 ON 기준(mg/L)")
+    airpump_off_do   = models.FloatField(default=6.0,  help_text="에어펌프 OFF 기준(mg/L)")
+
+    # ✅ 추가: 급이 설정
+    feeding_times      = models.CharField(max_length=200, default="08:00,12:00,18:00", help_text="급이 시간 (콤마 구분)")
+    feeding_amount_g   = models.FloatField(default=0.1, help_text="1회 급이량(g)")
+    feeding_auto       = models.BooleanField(default=True, help_text="자동 급이 사용")
+
+    # ✅ 추가: 조명 타이머
+    light_on_hour  = models.IntegerField(default=8,  help_text="조명 점등 시각(시)")
+    light_off_hour = models.IntegerField(default=20, help_text="조명 소등 시각(시)")
+    light_auto     = models.BooleanField(default=True, help_text="조명 자동 제어")
+
     # 환수 관리
     last_water_change   = models.DateField(null=True, blank=True, help_text="마지막 환수일")
     water_change_period = models.IntegerField(default=7, help_text="환수 주기(일)")

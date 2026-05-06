@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="py-6">
+
+<form method="POST">
+{% csrf_token %}
+
+<div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-10 md:p-14 mb-6">
+
+    {# 헤더 #}
+    <div class="flex justify-between items-center mb-12">
+        <div>
+            <span class="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em] block mb-2">Settings</span>
+            <h2 class="text-4xl font-black text-slate-800">{{ tank.name }} 설정</h2>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'monitoring:dashboard' tank.id %}"
+               class="px-6 py-3 rounded-2xl font-black text-sm text-slate-400 border border-slate-200 hover:bg-slate-50 transition-colors">
+                취소
+            </a>
+            <button type="submit"
+                    class="px-8 py-3 rounded-2xl font-black text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100">
+                저장
+            </button>
+        </div>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div class="mb-6 px-5 py-3 rounded-2xl text-sm font-bold
+        {% if msg.tags == 'success' %}bg-emerald-50 text-emerald-600
+        {% else %}bg-red-50 text-red-600{% endif %}">
+        {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# ── 1. 수질 기준값 ── #}
+    <div class="mb-12">
+        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">수질 기준값</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">수온 범위 (°C)</p>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="temp_min" value="{{ tank.temp_min }}" step="0.5"
+                           class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    <span class="text-slate-400 font-bold text-sm">~</span>
+                    <input type="number" name="temp_max" value="{{ tank.temp_max }}" step="0.5"
+                           class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">pH 범위</p>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="ph_min" value="{{ tank.ph_min }}" step="0.1"
+                           class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    <span class="text-slate-400 font-bold text-sm">~</span>
+                    <input type="number" name="ph_max" value="{{ tank.ph_max }}" step="0.1"
+                           class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">DO 최솟값 (mg/L)</p>
+                <input type="number" name="do_min" value="{{ tank.do_min }}" step="0.1"
+                       class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">탁도 최댓값 (NTU)</p>
+                <input type="number" name="turbidity_max" value="{{ tank.turbidity_max }}" step="1"
+                       class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+            </div>
+
+        </div>
+    </div>
+
+    {# ── 2. 장치 자동제어 히스테리시스 ── #}
+    <div class="mb-12">
+        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">장치 자동제어 기준</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="text-xl">🔥</span>
+                    <p class="text-sm font-black text-slate-600">히터</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">켜짐 기준 (°C 이하)</p>
+                        <input type="number" name="heater_on_temp" value="{{ tank.heater_on_temp }}" step="0.5"
+                               class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">꺼짐 기준 (°C 이상)</p>
+                        <input type="number" name="heater_off_temp" value="{{ tank.heater_off_temp }}" step="0.5"
+                               class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="text-xl">❄️</span>
+                    <p class="text-sm font-black text-slate-600">냉각팬</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">켜짐 기준 (°C 이상)</p>
+                        <input type="number" name="cooling_on_temp" value="{{ tank.cooling_on_temp }}" step="0.5"
+                               class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">꺼짐 기준 (°C 이하)</p>
+                        <input type="number" name="cooling_off_temp" value="{{ tank.cooling_off_temp }}" step="0.5"
+                               class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="text-xl">🌀</span>
+                    <p class="text-sm font-black text-slate-600">여과기</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">켜짐 기준 (NTU 이상)</p>
+                        <input type="number" name="filter_on_ntu" value="{{ tank.filter_on_ntu }}" step="1"
+                               class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">꺼짐 기준 (NTU 이하)</p>
+                        <input type="number" name="filter_off_ntu" value="{{ tank.filter_off_ntu }}" step="1"
+                               class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="text-xl">🫧</span>
+                    <p class="text-sm font-black text-slate-600">에어펌프</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">켜짐 기준 (mg/L 이하)</p>
+                        <input type="number" name="airpump_on_do" value="{{ tank.airpump_on_do }}" step="0.1"
+                               class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">꺼짐 기준 (mg/L 이상)</p>
+                        <input type="number" name="airpump_off_do" value="{{ tank.airpump_off_do }}" step="0.1"
+                               class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    {# ── 3. 급이 설정 ── #}
+    <div class="mb-12">
+        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">급이 설정</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">자동 급이</p>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="feeding_auto" {% if tank.feeding_auto %}checked{% endif %}
+                           class="w-5 h-5 rounded accent-blue-600">
+                    <span class="text-sm font-bold text-slate-700">자동 급이 사용</span>
+                </label>
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">1회 급이량 (g)</p>
+                <input type="number" name="feeding_amount_g" value="{{ tank.feeding_amount_g }}" step="0.01"
+                       class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">급이 시간 (콤마 구분)</p>
+                <input type="text" name="feeding_times" value="{{ tank.feeding_times }}"
+                       placeholder="08:00,12:00,18:00"
+                       class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                <p class="text-[10px] text-slate-400 mt-2">예: 08:00,12:00,18:00</p>
+            </div>
+
+        </div>
+    </div>
+
+    {# ── 4. 조명 타이머 ── #}
+    <div class="mb-4">
+        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">조명 타이머</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">자동 조명</p>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="light_auto" {% if tank.light_auto %}checked{% endif %}
+                           class="w-5 h-5 rounded accent-blue-600">
+                    <span class="text-sm font-bold text-slate-700">자동 조명 제어</span>
+                </label>
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">점등 시각</p>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="light_on_hour" value="{{ tank.light_on_hour }}"
+                           min="0" max="23"
+                           class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    <span class="text-slate-400 font-bold">시</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-[2rem] p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">소등 시각</p>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="light_off_hour" value="{{ tank.light_off_hour }}"
+                           min="0" max="23"
+                           class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                    <span class="text-slate-400 font-bold">시</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+{# 하단 저장 버튼 #}
+<div class="flex justify-end gap-3">
+    <a href="{% url 'monitoring:dashboard' tank.id %}"
+       class="px-6 py-3 rounded-2xl font-black text-sm text-slate-400 border border-slate-200 hover:bg-slate-50">
+        취소
+    </a>
+    <button type="submit"
+            class="px-10 py-3 rounded-2xl font-black text-sm bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100">
+        설정 저장
+    </button>
+</div>
+
+</form>
+</div>
+{% endblock %}

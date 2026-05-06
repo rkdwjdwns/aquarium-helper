@@ -25,6 +25,10 @@ urlpatterns = [
     path('toggle-device/<int:tank_id>/',  views.toggle_device,        name='toggle_device'),
     path('water-change/<int:tank_id>/',   views.perform_water_change, name='perform_water_change'),
 
+    # ── [4-1. ✅ 추가: 어항 설정] ─────────────────────────────────
+    path('settings/<int:tank_id>/',       views.tank_settings,        name='tank_settings'),
+    path('settings/<int:tank_id>/api/',   views.tank_settings_api,    name='tank_settings_api'),
+
     # ── [5. AI 챗봇] ───────────────────────────────────────────────
     path('chat/',                    views.chat_api,        name='chat_api'),
 
