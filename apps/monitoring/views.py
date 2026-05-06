@@ -394,42 +394,82 @@ def download_report(request, tank_id):
 # ──────────────────────────────────────────────
 
 def _build_prompt(display_name: str, user_message: str) -> str:
-    return (
-        f"너는 어항 관리 전문가 챗봇이야.\n\n"
-        f"[절대 규칙 - 하나라도 어기면 안 됨]\n"
-        f"1. 답변은 무조건 5줄 이내. 6줄 이상 절대 금지.\n"
-        f"2. 각 줄 앞에 반드시 이모지 1개. 예) 🌡️ 수온: 25~27°C\n"
-        f"3. 핵심 키워드 + 수치만. 설명 문장 금지.\n"
-        f"4. '~입니다' '~합니다' '~세요' '~군요' 문장체 완전 금지.\n"
-        f"5. 어항 등록, 어항 정보 없음 언급 완전 금지. 질문에만 답해.\n"
-        f"6. 마지막 줄은 🐠 로 짧게 마무리.\n\n"
-        f"질문: {user_message}"
-    )
+    return f"""너는 어항 관리 전문 도우미야. 질문 유형을 파악해서 아래 형식에 맞게 답해.
+
+[말투 규칙]
+- 반말 금지, 존댓말 사용
+- 문장은 짧고 핵심만
+- 이모지 사용 금지 (숫자 목록 기호만 허용)
+- "안녕하세요", "물론이죠" 같은 인삿말 금지
+- 어항 정보 없다는 언급 금지
+
+[질문 유형별 답변 형식]
+
+1. 물고기 추천 질문 (예: 초보자용 물고기, 금붕어 종류, 같이 키울 수 있는 물고기)
+→ 추천 물고기 2~3종을 아래 형식으로
+   물고기명: 특징 한 줄, 난이도, 적정 수온
+   
+2. 수질/센서 설정 질문 (예: 수온 몇 도, pH 범위, 금붕어 수질)
+→ 항목별 수치를 표 형식으로
+   수온: XX~XX°C
+   pH: X.X~X.X
+   DO: Xmg/L 이상
+   탁도: XXNTU 이하
+
+3. 어항 세팅 질문 (예: 처음 어항 세팅, 여과기 선택, 어항 크기)
+→ 순서가 있으면 번호 목록, 없으면 항목별로
+   핵심 정보만 3~5줄 이내
+
+4. 물고기 관리/질병 질문 (예: 먹이 양, 환수 주기, 지느러미 썩음병)
+→ 원인 + 해결책 위주로 간결하게
+
+5. 기타 어항 관련 질문
+→ 핵심만 3~5줄 이내
+
+질문: {user_message}"""
 
 
 def _format_reply(raw: str, display_name: str) -> str:
-    raw = raw.replace('**', '').strip()
+    # 마크다운 제거
+    raw = raw.replace('**', '').replace('##', '').replace('# ', '').strip()
 
-    lines = [l.strip() for l in raw.split('\n') if l.strip()]
+    # 이모지 제거 (숫자/특수기호 유지)
+    import unicodedata
+    cleaned = []
+    for ch in raw:
+        cat = unicodedata.category(ch)
+        cp  = ord(ch)
+        # 이모지 범위 제거
+        if 0x1F300 <= cp <= 0x1FAFF:
+            continue
+        if 0x2600 <= cp <= 0x27BF:
+            continue
+        cleaned.append(ch)
+    raw = ''.join(cleaned).strip()
 
-    if len(lines) <= 1:
-        lines = re.split(r'(?<=[.!?])\s+|(?<=\s)(?=[\U0001F300-\U0001FAFF])', raw)
-        lines = [l.strip() for l in lines if l.strip()]
+    # 빈 줄 정리
+    lines = [l.rstrip() for l in raw.split('\n')]
+    # 연속 빈 줄 제거
+    result = []
+    prev_blank = False
+    for line in lines:
+        if line == '':
+            if not prev_blank:
+                result.append(line)
+            prev_blank = True
+        else:
+            result.append(line)
+            prev_blank = False
 
-    if len(lines) <= 1:
-        lines = re.split(r'\s*\[.*?\]\s*', raw)
-        lines = [l.strip() for l in lines if l.strip()]
-
-    lines = lines[:5]
-    reply = '\n'.join(lines)
+    reply = '\n'.join(result).strip()
 
     if len(reply) < 10:
         reply = (
-            f"🌊 {display_name}님!\n"
-            f"🌡️ 수온: 25~27°C\n"
-            f"💧 환수: 주 1회 30%\n"
-            f"⚙️ 여과기: 24시간 가동\n"
-            f"🐠 즐거운 물생활!"
+            "수온: 22~26°C\n"
+            "pH: 6.8~7.5\n"
+            "DO: 5mg/L 이상\n"
+            "환수: 주 1회 20~30%\n"
+            "여과기: 24시간 가동"
         )
     return reply
 
@@ -464,6 +504,7 @@ def chat_api(request):
                 max_output_tokens=150,
                 temperature=0.3,
             ),
+            request_options={"timeout": 10},  # ✅ 추가: 10초 타임아웃
         )
 
         raw   = response.text if response and response.text else ""
