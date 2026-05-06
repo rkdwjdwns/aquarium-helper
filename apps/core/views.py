@@ -76,12 +76,15 @@ def _build_prompt(user_message: str) -> str:
 - 이모지 사용 금지
 - 인사말("안녕하세요" 등) 금지
 - 어항 정보 없다는 언급 금지
+- 문장을 절대 중간에 끊지 말고 완성된 문장으로 마무리
 
 [질문 유형별 답변 형식]
 
 1. 물고기 추천 (초보자용, 같이 키울 수 있는 물고기 등)
-→ 추천 2~3종, 각각 한 줄로
-   형식: 물고기명 - 특징, 수온 XX~XX도, 난이도 하/중/상
+→ 추천 2~3종, 각각 아래 형식으로 완성해서 작성
+   물고기명
+   특징: 한 문장으로 완성
+   수온: XX~XX도 / pH: X.X~X.X / 난이도: 하(또는 중, 상)
 
 2. 수질/센서 설정 (수온, pH, 금붕어 수질 등)
 → 수치를 항목별로
@@ -91,13 +94,13 @@ def _build_prompt(user_message: str) -> str:
    탁도: XXNTU 이하
 
 3. 어항 세팅 (처음 세팅, 여과기, 어항 크기 등)
-→ 핵심 순서 또는 항목별로 3~5줄
+→ 핵심 순서 또는 항목별로 3~5줄, 각 문장 완성해서 작성
 
 4. 관리/질병 (먹이, 환수, 병 증상 등)
-→ 원인 한 줄 + 해결책 위주로
+→ 원인 한 줄 + 해결책 위주로, 문장 완성해서 작성
 
 5. 기타
-→ 핵심만 3~5줄
+→ 핵심만 3~5줄, 문장 완성해서 작성
 
 질문: {user_message}"""
 
@@ -177,7 +180,7 @@ def chat_api(request):
                 response = model.generate_content(
                     prompt_parts,
                     generation_config=genai.types.GenerationConfig(
-                        max_output_tokens=300,
+                        max_output_tokens=600,   # 답변 잘림 방지
                         temperature=0.4,
                     ),
                     request_options={"timeout": 15},
