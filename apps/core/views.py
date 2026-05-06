@@ -15,11 +15,11 @@ from django.core.paginator import Paginator
 from monitoring.models import Tank, SensorReading
 
 
-# ── 모델 우선순위 (list_models 호출 없이 고정) ──
+# ── 사용 가능한 모델 목록 (2026-05 기준 확인됨) ──
 GEMINI_MODELS = [
-    "gemini-2.0-flash-lite",
     "gemini-2.0-flash",
-    "gemini-1.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-flash-latest",
 ]
 
 
@@ -118,9 +118,8 @@ def _clean_reply(raw: str) -> str:
         cleaned.append(ch)
     raw = ''.join(cleaned).strip()
 
-    # 연속 빈 줄 제거
-    lines   = raw.split('\n')
-    result  = []
+    lines      = raw.split('\n')
+    result     = []
     prev_blank = False
     for line in lines:
         if line.strip() == '':
@@ -153,7 +152,6 @@ def chat_api(request):
         user_message = request.POST.get('message', '').strip()
         image_file   = request.FILES.get('image')
 
-    # API 키 목록
     api_keys = [k for k in [
         os.getenv('GEMINI_API_KEY_1'),
         os.getenv('GEMINI_API_KEY_2'),
@@ -182,13 +180,12 @@ def chat_api(request):
                         max_output_tokens=300,
                         temperature=0.4,
                     ),
-                    request_options={"timeout": 15},  # ✅ 타임아웃
+                    request_options={"timeout": 15},
                 )
 
                 if response and response.text:
                     reply = _clean_reply(response.text)
 
-                    # DB 저장
                     try:
                         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
                         ChatMessage.objects.create(
@@ -214,13 +211,10 @@ def chat_api(request):
 
 @login_required
 def chat_history(request):
-    """
-    대화 내역 반환
-    GET /chatbot/history/?page=1
-    """
+    """GET /chatbot/history/"""
     try:
         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
-        messages = ChatMessage.objects.filter(
+        messages    = ChatMessage.objects.filter(
             user=request.user
         ).order_by('-created_at')[:50]
 
@@ -242,7 +236,7 @@ def chat_history(request):
 @login_required
 @require_POST
 def chat_clear(request):
-    """대화 내역 전체 삭제"""
+    """POST /chatbot/clear/"""
     try:
         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
         count, _    = ChatMessage.objects.filter(user=request.user).delete()
