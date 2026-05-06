@@ -48,20 +48,23 @@
         {# Pi 연결 상태 #}
         <div class="bg-slate-50 rounded-[2rem] p-6 mb-8">
             <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Raspberry Pi 연결 정보</p>
+                <div class="flex items-center gap-3">
                     {% if tank.pi_ip %}
-                    <p class="text-sm font-bold text-slate-700">
-                        {{ tank.pi_ip }}:{{ tank.pi_stream_port }}
+                    <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+                    <div>
+                        <p class="text-sm font-black text-slate-700">카메라 연결됨</p>
                         {% if tank.pi_last_seen %}
-                        <span class="text-[10px] text-slate-400 font-bold ml-2">
-                            마지막 접속: {{ tank.pi_last_seen|timesince }} 전
-                        </span>
+                        <p class="text-[10px] text-slate-400 font-bold">
+                            {{ tank.pi_last_seen|timesince }} 전 접속
+                        </p>
                         {% endif %}
-                    </p>
+                    </div>
                     {% else %}
-                    <p class="text-sm font-bold text-slate-400">Pi가 아직 등록되지 않았습니다.</p>
-                    <p class="text-[10px] text-slate-300 font-bold mt-1">Pi에서 <code class="bg-white px-2 py-0.5 rounded-lg">python main.py</code> 실행 시 자동 등록됩니다.</p>
+                    <span class="w-3 h-3 rounded-full bg-slate-300"></span>
+                    <div>
+                        <p class="text-sm font-black text-slate-500">카메라 연결 안됨</p>
+                        <p class="text-[10px] text-slate-400 font-bold">카메라 장치의 전원을 확인해주세요.</p>
+                    </div>
                     {% endif %}
                 </div>
                 <div class="flex gap-2">
@@ -209,15 +212,15 @@ function setOverlay(state) {
     if (state === 'loading') {
         icon.textContent = '⏳';
         msg.textContent  = '카메라 연결 중...';
-        sub.textContent  = STREAM_URL;
+        sub.textContent  = '';
     } else if (state === 'error') {
         icon.textContent = '❌';
-        msg.textContent  = '카메라 연결 실패';
-        sub.textContent  = 'Pi가 켜져 있는지 확인하세요.';
+        msg.textContent  = '카메라 연결에 실패했습니다.';
+        sub.textContent  = '카메라 장치의 전원과 네트워크를 확인해주세요.';
     } else if (state === 'no_pi') {
         icon.textContent = '📷';
-        msg.textContent  = 'Pi가 아직 등록되지 않았습니다.';
-        sub.textContent  = 'Pi에서 python main.py 실행 시 자동 등록됩니다.';
+        msg.textContent  = '카메라가 연결되지 않았습니다.';
+        sub.textContent  = '카메라 장치의 전원을 확인해주세요.';
     }
 }
 
