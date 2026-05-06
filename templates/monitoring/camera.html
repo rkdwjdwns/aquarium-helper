@@ -1,290 +1,321 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="max-w-5xl mx-auto py-10 px-4">
+<div class="py-6">
 
-    {# ── 헤더 ── #}
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h2 class="text-3xl font-black text-gray-800">📹 실시간 카메라 모니터링</h2>
-            <p class="text-gray-400 text-sm font-bold mt-1">
-                {% if tank %}[{{ tank.name }}]{% endif %}
-                · Pi 연동 전 시뮬레이터 모드
+    <div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-10 md:p-14 mb-10">
+
+        {# 헤더 #}
+        <div class="flex justify-between items-start mb-10">
+            <div>
+                <span class="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em] block mb-2">Live Camera</span>
+                <h2 class="text-4xl font-black text-slate-800">실시간 모니터링</h2>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+                <span id="stream-badge" class="px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500">연결 중...</span>
+                <span id="stream-time" class="text-[10px] text-slate-300 font-bold">--:--:--</span>
+            </div>
+        </div>
+
+        {# 카메라 스트림 #}
+        <div class="relative bg-slate-900 rounded-[2.5rem] overflow-hidden mb-8" style="aspect-ratio: 16/9;">
+
+            {# MJPEG 스트림 (Pi에서 서빙) #}
+            <img id="stream-img"
+                 src=""
+                 alt="카메라 스트림"
+                 class="w-full h-full object-contain"
+                 onerror="onStreamError()"
+                 onload="onStreamLoad()">
+
+            {# 연결 전 오버레이 #}
+            <div id="stream-overlay" class="absolute inset-0 flex flex-col items-center justify-center gap-4">
+                <div id="overlay-icon" class="text-6xl">📷</div>
+                <p id="overlay-msg" class="text-white font-black text-lg">Pi IP 주소를 입력해주세요</p>
+                <p id="overlay-sub" class="text-slate-400 text-sm font-bold">카메라 스트림을 연결합니다</p>
+            </div>
+
+            {# 스트리밍 중 오버레이 정보 #}
+            <div id="stream-info" class="absolute bottom-4 left-4 right-4 hidden">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        <span class="text-white text-[11px] font-black">LIVE</span>
+                    </div>
+                    <span id="fps-label" class="text-white text-[11px] font-bold bg-black/40 px-3 py-1 rounded-full">-- fps</span>
+                </div>
+            </div>
+
+        </div>
+
+        {# Pi IP 입력 #}
+        <div class="bg-slate-50 rounded-[2rem] p-6 mb-8">
+            <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Raspberry Pi 연결 설정</p>
+            <div class="flex gap-3">
+                <input id="pi-ip"
+                       type="text"
+                       placeholder="192.168.0.xxx"
+                       value="{{ pi_ip|default:'' }}"
+                       class="flex-1 bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400"
+                       onkeydown="if(event.key==='Enter') connectStream()">
+                <input id="pi-port"
+                       type="text"
+                       placeholder="8080"
+                       value="8080"
+                       class="w-24 bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
+                <button onclick="connectStream()"
+                        class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-blue-700 transition-all">
+                    연결
+                </button>
+                <button onclick="disconnectStream()"
+                        class="bg-slate-200 text-slate-600 px-6 py-3 rounded-2xl font-black text-sm hover:bg-slate-300 transition-all">
+                    끊기
+                </button>
+            </div>
+            <p class="text-[10px] text-slate-400 font-bold mt-3">
+                Pi에서 스트리밍 서버 시작: <code class="bg-white px-2 py-1 rounded-lg">python camera_stream.py</code>
             </p>
         </div>
-        <div class="flex items-center gap-2">
-            <span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
-            <span class="text-xs font-black text-yellow-500 uppercase tracking-widest">Simulator</span>
-        </div>
-    </div>
 
-    {# ── 카메라 화면 ── #}
-    <div class="relative bg-[#0a1628] rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-[#1a2a4a]"
-         style="aspect-ratio: 16/9;">
-
-        {# 수조 배경 그라데이션 #}
-        <div class="absolute inset-0"
-             style="background: linear-gradient(180deg, #0d3b6e 0%, #0a2a52 40%, #061a38 100%);">
-        </div>
-
-        {# 물 흔들림 효과 #}
-        <div class="absolute inset-0 opacity-20"
-             style="background: repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.03) 40px, rgba(255,255,255,0.03) 80px);
-                    animation: waterShimmer 3s ease-in-out infinite alternate;">
-        </div>
-
-        {# 수초 #}
-        <div class="absolute bottom-0 left-8 w-4 bg-green-800 rounded-t-full opacity-60"
-             style="height: 30%; animation: sway 2s ease-in-out infinite alternate;"></div>
-        <div class="absolute bottom-0 left-12 w-3 bg-green-700 rounded-t-full opacity-50"
-             style="height: 40%; animation: sway 2.5s ease-in-out infinite alternate-reverse;"></div>
-        <div class="absolute bottom-0 right-10 w-4 bg-green-800 rounded-t-full opacity-60"
-             style="height: 35%; animation: sway 1.8s ease-in-out infinite alternate;"></div>
-        <div class="absolute bottom-0 right-16 w-3 bg-green-700 rounded-t-full opacity-50"
-             style="height: 25%; animation: sway 2.2s ease-in-out infinite alternate-reverse;"></div>
-
-        {# 바닥재 #}
-        <div class="absolute bottom-0 left-0 right-0 h-6 bg-amber-900 opacity-40 rounded-b-[2rem]"></div>
-
-        {# Zone 구분선 #}
-        <div class="absolute left-0 right-0 border-t border-dashed border-white/10"
-             style="top: 33%;"></div>
-        <div class="absolute left-0 right-0 border-t border-dashed border-white/10"
-             style="top: 67%;"></div>
-        <div class="absolute right-3 text-[9px] font-black text-white/20 uppercase" style="top: 34%;">MID</div>
-        <div class="absolute right-3 text-[9px] font-black text-white/20 uppercase" style="top: 68%;">BOT</div>
-        <div class="absolute right-3 text-[9px] font-black text-white/20 uppercase" style="top: 3%;">TOP</div>
-
-        {# 금붕어 3마리 #}
-        <canvas id="fishCanvas" class="absolute inset-0 w-full h-full"></canvas>
-
-        {# YOLO 탐지 박스 오버레이 #}
-        <canvas id="yoloCanvas" class="absolute inset-0 w-full h-full"></canvas>
-
-        {# 좌상단 LIVE 배지 #}
-        <div class="absolute top-4 left-4 flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-xl backdrop-blur-sm">
-            <span class="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
-            <span class="text-white text-[10px] font-black uppercase tracking-widest">Live · Simulator</span>
+        {# 스냅샷 & 구역 오버레이 #}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <button onclick="takeSnapshot()"
+                    class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
+                <span class="text-2xl">📸</span>
+                <span class="text-[11px] font-black text-slate-500">스냅샷</span>
+            </button>
+            <button onclick="toggleZoneOverlay()"
+                    id="zone-btn"
+                    class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
+                <span class="text-2xl">🔲</span>
+                <span class="text-[11px] font-black text-slate-500">구역 표시</span>
+            </button>
+            <button onclick="toggleFullscreen()"
+                    class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
+                <span class="text-2xl">⛶</span>
+                <span class="text-[11px] font-black text-slate-500">전체화면</span>
+            </button>
+            <button onclick="refreshStream()"
+                    class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
+                <span class="text-2xl">🔄</span>
+                <span class="text-[11px] font-black text-slate-500">재연결</span>
+            </button>
         </div>
 
-        {# 우상단 FPS #}
-        <div class="absolute top-4 right-4 bg-black/40 px-3 py-1.5 rounded-xl backdrop-blur-sm">
-            <span class="text-green-400 text-[10px] font-black" id="fpsDisplay">14 FPS</span>
-        </div>
+        {# 구역 오버레이 (canvas) #}
+        <canvas id="zone-canvas"
+                class="hidden absolute top-0 left-0 w-full h-full pointer-events-none rounded-[2.5rem]"
+                style="position:absolute;top:0;left:0;opacity:0.5;"></canvas>
 
-        {# 하단 센서 오버레이 #}
-        <div class="absolute bottom-4 left-4 right-4 flex gap-3">
-            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
-                <p class="text-[9px] text-gray-400 font-black uppercase">🌡️ 수온</p>
-                <p class="text-white font-black text-sm" id="sim-temp">22.3°C</p>
-            </div>
-            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
-                <p class="text-[9px] text-gray-400 font-black uppercase">💧 pH</p>
-                <p class="text-white font-black text-sm" id="sim-ph">7.4</p>
-            </div>
-            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
-                <p class="text-[9px] text-gray-400 font-black uppercase">🫧 DO</p>
-                <p class="text-white font-black text-sm" id="sim-do">6.8mg/L</p>
-            </div>
-            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
-                <p class="text-[9px] text-gray-400 font-black uppercase">🐟 개체</p>
-                <p class="text-white font-black text-sm" id="sim-count">3마리</p>
-            </div>
-            <div class="bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl text-center flex-1">
-                <p class="text-[9px] text-gray-400 font-black uppercase">⚡ 활동량</p>
-                <p class="text-white font-black text-sm" id="sim-activity">32.4</p>
+        {# 최신 행동 분석 요약 #}
+        {% if tank %}
+        <div class="border-t border-slate-50 pt-8">
+            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">🤖 최신 AI 분석</h3>
+            <div id="behavior-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {% with b=tank.behaviors.first %}
+                {% if b %}
+                <div class="bg-slate-50 rounded-2xl p-4 text-center">
+                    <p class="text-[10px] text-slate-400 font-black mb-1">개체 수</p>
+                    <p class="text-2xl font-black text-slate-800">{{ b.fish_count }}마리</p>
+                </div>
+                <div class="bg-slate-50 rounded-2xl p-4 text-center">
+                    <p class="text-[10px] text-slate-400 font-black mb-1">활동량</p>
+                    <p class="text-2xl font-black text-slate-800">{{ b.activity_level|floatformat:1 }}</p>
+                </div>
+                <div class="bg-slate-50 rounded-2xl p-4 text-center">
+                    <p class="text-[10px] text-slate-400 font-black mb-1">주 체류구역</p>
+                    <p class="text-2xl font-black text-slate-800">{{ b.dominant_zone }}</p>
+                </div>
+                <div class="bg-slate-50 rounded-2xl p-4 text-center">
+                    <p class="text-[10px] text-slate-400 font-black mb-1">상태</p>
+                    <p class="text-lg font-black
+                        {% if b.status == 'EXCELLENT' %}text-emerald-500
+                        {% elif b.status == 'GOOD' %}text-blue-500
+                        {% elif b.status == 'WARNING' %}text-orange-500
+                        {% elif b.status == 'POOR' %}text-red-500
+                        {% else %}text-slate-500{% endif %}">
+                        {{ b.get_status_display }}
+                    </p>
+                </div>
+                {% else %}
+                <div class="col-span-4 text-center py-6 text-slate-300 font-bold">분석 데이터 없음</div>
+                {% endif %}
+                {% endwith %}
             </div>
         </div>
+        {% endif %}
 
     </div>
-
-    {# ── 하단 패널 ── #}
-    <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-
-        {# AI 상태 #}
-        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <p class="text-[10px] text-slate-400 font-black uppercase mb-2">🤖 AI 상태</p>
-            <p class="font-black text-emerald-500 text-sm" id="ai-status">탐지 중</p>
-            <p class="text-[10px] text-slate-300 mt-1">YOLOv11n · ByteTrack</p>
-        </div>
-
-        {# 현재 구역 #}
-        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <p class="text-[10px] text-slate-400 font-black uppercase mb-2">📍 주 체류 구역</p>
-            <p class="font-black text-blue-500 text-sm" id="zone-display">MID</p>
-            <p class="text-[10px] text-slate-300 mt-1" id="zone-ratio">상 10% · 중 60% · 하 30%</p>
-        </div>
-
-        {# 이상 감지 #}
-        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <p class="text-[10px] text-slate-400 font-black uppercase mb-2">⚠️ 이상 감지</p>
-            <p class="font-black text-emerald-500 text-sm" id="anomaly-display">정상</p>
-            <p class="text-[10px] text-slate-300 mt-1">ABR: <span id="abr-display">0.02</span></p>
-        </div>
-
-        {# 급이 반응 #}
-        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-            <p class="text-[10px] text-slate-400 font-black uppercase mb-2">🍽️ FRS 점수</p>
-            <p class="font-black text-blue-500 text-sm" id="frs-display">78점</p>
-            <p class="text-[10px] text-slate-300 mt-1">급이 반응 양호</p>
-        </div>
-
-    </div>
-
-    {# Pi 연동 안내 #}
-    <div class="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-5 flex items-start gap-4">
-        <span class="text-2xl">ℹ️</span>
-        <div>
-            <p class="font-black text-blue-700 text-sm">Raspberry Pi 연동 후 실제 영상으로 전환됩니다.</p>
-            <p class="text-blue-500 text-xs mt-1 font-bold">현재는 시뮬레이터 모드로 동작 중입니다. Pi가 연결되면 카메라 스트림이 자동으로 표시됩니다.</p>
-        </div>
-    </div>
-
 </div>
 
-<style>
-@keyframes waterShimmer {
-    from { transform: translateX(0); }
-    to   { transform: translateX(20px); }
-}
-@keyframes sway {
-    from { transform: rotate(-5deg); transform-origin: bottom; }
-    to   { transform: rotate(5deg);  transform-origin: bottom; }
-}
-</style>
-
 <script>
-// ── 금붕어 시뮬레이터 ──
-const fishCanvas  = document.getElementById('fishCanvas');
-const yoloCanvas  = document.getElementById('yoloCanvas');
-const fCtx        = fishCanvas.getContext('2d');
-const yCtx        = yoloCanvas.getContext('2d');
+let streamUrl    = '';
+let isStreaming  = false;
+let zoneVisible  = false;
+let frameCount   = 0;
+let lastFpsTime  = Date.now();
 
-function resizeCanvas() {
-    const rect = fishCanvas.parentElement.getBoundingClientRect();
-    fishCanvas.width  = yoloCanvas.width  = rect.width;
-    fishCanvas.height = yoloCanvas.height = rect.height;
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+// ── IP 저장/복원 (localStorage) ────────────────
+const savedIp = localStorage.getItem('pi_ip');
+if (savedIp) document.getElementById('pi-ip').value = savedIp;
 
-// 금붕어 3마리
-const fishes = [
-    { x: 0.3, y: 0.5, vx: 0.002, vy: 0.001, size: 28, color: '#f97316', id: 1 },
-    { x: 0.6, y: 0.4, vx: -0.003, vy: 0.002, size: 24, color: '#fb923c', id: 2 },
-    { x: 0.5, y: 0.7, vx: 0.001, vy: -0.002, size: 26, color: '#fdba74', id: 3 },
-];
+// ── 스트림 연결 ────────────────────────────────
+function connectStream() {
+    const ip   = document.getElementById('pi-ip').value.trim();
+    const port = document.getElementById('pi-port').value.trim() || '8080';
 
-function drawFish(ctx, x, y, size, color, dir) {
-    ctx.save();
-    ctx.translate(x, y);
-    if (dir < 0) ctx.scale(-1, 1);
-
-    // 몸통
-    ctx.beginPath();
-    ctx.ellipse(0, 0, size, size * 0.5, 0, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // 꼬리
-    ctx.beginPath();
-    ctx.moveTo(-size, 0);
-    ctx.lineTo(-size * 1.6, -size * 0.5);
-    ctx.lineTo(-size * 1.6,  size * 0.5);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // 눈
-    ctx.beginPath();
-    ctx.arc(size * 0.6, -size * 0.1, size * 0.12, 0, Math.PI * 2);
-    ctx.fillStyle = '#1e293b';
-    ctx.fill();
-
-    ctx.restore();
-}
-
-let frame = 0;
-function animate() {
-    const W = fishCanvas.width;
-    const H = fishCanvas.height;
-
-    fCtx.clearRect(0, 0, W, H);
-    yCtx.clearRect(0, 0, W, H);
-
-    fishes.forEach(f => {
-        // 랜덤 방향 전환
-        if (Math.random() < 0.01) f.vx *= -1;
-        if (Math.random() < 0.01) f.vy *= -1;
-
-        // 물결 효과
-        f.x += f.vx + Math.sin(frame * 0.05 + f.id) * 0.0005;
-        f.y += f.vy + Math.cos(frame * 0.03 + f.id) * 0.0005;
-
-        // 경계 반사
-        if (f.x < 0.05 || f.x > 0.95) f.vx *= -1;
-        if (f.y < 0.05 || f.y > 0.85) f.vy *= -1;
-        f.x = Math.max(0.05, Math.min(0.95, f.x));
-        f.y = Math.max(0.05, Math.min(0.85, f.y));
-
-        const px = f.x * W;
-        const py = f.y * H;
-
-        // 금붕어 그리기
-        drawFish(fCtx, px, py, f.size, f.color, f.vx > 0 ? 1 : -1);
-
-        // YOLO bbox
-        const bw = f.size * 3.5;
-        const bh = f.size * 2.5;
-        yCtx.strokeStyle = '#00ff88';
-        yCtx.lineWidth   = 1.5;
-        yCtx.strokeRect(px - bw/2, py - bh/2, bw, bh);
-
-        // ID 라벨
-        yCtx.fillStyle = '#00ff88';
-        yCtx.font = `bold ${Math.max(9, f.size * 0.4)}px monospace`;
-        yCtx.fillText(`ID:${f.id} ${(0.75 + Math.random() * 0.15).toFixed(2)}`, px - bw/2, py - bh/2 - 4);
-    });
-
-    // 스캔라인 효과
-    if (frame % 60 < 2) {
-        yCtx.fillStyle = 'rgba(0,255,136,0.05)';
-        yCtx.fillRect(0, 0, W, H);
+    if (!ip) {
+        alert('Pi IP 주소를 입력해주세요.');
+        return;
     }
 
-    frame++;
-    requestAnimationFrame(animate);
-}
-animate();
+    localStorage.setItem('pi_ip', ip);
+    streamUrl = `http://${ip}:${port}/stream.mjpg`;
 
-// ── 센서 수치 랜덤 변동 ──
-function updateSensors() {
-    const temp     = (22.0 + Math.random() * 2).toFixed(1);
-    const ph       = (7.2  + Math.random() * 0.4).toFixed(1);
-    const doVal    = (5.5  + Math.random() * 2).toFixed(1);
-    const activity = (20   + Math.random() * 30).toFixed(1);
-    const abr      = (Math.random() * 0.05).toFixed(2);
-    const frs      = Math.floor(65 + Math.random() * 30);
+    const img = document.getElementById('stream-img');
+    img.src   = streamUrl + '?t=' + Date.now();
 
-    document.getElementById('sim-temp').textContent     = `${temp}°C`;
-    document.getElementById('sim-ph').textContent       = ph;
-    document.getElementById('sim-do').textContent       = `${doVal}mg/L`;
-    document.getElementById('sim-activity').textContent = activity;
-    document.getElementById('abr-display').textContent  = abr;
-    document.getElementById('frs-display').textContent  = `${frs}점`;
-
-    // 구역 판단
-    const zones    = ['TOP', 'MID', 'BOT'];
-    const dominant = zones[Math.floor(Math.random() * 3)];
-    document.getElementById('zone-display').textContent = dominant;
-
-    // 이상 감지
-    const isAnomaly = Math.random() < 0.05;
-    const anomalyEl = document.getElementById('anomaly-display');
-    anomalyEl.textContent  = isAnomaly ? '⚠️ 이상 감지' : '정상';
-    anomalyEl.className    = `font-black text-sm ${isAnomaly ? 'text-red-500' : 'text-emerald-500'}`;
+    setOverlay('loading');
 }
 
-setInterval(updateSensors, 3000);
-updateSensors();
+function disconnectStream() {
+    const img = document.getElementById('stream-img');
+    img.src   = '';
+    isStreaming = false;
+    setOverlay('idle');
+    document.getElementById('stream-badge').textContent = '연결 끊김';
+    document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500';
+    document.getElementById('stream-info').classList.add('hidden');
+}
+
+function refreshStream() {
+    if (streamUrl) {
+        document.getElementById('stream-img').src = streamUrl + '?t=' + Date.now();
+        setOverlay('loading');
+    }
+}
+
+// ── 스트림 이벤트 ──────────────────────────────
+function onStreamLoad() {
+    if (!isStreaming) {
+        isStreaming = true;
+        setOverlay('connected');
+        document.getElementById('stream-overlay').classList.add('hidden');
+        document.getElementById('stream-info').classList.remove('hidden');
+        document.getElementById('stream-badge').textContent = '스트리밍 중';
+        document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-emerald-500 text-white shadow-lg';
+    }
+    frameCount++;
+}
+
+function onStreamError() {
+    if (streamUrl) {
+        isStreaming = false;
+        setOverlay('error');
+        document.getElementById('stream-badge').textContent = '연결 실패';
+        document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-red-100 text-red-500';
+        document.getElementById('stream-info').classList.add('hidden');
+    }
+}
+
+function setOverlay(state) {
+    const overlay = document.getElementById('stream-overlay');
+    const icon    = document.getElementById('overlay-icon');
+    const msg     = document.getElementById('overlay-msg');
+    const sub     = document.getElementById('overlay-sub');
+
+    overlay.classList.remove('hidden');
+    if (state === 'idle') {
+        icon.textContent = '📷'; msg.textContent = 'Pi IP 주소를 입력해주세요'; sub.textContent = '카메라 스트림을 연결합니다';
+    } else if (state === 'loading') {
+        icon.textContent = '⏳'; msg.textContent = '연결 중...'; sub.textContent = streamUrl;
+    } else if (state === 'connected') {
+        overlay.classList.add('hidden');
+    } else if (state === 'error') {
+        icon.textContent = '❌'; msg.textContent = '카메라 연결 실패'; sub.textContent = 'Pi가 켜져 있는지, IP가 맞는지 확인해주세요';
+    }
+}
+
+// ── FPS 카운터 ─────────────────────────────────
+setInterval(() => {
+    const now     = Date.now();
+    const elapsed = (now - lastFpsTime) / 1000;
+    const fps     = Math.round(frameCount / elapsed);
+    document.getElementById('fps-label').textContent = fps + ' fps';
+    document.getElementById('stream-time').textContent = new Date().toLocaleTimeString('ko-KR');
+    frameCount = 0;
+    lastFpsTime = now;
+}, 1000);
+
+// ── 스냅샷 ────────────────────────────────────
+function takeSnapshot() {
+    const img = document.getElementById('stream-img');
+    if (!img.src || !isStreaming) { alert('스트림이 연결되어 있지 않습니다.'); return; }
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = img.naturalWidth  || 640;
+    canvas.height = img.naturalHeight || 480;
+    canvas.getContext('2d').drawImage(img, 0, 0);
+
+    const a = document.createElement('a');
+    a.href     = canvas.toDataURL('image/jpeg', 0.95);
+    a.download = `aquarium_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.jpg`;
+    a.click();
+}
+
+// ── 구역 오버레이 ──────────────────────────────
+function toggleZoneOverlay() {
+    zoneVisible = !zoneVisible;
+    const btn    = document.getElementById('zone-btn');
+    const canvas = document.getElementById('zone-canvas');
+
+    if (zoneVisible) {
+        canvas.classList.remove('hidden');
+        btn.classList.add('bg-blue-100');
+        drawZones(canvas);
+    } else {
+        canvas.classList.add('hidden');
+        btn.classList.remove('bg-blue-100');
+    }
+}
+
+function drawZones(canvas) {
+    const w   = canvas.parentElement.offsetWidth;
+    const h   = canvas.parentElement.offsetHeight;
+    canvas.width  = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+
+    // 상/중/하층 구역
+    const zones = [
+        { label: 'TOP', y: 0,       h: h/3, color: 'rgba(239,68,68,0.15)',   border: 'rgba(239,68,68,0.5)' },
+        { label: 'MID', y: h/3,     h: h/3, color: 'rgba(59,130,246,0.1)',   border: 'rgba(59,130,246,0.4)' },
+        { label: 'BOT', y: h*2/3,   h: h/3, color: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.4)' },
+    ];
+
+    zones.forEach(z => {
+        ctx.fillStyle   = z.color;
+        ctx.strokeStyle = z.border;
+        ctx.lineWidth   = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.fillRect(0, z.y, w, z.h);
+        ctx.strokeRect(2, z.y + 2, w - 4, z.h - 4);
+        ctx.font      = 'bold 13px sans-serif';
+        ctx.fillStyle = z.border;
+        ctx.setLineDash([]);
+        ctx.fillText(z.label, 14, z.y + 22);
+    });
+}
+
+// ── 전체화면 ───────────────────────────────────
+function toggleFullscreen() {
+    const el = document.querySelector('.relative.bg-slate-900');
+    if (!document.fullscreenElement) {
+        el.requestFullscreen?.();
+    } else {
+        document.exitFullscreen?.();
+    }
+}
 </script>
 {% endblock %}
