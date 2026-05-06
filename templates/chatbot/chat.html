@@ -144,12 +144,18 @@ async function loadHistory() {
             msgs.reverse().forEach(m => {
                 const preview = m.message.length > 20 ? m.message.slice(0, 20) + '...' : m.message;
                 html += `
-                <button onclick="loadConversation(${m.id})"
-                        class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
-                        id="hist-${m.id}">
-                    <p class="text-[12px] font-bold text-slate-600 group-hover:text-slate-800 truncate">${preview}</p>
-                    <p class="text-[10px] text-slate-300 font-bold mt-0.5">${m.created_at.split(' ')[1]}</p>
-                </button>`;
+                <div class="flex items-center gap-1 group rounded-xl hover:bg-slate-50 transition-colors"
+                     id="hist-${m.id}">
+                    <button onclick="loadConversation(${m.id})"
+                            class="flex-1 text-left px-3 py-2.5">
+                        <p class="text-[12px] font-bold text-slate-600 group-hover:text-slate-800 truncate">${preview}</p>
+                        <p class="text-[10px] text-slate-300 font-bold mt-0.5">${m.created_at.split(' ')[1]}</p>
+                    </button>
+                    <button onclick="deleteOne(${m.id}, event)"
+                            class="opacity-0 group-hover:opacity-100 transition-opacity pr-2 text-slate-300 hover:text-red-400 text-xs font-bold flex-shrink-0">
+                        ✕
+                    </button>
+                </div>`;
             });
         });
 
@@ -289,6 +295,26 @@ function appendLoading() {
         </div>`;
     container.appendChild(wrapper);
     return wrapper;
+}
+
+// ── 개별 삭제 ──────────────────────────────────
+async function deleteOne(id, e) {
+    e.stopPropagation();
+    try {
+        await fetch(`/chatbot/delete/${id}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF }
+        });
+        document.getElementById(`hist-${id}`)?.remove();
+
+        // 내역이 비면 안내 문구 표시
+        const list = document.getElementById('history-list');
+        if (list.querySelectorAll('[id^="hist-"]').length === 0) {
+            list.innerHTML = '<p class="text-[11px] text-slate-300 font-bold text-center py-8">대화 내역 없음</p>';
+        }
+    } catch(e) {
+        console.error('[DELETE]', e);
+    }
 }
 
 // ── 내역 전체 삭제 ─────────────────────────────

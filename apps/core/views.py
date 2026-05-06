@@ -180,10 +180,10 @@ def chat_api(request):
                 response = model.generate_content(
                     prompt_parts,
                     generation_config=genai.types.GenerationConfig(
-                        max_output_tokens=600,   # 답변 잘림 방지
+                        max_output_tokens=1024,   # 충분한 토큰 확보
                         temperature=0.4,
                     ),
-                    request_options={"timeout": 15},
+                    request_options={"timeout": 20},
                 )
 
                 if response and response.text:
@@ -239,10 +239,25 @@ def chat_history(request):
 @login_required
 @require_POST
 def chat_clear(request):
-    """POST /chatbot/clear/"""
+    """POST /chatbot/clear/ — 전체 삭제"""
     try:
         ChatMessage = apps.get_model('chatbot', 'ChatMessage')
         count, _    = ChatMessage.objects.filter(user=request.user).delete()
         return JsonResponse({"status": "ok", "deleted": count})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def chat_delete_one(request, message_id):
+    """POST /chatbot/delete/<id>/ — 개별 삭제"""
+    try:
+        ChatMessage = apps.get_model('chatbot', 'ChatMessage')
+        msg = ChatMessage.objects.filter(id=message_id, user=request.user).first()
+        if not msg:
+            return JsonResponse({"status": "error", "message": "없는 메시지입니다."}, status=404)
+        msg.delete()
+        return JsonResponse({"status": "ok"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
