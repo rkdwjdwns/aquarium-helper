@@ -9,11 +9,6 @@ from django.conf import settings
 class Tank(models.Model):
     """어항 기본 정보 및 제어 설정"""
 
-    FILTER_MODES = [
-        ('MANUAL', '수동'),
-        ('AUTO',   '자동'),
-    ]
-
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -31,9 +26,9 @@ class Tank(models.Model):
     last_water_change   = models.DateField(null=True, blank=True, help_text="마지막 환수일")
     water_change_period = models.IntegerField(default=7, help_text="환수 주기(일)")
 
-    # 여과기 설정
-    filter_mode  = models.CharField(max_length=10, choices=FILTER_MODES, default='MANUAL')
-    filter_is_on = models.BooleanField(default=False)
+    # ✅ 수정: filter_mode, filter_is_on 제거
+    # → 장치 상태는 DeviceControl 모델로 통일 관리
+    # → Tank.devices.get(type='FILTER') 로 조회
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -43,6 +38,19 @@ class Tank(models.Model):
 
     def __str__(self):
         return self.name
+
+    # ✅ 추가: DeviceControl 편의 프로퍼티
+    @property
+    def filter_is_on(self):
+        """여과기 ON/OFF 상태 — DeviceControl에서 읽어옴"""
+        device = self.devices.filter(type='FILTER').first()
+        return device.is_on if device else False
+
+    @property
+    def filter_is_auto(self):
+        """여과기 자동/수동 모드 — DeviceControl에서 읽어옴"""
+        device = self.devices.filter(type='FILTER').first()
+        return device.is_auto if device else True
 
 
 # ──────────────────────────────────────────────
@@ -145,17 +153,17 @@ class FeedingEvent(models.Model):
     ]
 
     STAGE_CHOICES = [
-        ('FRY',    '치어 (1~3cm)'),
-        ('YOUNG',  '유어 (3~7cm)'),
-        ('ADULT',  '성어 (7cm+)'),
+        ('FRY',   '치어 (1~3cm)'),
+        ('YOUNG', '유어 (3~7cm)'),
+        ('ADULT', '성어 (7cm+)'),
     ]
 
     tank = models.ForeignKey(Tank, on_delete=models.CASCADE, related_name='feeding_events')
 
     # 급이 정보
-    trigger        = models.CharField(max_length=10, choices=TRIGGER_CHOICES, default='AUTO', help_text="급이 트리거")
-    amount_g       = models.FloatField(default=0.0, help_text="급이량(g)")
-    growth_stage   = models.CharField(max_length=10, choices=STAGE_CHOICES, default='FRY', help_text="성장 단계")
+    trigger      = models.CharField(max_length=10, choices=TRIGGER_CHOICES, default='AUTO', help_text="급이 트리거")
+    amount_g     = models.FloatField(default=0.0, help_text="급이량(g)")
+    growth_stage = models.CharField(max_length=10, choices=STAGE_CHOICES, default='FRY', help_text="성장 단계")
 
     # 탁도 피드백
     turbidity_before = models.FloatField(default=0.0, help_text="급이 전 탁도(NTU)")
@@ -182,15 +190,21 @@ class FeedingResponse(models.Model):
     """FRS(Feeding Response Score) 분석 결과 — feeding_response.csv 대응"""
 
     tank          = models.ForeignKey(Tank, on_delete=models.CASCADE, related_name='feeding_responses')
-    feeding_event = models.OneToOneField(FeedingEvent, on_delete=models.CASCADE, related_name='response', null=True, blank=True)
+    feeding_event = models.OneToOneField(
+        FeedingEvent,
+        on_delete=models.CASCADE,
+        related_name='response',
+        null=True,
+        blank=True,
+    )
 
     # FRS 구성 지표
-    rt_seconds      = models.FloatField(default=0.0, help_text="반응시간(초): 급이→수면 첫 접근까지")
-    ar_ratio        = models.FloatField(default=0.0, help_text="활동증가율: 급이중/급이전 avg_speed 비율")
-    sf_ratio        = models.FloatField(default=0.0, help_text="수면접근빈도: 급이구간 TOP zone 체류 비율")
+    rt_seconds = models.FloatField(default=0.0, help_text="반응시간(초): 급이→수면 첫 접근까지")
+    ar_ratio   = models.FloatField(default=0.0, help_text="활동증가율: 급이중/급이전 avg_speed 비율")
+    sf_ratio   = models.FloatField(default=0.0, help_text="수면접근빈도: 급이구간 TOP zone 체류 비율")
 
     # FRS 최종 점수
-    frs_score       = models.IntegerField(default=0, help_text="급이 반응 점수(0~100)")
+    frs_score = models.IntegerField(default=0, help_text="급이 반응 점수(0~100)")
 
     # 구간별 활동량
     activity_before = models.FloatField(default=0.0, help_text="급이 전 평균 활동량(px/s)")
@@ -224,13 +238,13 @@ class GrowthRecord(models.Model):
     fish_id = models.IntegerField(help_text="ByteTrack 개체 ID")
 
     # 크기 추정
-    size_index        = models.FloatField(help_text="size_index(%) = bbox면적/프레임면적×100")
-    estimated_length  = models.FloatField(default=0.0, help_text="추정 체장(cm)")
-    estimated_weight  = models.FloatField(default=0.0, help_text="추정 체중(g) — W=0.01049×TL^3.14")
+    size_index       = models.FloatField(help_text="size_index(%) = bbox면적/프레임면적×100")
+    estimated_length = models.FloatField(default=0.0, help_text="추정 체장(cm)")
+    estimated_weight = models.FloatField(default=0.0, help_text="추정 체중(g) — W=0.01049×TL^3.14")
 
     # 성장률
-    growth_rate       = models.FloatField(default=0.0, help_text="성장률(cm/day)")
-    growth_stage      = models.CharField(max_length=10, choices=STAGE_CHOICES, default='FRY')
+    growth_rate  = models.FloatField(default=0.0, help_text="성장률(cm/day)")
+    growth_stage = models.CharField(max_length=10, choices=STAGE_CHOICES, default='FRY')
 
     # 급이량 자동 조정
     recommended_feed_g = models.FloatField(default=0.0, help_text="권장 1회 급이량(g)")
@@ -262,13 +276,13 @@ class ActivityPattern(models.Model):
     hourly_activity = models.JSONField(default=dict, help_text="시간대별 평균 활동량 {hour: avg_speed}")
 
     # Baseline 대비 편차
-    baseline_mean    = models.FloatField(default=0.0, help_text="Baseline 평균 속도(px/s)")
-    baseline_std     = models.FloatField(default=0.0, help_text="Baseline 속도 표준편차(px/s)")
-    current_mean     = models.FloatField(default=0.0, help_text="현재 기간 평균 속도(px/s)")
-    deviation_ratio  = models.FloatField(default=0.0, help_text="Baseline 대비 편차 비율")
+    baseline_mean   = models.FloatField(default=0.0, help_text="Baseline 평균 속도(px/s)")
+    baseline_std    = models.FloatField(default=0.0, help_text="Baseline 속도 표준편차(px/s)")
+    current_mean    = models.FloatField(default=0.0, help_text="현재 기간 평균 속도(px/s)")
+    deviation_ratio = models.FloatField(default=0.0, help_text="Baseline 대비 편차 비율")
 
     # 주간/야간 비교
-    daytime_activity  = models.FloatField(default=0.0, help_text="주간(6~22시) 평균 활동량")
+    daytime_activity   = models.FloatField(default=0.0, help_text="주간(6~22시) 평균 활동량")
     nighttime_activity = models.FloatField(default=0.0, help_text="야간(22~6시) 평균 활동량")
 
     # 이상 패턴
@@ -308,7 +322,7 @@ class DeviceControl(models.Model):
     last_action_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = 'monitoring'
+        app_label    = 'monitoring'
         unique_together = ('tank', 'type')
 
     def __str__(self):
@@ -330,8 +344,25 @@ class EventLog(models.Model):
         ('DANGER',  '위험'),
     ]
 
+    # ✅ 추가: 이벤트 종류 필드 — 나중에 로그 필터링/통계에 활용
+    EVENT_TYPE_CHOICES = [
+        ('SENSOR_ALERT',   '수질 경보'),
+        ('DEVICE_CHANGE',  '장치 상태 변경'),
+        ('ANOMALY',        '행동 이상 감지'),
+        ('FEEDING',        '급이 이벤트'),
+        ('OVERFEEDING',    '과급여 감지'),
+        ('WATER_CHANGE',   '환수 알림'),
+        ('SYSTEM',         '시스템'),
+    ]
+
     tank       = models.ForeignKey(Tank, on_delete=models.CASCADE, related_name='logs')
     level      = models.CharField(max_length=10, choices=LEVEL_CHOICES, default='INFO')
+    event_type = models.CharField(             # ✅ 추가
+        max_length=20,
+        choices=EVENT_TYPE_CHOICES,
+        default='SYSTEM',
+        help_text="이벤트 종류",
+    )
     message    = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -340,4 +371,4 @@ class EventLog(models.Model):
         ordering  = ['-created_at']
 
     def __str__(self):
-        return f"[{self.level}] {self.tank.name} — {self.created_at:%Y-%m-%d %H:%M}"
+        return f"[{self.level}] {self.event_type} — {self.tank.name} {self.created_at:%Y-%m-%d %H:%M}"
