@@ -1,0 +1,17 @@
+[Unit]
+Description=어항 자동 사육 시스템 — 메인 루프
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/pi_client
+ExecStart=/home/pi/venv/bin/python main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

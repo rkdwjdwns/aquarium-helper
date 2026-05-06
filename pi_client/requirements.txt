@@ -1,0 +1,19 @@
+# Raspberry Pi 5 — pi_client 의존성
+# 설치: pip install -r requirements.txt
+
+# 서버 통신
+requests==2.31.0
+
+# ESP32 UART 통신
+pyserial==3.5
+
+# AI 분석 (YOLOv11 + ByteTrack)
+ultralytics==8.3.0       # YOLOv11 포함
+opencv-python==4.9.0.80  # 카메라 프레임 처리
+numpy==1.26.4
+
+# GPIO 릴레이 제어 (Pi에서만 동작)
+RPi.GPIO==0.7.1
+
+# 유틸
+python-dotenv==1.0.0     # .env 파일로 API_KEY 관리
