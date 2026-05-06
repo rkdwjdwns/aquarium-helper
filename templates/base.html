@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fish Manager - 어항 도우미</title>
+
+    {# ── PWA 설정 ── #}
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2563EB">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="어항 도우미">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/static/icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/static/icons/icon-144.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
@@ -49,7 +61,20 @@
         </div>
     </nav>
 
-    <main class="flex-grow container mx-auto px-4 py-10 max-w-6xl">
+    {# ── 앱 설치 배너 (Android/Chrome) ── #}
+    <div id="install-banner"
+         class="hidden fixed bottom-28 left-4 right-4 z-50 bg-blue-600 text-white rounded-2xl px-5 py-4 flex items-center justify-between shadow-2xl">
+        <div>
+            <p class="text-sm font-black">앱으로 설치하기</p>
+            <p class="text-[11px] opacity-80">홈 화면에 추가하면 앱처럼 사용할 수 있어요</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="installApp()"
+                    class="bg-white text-blue-600 px-4 py-2 rounded-xl text-xs font-black">설치</button>
+            <button onclick="document.getElementById('install-banner').classList.add('hidden')"
+                    class="text-white/70 px-2 py-2 text-xs font-bold">닫기</button>
+        </div>
+    </div> class="flex-grow container mx-auto px-4 py-10 max-w-6xl">
         {% block content %}{% endblock %}
     </main>
 
@@ -213,6 +238,34 @@
         function sideAutoResize(el) {
             el.style.height = 'auto';
             el.style.height = Math.min(el.scrollHeight, 80) + 'px';
+        }
+    </script>
+
+    {# ── PWA 서비스 워커 등록 ── #}
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then(reg => console.log('[PWA] 서비스 워커 등록:', reg.scope))
+                    .catch(err => console.warn('[PWA] 등록 실패:', err));
+            });
+        }
+
+        // ── 앱 설치 배너 ──
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', e => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('install-banner')?.classList.remove('hidden');
+        });
+
+        function installApp() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(() => {
+                deferredPrompt = null;
+                document.getElementById('install-banner')?.classList.add('hidden');
+            });
         }
     </script>
 </body>

@@ -1,0 +1,73 @@
+{
+  "name": "어항 도우미",
+  "short_name": "어항",
+  "description": "AI 기반 코메트 금붕어 자동 사육 시스템",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#2563EB",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "대시보드",
+      "url": "/monitoring/dashboard/",
+      "description": "어항 실시간 모니터링"
+    },
+    {
+      "name": "카메라",
+      "url": "/monitoring/camera/",
+      "description": "실시간 카메라"
+    },
+    {
+      "name": "챗봇",
+      "url": "/chatbot/",
+      "description": "어항 도우미 AI"
+    }
+  ],
+  "categories": ["lifestyle", "utilities"],
+  "lang": "ko"
+}
