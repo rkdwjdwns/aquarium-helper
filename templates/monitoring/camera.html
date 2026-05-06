@@ -17,9 +17,8 @@
         </div>
 
         {# 카메라 스트림 #}
-        <div class="relative bg-slate-900 rounded-[2.5rem] overflow-hidden mb-8" style="aspect-ratio: 16/9;">
+        <div class="relative bg-slate-900 rounded-[2.5rem] overflow-hidden mb-8" style="aspect-ratio: 16/9;" id="stream-container">
 
-            {# MJPEG 스트림 (Pi에서 서빙) #}
             <img id="stream-img"
                  src=""
                  alt="카메라 스트림"
@@ -27,14 +26,14 @@
                  onerror="onStreamError()"
                  onload="onStreamLoad()">
 
-            {# 연결 전 오버레이 #}
+            {# 오버레이 #}
             <div id="stream-overlay" class="absolute inset-0 flex flex-col items-center justify-center gap-4">
                 <div id="overlay-icon" class="text-6xl">📷</div>
-                <p id="overlay-msg" class="text-white font-black text-lg">Pi IP 주소를 입력해주세요</p>
-                <p id="overlay-sub" class="text-slate-400 text-sm font-bold">카메라 스트림을 연결합니다</p>
+                <p id="overlay-msg" class="text-white font-black text-lg">카메라 연결 중...</p>
+                <p id="overlay-sub" class="text-slate-400 text-sm font-bold"></p>
             </div>
 
-            {# 스트리밍 중 오버레이 정보 #}
+            {# 스트리밍 중 정보 #}
             <div id="stream-info" class="absolute bottom-4 left-4 right-4 hidden">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-2">
@@ -44,47 +43,48 @@
                     <span id="fps-label" class="text-white text-[11px] font-bold bg-black/40 px-3 py-1 rounded-full">-- fps</span>
                 </div>
             </div>
-
         </div>
 
-        {# Pi IP 입력 #}
+        {# Pi 연결 상태 #}
         <div class="bg-slate-50 rounded-[2rem] p-6 mb-8">
-            <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Raspberry Pi 연결 설정</p>
-            <div class="flex gap-3">
-                <input id="pi-ip"
-                       type="text"
-                       placeholder="192.168.0.xxx"
-                       value="{{ pi_ip|default:'' }}"
-                       class="flex-1 bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400"
-                       onkeydown="if(event.key==='Enter') connectStream()">
-                <input id="pi-port"
-                       type="text"
-                       placeholder="8080"
-                       value="8080"
-                       class="w-24 bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
-                <button onclick="connectStream()"
-                        class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-blue-700 transition-all">
-                    연결
-                </button>
-                <button onclick="disconnectStream()"
-                        class="bg-slate-200 text-slate-600 px-6 py-3 rounded-2xl font-black text-sm hover:bg-slate-300 transition-all">
-                    끊기
-                </button>
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Raspberry Pi 연결 정보</p>
+                    {% if tank.pi_ip %}
+                    <p class="text-sm font-bold text-slate-700">
+                        {{ tank.pi_ip }}:{{ tank.pi_stream_port }}
+                        {% if tank.pi_last_seen %}
+                        <span class="text-[10px] text-slate-400 font-bold ml-2">
+                            마지막 접속: {{ tank.pi_last_seen|timesince }} 전
+                        </span>
+                        {% endif %}
+                    </p>
+                    {% else %}
+                    <p class="text-sm font-bold text-slate-400">Pi가 아직 등록되지 않았습니다.</p>
+                    <p class="text-[10px] text-slate-300 font-bold mt-1">Pi에서 <code class="bg-white px-2 py-0.5 rounded-lg">python main.py</code> 실행 시 자동 등록됩니다.</p>
+                    {% endif %}
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="refreshStream()"
+                            class="text-[11px] font-black text-blue-500 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors">
+                        재연결
+                    </button>
+                    <button onclick="toggleFullscreen()"
+                            class="text-[11px] font-black text-slate-500 bg-slate-100 px-4 py-2 rounded-xl hover:bg-slate-200 transition-colors">
+                        전체화면
+                    </button>
+                </div>
             </div>
-            <p class="text-[10px] text-slate-400 font-bold mt-3">
-                Pi에서 스트리밍 서버 시작: <code class="bg-white px-2 py-1 rounded-lg">python camera_stream.py</code>
-            </p>
         </div>
 
-        {# 스냅샷 & 구역 오버레이 #}
+        {# 기능 버튼 #}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <button onclick="takeSnapshot()"
                     class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
                 <span class="text-2xl">📸</span>
                 <span class="text-[11px] font-black text-slate-500">스냅샷</span>
             </button>
-            <button onclick="toggleZoneOverlay()"
-                    id="zone-btn"
+            <button onclick="toggleZoneOverlay()" id="zone-btn"
                     class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
                 <span class="text-2xl">🔲</span>
                 <span class="text-[11px] font-black text-slate-500">구역 표시</span>
@@ -101,16 +101,11 @@
             </button>
         </div>
 
-        {# 구역 오버레이 (canvas) #}
-        <canvas id="zone-canvas"
-                class="hidden absolute top-0 left-0 w-full h-full pointer-events-none rounded-[2.5rem]"
-                style="position:absolute;top:0;left:0;opacity:0.5;"></canvas>
-
-        {# 최신 행동 분석 요약 #}
+        {# 최신 AI 분석 #}
         {% if tank %}
         <div class="border-t border-slate-50 pt-8">
-            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">🤖 최신 AI 분석</h3>
-            <div id="behavior-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">최신 AI 분석</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {% with b=tank.behaviors.first %}
                 {% if b %}
                 <div class="bg-slate-50 rounded-2xl p-4 text-center">
@@ -137,7 +132,7 @@
                     </p>
                 </div>
                 {% else %}
-                <div class="col-span-4 text-center py-6 text-slate-300 font-bold">분석 데이터 없음</div>
+                <div class="col-span-4 text-center py-6 text-slate-300 font-bold text-sm">분석 데이터 없음</div>
                 {% endif %}
                 {% endwith %}
             </div>
@@ -148,49 +143,39 @@
 </div>
 
 <script>
-let streamUrl    = '';
-let isStreaming  = false;
-let zoneVisible  = false;
-let frameCount   = 0;
-let lastFpsTime  = Date.now();
+// ── Django에서 Pi IP 주입 ──────────────────────
+const PI_IP   = '{{ tank.pi_ip|default:"" }}';
+const PI_PORT = '{{ tank.pi_stream_port|default:"8080" }}';
+const STREAM_URL = PI_IP ? `http://${PI_IP}:${PI_PORT}/stream.mjpg` : '';
 
-// ── IP 저장/복원 (localStorage) ────────────────
-const savedIp = localStorage.getItem('pi_ip');
-if (savedIp) document.getElementById('pi-ip').value = savedIp;
+let isStreaming = false;
+let zoneVisible = false;
+let frameCount  = 0;
+let lastFpsTime = Date.now();
 
-// ── 스트림 연결 ────────────────────────────────
-function connectStream() {
-    const ip   = document.getElementById('pi-ip').value.trim();
-    const port = document.getElementById('pi-port').value.trim() || '8080';
-
-    if (!ip) {
-        alert('Pi IP 주소를 입력해주세요.');
-        return;
+// ── 페이지 로드 시 자동 연결 ─────────────────
+window.addEventListener('load', () => {
+    if (STREAM_URL) {
+        connectStream(STREAM_URL);
+    } else {
+        setOverlay('no_pi');
     }
+});
 
-    localStorage.setItem('pi_ip', ip);
-    streamUrl = `http://${ip}:${port}/stream.mjpg`;
-
+function connectStream(url) {
     const img = document.getElementById('stream-img');
-    img.src   = streamUrl + '?t=' + Date.now();
-
+    img.src   = url + '?t=' + Date.now();
     setOverlay('loading');
-}
-
-function disconnectStream() {
-    const img = document.getElementById('stream-img');
-    img.src   = '';
-    isStreaming = false;
-    setOverlay('idle');
-    document.getElementById('stream-badge').textContent = '연결 끊김';
-    document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500';
-    document.getElementById('stream-info').classList.add('hidden');
+    document.getElementById('stream-badge').textContent  = '연결 중...';
+    document.getElementById('stream-badge').className    = 'px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500';
 }
 
 function refreshStream() {
-    if (streamUrl) {
-        document.getElementById('stream-img').src = streamUrl + '?t=' + Date.now();
-        setOverlay('loading');
+    if (STREAM_URL) {
+        isStreaming = false;
+        connectStream(STREAM_URL);
+    } else {
+        setOverlay('no_pi');
     }
 }
 
@@ -198,7 +183,6 @@ function refreshStream() {
 function onStreamLoad() {
     if (!isStreaming) {
         isStreaming = true;
-        setOverlay('connected');
         document.getElementById('stream-overlay').classList.add('hidden');
         document.getElementById('stream-info').classList.remove('hidden');
         document.getElementById('stream-badge').textContent = '스트리밍 중';
@@ -208,13 +192,11 @@ function onStreamLoad() {
 }
 
 function onStreamError() {
-    if (streamUrl) {
-        isStreaming = false;
-        setOverlay('error');
-        document.getElementById('stream-badge').textContent = '연결 실패';
-        document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-red-100 text-red-500';
-        document.getElementById('stream-info').classList.add('hidden');
-    }
+    isStreaming = false;
+    setOverlay('error');
+    document.getElementById('stream-badge').textContent = '연결 실패';
+    document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-red-100 text-red-500';
+    document.getElementById('stream-info').classList.add('hidden');
 }
 
 function setOverlay(state) {
@@ -224,14 +206,18 @@ function setOverlay(state) {
     const sub     = document.getElementById('overlay-sub');
 
     overlay.classList.remove('hidden');
-    if (state === 'idle') {
-        icon.textContent = '📷'; msg.textContent = 'Pi IP 주소를 입력해주세요'; sub.textContent = '카메라 스트림을 연결합니다';
-    } else if (state === 'loading') {
-        icon.textContent = '⏳'; msg.textContent = '연결 중...'; sub.textContent = streamUrl;
-    } else if (state === 'connected') {
-        overlay.classList.add('hidden');
+    if (state === 'loading') {
+        icon.textContent = '⏳';
+        msg.textContent  = '카메라 연결 중...';
+        sub.textContent  = STREAM_URL;
     } else if (state === 'error') {
-        icon.textContent = '❌'; msg.textContent = '카메라 연결 실패'; sub.textContent = 'Pi가 켜져 있는지, IP가 맞는지 확인해주세요';
+        icon.textContent = '❌';
+        msg.textContent  = '카메라 연결 실패';
+        sub.textContent  = 'Pi가 켜져 있는지 확인하세요.';
+    } else if (state === 'no_pi') {
+        icon.textContent = '📷';
+        msg.textContent  = 'Pi가 아직 등록되지 않았습니다.';
+        sub.textContent  = 'Pi에서 python main.py 실행 시 자동 등록됩니다.';
     }
 }
 
@@ -239,24 +225,21 @@ function setOverlay(state) {
 setInterval(() => {
     const now     = Date.now();
     const elapsed = (now - lastFpsTime) / 1000;
-    const fps     = Math.round(frameCount / elapsed);
-    document.getElementById('fps-label').textContent = fps + ' fps';
+    document.getElementById('fps-label').textContent  = Math.round(frameCount / elapsed) + ' fps';
     document.getElementById('stream-time').textContent = new Date().toLocaleTimeString('ko-KR');
-    frameCount = 0;
+    frameCount  = 0;
     lastFpsTime = now;
 }, 1000);
 
 // ── 스냅샷 ────────────────────────────────────
 function takeSnapshot() {
     const img = document.getElementById('stream-img');
-    if (!img.src || !isStreaming) { alert('스트림이 연결되어 있지 않습니다.'); return; }
-
+    if (!isStreaming) { alert('스트림이 연결되어 있지 않습니다.'); return; }
     const canvas = document.createElement('canvas');
     canvas.width  = img.naturalWidth  || 640;
     canvas.height = img.naturalHeight || 480;
     canvas.getContext('2d').drawImage(img, 0, 0);
-
-    const a = document.createElement('a');
+    const a    = document.createElement('a');
     a.href     = canvas.toDataURL('image/jpeg', 0.95);
     a.download = `aquarium_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.jpg`;
     a.click();
@@ -265,41 +248,41 @@ function takeSnapshot() {
 // ── 구역 오버레이 ──────────────────────────────
 function toggleZoneOverlay() {
     zoneVisible = !zoneVisible;
-    const btn    = document.getElementById('zone-btn');
-    const canvas = document.getElementById('zone-canvas');
+    const btn = document.getElementById('zone-btn');
+    let canvas = document.getElementById('zone-canvas');
 
     if (zoneVisible) {
-        canvas.classList.remove('hidden');
-        btn.classList.add('bg-blue-100');
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.id = 'zone-canvas';
+            canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0.6;';
+            document.getElementById('stream-container').appendChild(canvas);
+        }
         drawZones(canvas);
+        btn.classList.add('bg-blue-100');
     } else {
-        canvas.classList.add('hidden');
+        canvas?.remove();
         btn.classList.remove('bg-blue-100');
     }
 }
 
 function drawZones(canvas) {
-    const w   = canvas.parentElement.offsetWidth;
-    const h   = canvas.parentElement.offsetHeight;
+    const w = canvas.parentElement.offsetWidth;
+    const h = canvas.parentElement.offsetHeight;
     canvas.width  = w;
     canvas.height = h;
-
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, w, h);
-
-    // 상/중/하층 구역
-    const zones = [
-        { label: 'TOP', y: 0,       h: h/3, color: 'rgba(239,68,68,0.15)',   border: 'rgba(239,68,68,0.5)' },
-        { label: 'MID', y: h/3,     h: h/3, color: 'rgba(59,130,246,0.1)',   border: 'rgba(59,130,246,0.4)' },
-        { label: 'BOT', y: h*2/3,   h: h/3, color: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.4)' },
-    ];
-
-    zones.forEach(z => {
-        ctx.fillStyle   = z.color;
+    [
+        { label: 'TOP', y: 0,     h: h/3, color: 'rgba(239,68,68,0.15)',  border: 'rgba(239,68,68,0.6)' },
+        { label: 'MID', y: h/3,   h: h/3, color: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.5)' },
+        { label: 'BOT', y: h*2/3, h: h/3, color: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.5)' },
+    ].forEach(z => {
+        ctx.fillStyle = z.color;
+        ctx.fillRect(0, z.y, w, z.h);
         ctx.strokeStyle = z.border;
         ctx.lineWidth   = 1.5;
         ctx.setLineDash([6, 4]);
-        ctx.fillRect(0, z.y, w, z.h);
         ctx.strokeRect(2, z.y + 2, w - 4, z.h - 4);
         ctx.font      = 'bold 13px sans-serif';
         ctx.fillStyle = z.border;
@@ -310,7 +293,7 @@ function drawZones(canvas) {
 
 // ── 전체화면 ───────────────────────────────────
 function toggleFullscreen() {
-    const el = document.querySelector('.relative.bg-slate-900');
+    const el = document.getElementById('stream-container');
     if (!document.fullscreenElement) {
         el.requestFullscreen?.();
     } else {

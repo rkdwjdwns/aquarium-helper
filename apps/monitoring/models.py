@@ -26,6 +26,11 @@ class Tank(models.Model):
     last_water_change   = models.DateField(null=True, blank=True, help_text="마지막 환수일")
     water_change_period = models.IntegerField(default=7, help_text="환수 주기(일)")
 
+    # ✅ 추가: Pi 카메라 연결 정보 (Pi가 자동 등록)
+    pi_ip          = models.GenericIPAddressField(null=True, blank=True, help_text="Raspberry Pi IP")
+    pi_stream_port = models.IntegerField(default=8080, help_text="카메라 스트림 포트")
+    pi_last_seen   = models.DateTimeField(null=True, blank=True, help_text="Pi 마지막 접속 시각")
+
     # ✅ 수정: filter_mode, filter_is_on 제거
     # → 장치 상태는 DeviceControl 모델로 통일 관리
     # → Tank.devices.get(type='FILTER') 로 조회

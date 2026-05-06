@@ -4,6 +4,7 @@ apps/monitoring/api_views.py
 Raspberry Pi ↔ Render 서버 간 REST API
 - Pi → 서버 : 센서/행동/급이/성장/패턴 데이터 전송
 - 서버 → Pi : 장치 제어 명령 응답 (polling 방식)
+- Pi → 서버 : IP 자동 등록 (카메라 스트림 자동 연결)
 
 인증: 헤더 X-API-KEY (Render 환경변수 PI_API_KEY)
 수질 기준: 코멧 금붕어 치어 기준 (설계 문서 v2.0)
@@ -102,13 +103,11 @@ def _calc_water_quality(temp, ph, do_val, turbidity) -> int:
     score = 100
     s = WATER_STANDARDS
 
-    # 수온
     if temp < s['temp_min'] or temp > s['temp_max']:
         score -= 30
     else:
         score -= min(int(abs(temp - s['temp_optimal']) / 1.0) * 5, 15)
 
-    # pH
     if ph < 6.0 or ph > 8.5:
         score -= 30
     elif ph < s['ph_min'] or ph > s['ph_max']:
@@ -116,13 +115,11 @@ def _calc_water_quality(temp, ph, do_val, turbidity) -> int:
     elif not (s['ph_optimal_lo'] <= ph <= s['ph_optimal_hi']):
         score -= 5
 
-    # DO
     if do_val < s['do_danger']:
         score -= 30
     elif do_val < s['do_min']:
         score -= 15
 
-    # 탁도
     if turbidity > s['turbidity_warn']:
         score -= 30
     elif turbidity > s['turbidity_max']:
@@ -159,31 +156,26 @@ def _auto_control(tank: Tank, reading: SensorReading) -> list:
     turb = reading.turbidity
     ph   = reading.ph
 
-    # 히터: 21°C 미만 ON / 22°C 초과 OFF
     if temp < s['temp_min']:
         _set_device('HEATER', True,  f"수온 {temp}°C → 최솟값 미달")
     elif temp > s['temp_optimal']:
         _set_device('HEATER', False, f"수온 {temp}°C → 최적값 도달")
 
-    # 냉각팬: 24°C 초과 ON / 23°C 이하 OFF
     if temp > s['temp_max']:
         _set_device('COOLING', True,  f"수온 {temp}°C → 최댓값 초과")
     elif temp <= s['temp_max'] - 1:
         _set_device('COOLING', False, f"수온 {temp}°C → 정상 범위")
 
-    # 여과기: 50 NTU 초과 ON / 20 NTU 이하 OFF
     if turb > s['turbidity_max']:
         _set_device('FILTER', True,  f"탁도 {turb} NTU → 기준 초과")
     elif turb <= s['turbidity_ok']:
         _set_device('FILTER', False, f"탁도 {turb} NTU → 정상")
 
-    # 에어펌프: DO 4mg/L 이하 즉각 ON / 6mg/L 이상 OFF
     if do_v < s['do_danger']:
         _set_device('AIR_PUMP', True,  f"DO {do_v} mg/L → 위험")
     elif do_v >= 6.0:
         _set_device('AIR_PUMP', False, f"DO {do_v} mg/L → 정상")
 
-    # 위험 이벤트 로그
     if ph < 6.0 or ph > 8.5:
         EventLog.objects.create(tank=tank, level='DANGER', message=f"pH 위험 수치: {ph}")
     if turb > s['turbidity_warn']:
@@ -200,13 +192,6 @@ def _auto_control(tank: Tank, reading: SensorReading) -> list:
 @api_key_required
 @require_http_methods(['POST'])
 def receive_sensor_data(request):
-    """
-    요청 바디:
-    {
-        "tank_id": 1, "temperature": 22.5, "ph": 7.2,
-        "dissolved_oxygen": 6.8, "turbidity": 12.3, "water_level": 90.0
-    }
-    """
     data = _parse_body(request)
     if not data:
         return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
@@ -251,17 +236,6 @@ def receive_sensor_data(request):
 @api_key_required
 @require_http_methods(['POST'])
 def receive_fish_behavior(request):
-    """
-    요청 바디:
-    {
-        "tank_id": 1, "fish_count": 3, "overlap_frames": 2,
-        "activity_level": 14.5, "abr_score": 0.05,
-        "dominant_zone": "MID", "zone_top_ratio": 0.1,
-        "zone_mid_ratio": 0.6, "zone_bot_ratio": 0.3,
-        "size_index": 7.8, "feeding_score": 82,
-        "status": "GOOD", "is_anomaly": false, "note": ""
-    }
-    """
     data = _parse_body(request)
     if not data:
         return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
@@ -322,17 +296,6 @@ def receive_fish_behavior(request):
 @api_key_required
 @require_http_methods(['POST'])
 def receive_feeding_event(request):
-    """
-    요청 바디:
-    {
-        "tank_id": 1, "trigger": "AUTO", "amount_g": 0.3,
-        "growth_stage": "FRY", "turbidity_before": 10.2,
-        "turbidity_after": 18.5, "is_overfeeding": false,
-        "rt_seconds": 4.2, "ar_ratio": 1.8, "sf_ratio": 0.45,
-        "frs_score": 78, "activity_before": 12.3,
-        "activity_during": 22.1, "activity_after": 15.4
-    }
-    """
     data = _parse_body(request)
     if not data:
         return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
@@ -401,15 +364,6 @@ def receive_feeding_event(request):
 @api_key_required
 @require_http_methods(['POST'])
 def receive_growth_record(request):
-    """
-    요청 바디:
-    {
-        "tank_id": 1, "fish_id": 1, "size_index": 7.8,
-        "estimated_length": 2.1, "estimated_weight": 0.098,
-        "growth_rate": 0.05, "growth_stage": "FRY",
-        "recommended_feed_g": 0.01
-    }
-    """
     data = _parse_body(request)
     if not data:
         return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
@@ -454,19 +408,6 @@ def receive_growth_record(request):
 @api_key_required
 @require_http_methods(['POST'])
 def receive_activity_pattern(request):
-    """
-    요청 바디:
-    {
-        "tank_id": 1,
-        "period_start": "2025-04-20T00:00:00",
-        "period_end":   "2025-04-20T23:59:59",
-        "hourly_activity": {"0": 3.2, ..., "23": 4.1},
-        "baseline_mean": 12.5, "baseline_std": 3.2,
-        "current_mean": 10.1, "deviation_ratio": -0.19,
-        "daytime_activity": 15.2, "nighttime_activity": 4.3,
-        "anomaly_hours": [2, 3, 14], "has_anomaly": true
-    }
-    """
     data = _parse_body(request)
     if not data:
         return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
@@ -527,7 +468,60 @@ def get_pending_commands(request, tank_id):
 
 
 # ──────────────────────────────────────────────
-# [7] 헬스체크  GET /monitoring/api/health/
+# ✅ [7] Pi IP 자동 등록  POST /monitoring/api/register-pi/
+# ──────────────────────────────────────────────
+
+@csrf_exempt
+@api_key_required
+@require_http_methods(['POST'])
+def register_pi(request):
+    """
+    Pi 시작 시 자신의 IP를 서버에 등록합니다.
+    카메라 페이지가 이 IP를 읽어 자동으로 스트림에 연결합니다.
+
+    요청 바디:
+    {
+        "tank_id": 1,
+        "pi_ip": "192.168.0.42",
+        "pi_stream_port": 8080   (선택, 기본값 8080)
+    }
+    """
+    data = _parse_body(request)
+    if not data:
+        return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
+
+    tank, err = _get_tank(data.get('tank_id'))
+    if err:
+        return err
+
+    pi_ip = data.get('pi_ip', '').strip()
+    if not pi_ip:
+        return _error("pi_ip 필드가 필요합니다.")
+
+    pi_stream_port = int(data.get('pi_stream_port', 8080))
+
+    tank.pi_ip          = pi_ip
+    tank.pi_stream_port = pi_stream_port
+    tank.pi_last_seen   = timezone.now()
+    tank.save(update_fields=['pi_ip', 'pi_stream_port', 'pi_last_seen'])
+
+    logger.info(f"[Pi 등록] tank={tank.id} ip={pi_ip}:{pi_stream_port}")
+
+    EventLog.objects.create(
+        tank=tank, level='INFO',
+        message=f"[Pi 연결] {pi_ip}:{pi_stream_port} — 카메라 스트림 준비 완료"
+    )
+
+    return _ok({
+        'tank_id':        tank.id,
+        'pi_ip':          pi_ip,
+        'pi_stream_port': pi_stream_port,
+        'stream_url':     f"http://{pi_ip}:{pi_stream_port}/stream.mjpg",
+    })
+
+
+# ──────────────────────────────────────────────
+# [8] 헬스체크  GET /monitoring/api/health/
 # ──────────────────────────────────────────────
 
 @csrf_exempt

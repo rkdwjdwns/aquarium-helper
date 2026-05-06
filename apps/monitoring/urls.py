@@ -41,6 +41,7 @@ urlpatterns = [
     path('api/pattern/',                         api_views.receive_activity_pattern, name='api_pattern'),
     path('api/commands/<int:tank_id>/',          api_views.get_pending_commands,     name='api_commands'),
     path('api/health/',                          api_views.health_check,             name='api_health'),
+    path('api/register-pi/',                     api_views.register_pi,              name='api_register_pi'),  # ✅ 추가
 
     # ── [8. ✅ 추가: 대시보드 AJAX 폴링] ──────────────────────────
     path('api/dashboard-data/<int:tank_id>/',    views.dashboard_data,               name='dashboard_data'),
