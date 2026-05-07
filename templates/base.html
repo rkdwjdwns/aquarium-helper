@@ -68,9 +68,9 @@
 
     {# ── 토스트 메시지 ── #}
     {% if messages %}
-    <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-sm px-4">
+    <div id="toast-container" class="fixed top-16 right-4 z-[100] flex flex-col gap-1.5">
         {% for msg in messages %}
-        <div class="toast-msg px-5 py-3 rounded-2xl text-sm font-bold shadow-lg text-center transition-all
+        <div class="toast-msg px-4 py-2 rounded-xl text-xs font-bold shadow-md
             {% if msg.tags == 'success' %}bg-emerald-500 text-white
             {% elif msg.tags == 'error' %}bg-red-500 text-white
             {% else %}bg-blue-500 text-white{% endif %}">
@@ -80,13 +80,9 @@
     </div>
     <script>
         setTimeout(() => {
-            const container = document.getElementById('toast-container');
-            if (container) {
-                container.style.opacity = '0';
-                container.style.transition = 'opacity 0.5s';
-                setTimeout(() => container.remove(), 500);
-            }
-        }, 3000);
+            const c = document.getElementById('toast-container');
+            if (c) { c.style.transition = 'opacity 0.4s'; c.style.opacity = '0'; setTimeout(() => c.remove(), 400); }
+        }, 2500);
     </script>
     {% endif %}
 
