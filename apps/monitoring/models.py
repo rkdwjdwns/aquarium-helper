@@ -55,7 +55,7 @@ class Tank(models.Model):
     water_change_period = models.IntegerField(default=7, help_text="환수 주기(일)")
 
     # ✅ 추가: Pi 카메라 연결 정보 (Pi가 자동 등록)
-   pi_ip = models.CharField(max_length=200, null=True, blank=True, help_text="Raspberry Pi IP 또는 카메라 URL")
+    pi_ip = models.CharField(max_length=200, null=True, blank=True, help_text="Raspberry Pi IP 또는 카메라 URL")
     pi_stream_port = models.IntegerField(default=8080, help_text="카메라 스트림 포트")
     pi_last_seen   = models.DateTimeField(null=True, blank=True, help_text="Pi 마지막 접속 시각")
 
