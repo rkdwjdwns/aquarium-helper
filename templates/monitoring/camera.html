@@ -149,7 +149,17 @@
 // ── Django에서 Pi IP 주입 ──────────────────────
 const PI_IP   = '{{ tank.pi_ip|default:"" }}';
 const PI_PORT = '{{ tank.pi_stream_port|default:"8080" }}';
-const STREAM_URL = PI_IP ? `http://${PI_IP}:${PI_PORT}/stream.mjpg` : '';
+
+// cloudflare URL이면 https 사용, 로컬 IP면 http 사용
+function buildStreamUrl(ip, port) {
+    if (!ip) return '';
+    if (ip.includes('trycloudflare.com') || ip.includes('cloudflare')) {
+        return `https://${ip}/stream.mjpg`;
+    }
+    return `http://${ip}:${port}/stream.mjpg`;
+}
+
+const STREAM_URL = buildStreamUrl(PI_IP, PI_PORT);
 
 let isStreaming = false;
 let zoneVisible = false;
