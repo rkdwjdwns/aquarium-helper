@@ -36,7 +36,8 @@ class StreamHandler(BaseHTTPRequestHandler):
         pass   # 콘솔 로그 억제
 
     def do_GET(self):
-        if self.path == '/stream.mjpg':
+        path = self.path.split('?')[0]  # 쿼리 파라미터 제거
+        if path == '/stream.mjpg':
             self.send_response(200)
             self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -58,7 +59,7 @@ class StreamHandler(BaseHTTPRequestHandler):
             except (BrokenPipeError, ConnectionResetError):
                 pass   # 클라이언트 연결 끊김
 
-        elif self.path == '/snapshot.jpg':
+        elif path == '/snapshot.jpg':
             frame = self.server.get_frame()
             if frame:
                 self.send_response(200)
@@ -70,7 +71,7 @@ class StreamHandler(BaseHTTPRequestHandler):
                 self.send_response(503)
                 self.end_headers()
 
-        elif self.path == '/health':
+        elif path == '/health':
             self.send_response(200)
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()
