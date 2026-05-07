@@ -27,7 +27,7 @@ def _fetch_settings() -> dict:
         return _cached_settings
     try:
         res = requests.get(
-            f"{BASE_URL}/monitoring/settings/{TANK_ID}/api/",
+            f"{BASE_URL}/settings/{TANK_ID}/api/",
             headers=HEADERS, timeout=5,
         )
         res.raise_for_status()
