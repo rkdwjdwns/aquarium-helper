@@ -150,21 +150,45 @@
 const PI_IP   = '{{ tank.pi_ip|default:"" }}';
 const PI_PORT = '{{ tank.pi_stream_port|default:"8080" }}';
 
-// cloudflare URL이면 https 사용, 로컬 IP면 http 사용
+// cloudflare URL이면 https + snapshot 방식, 로컬 IP면 http + mjpeg 방식
 function buildStreamUrl(ip, port) {
     if (!ip) return '';
     if (ip.includes('trycloudflare.com') || ip.includes('cloudflare')) {
-        return `https://${ip}/stream.mjpg`;
+        return { url: `https://${ip}/snapshot.jpg`, mode: 'snapshot' };
     }
-    return `http://${ip}:${port}/stream.mjpg`;
+    return { url: `http://${ip}:${port}/stream.mjpg`, mode: 'mjpeg' };
 }
 
-const STREAM_URL = buildStreamUrl(PI_IP, PI_PORT);
+const STREAM_INFO = buildStreamUrl(PI_IP, PI_PORT);
+const STREAM_URL  = STREAM_INFO ? STREAM_INFO.url : '';
+const STREAM_MODE = STREAM_INFO ? STREAM_INFO.mode : 'mjpeg';
 
-let isStreaming = false;
-let zoneVisible = false;
-let frameCount  = 0;
-let lastFpsTime = Date.now();
+let isStreaming   = false;
+let zoneVisible   = false;
+let frameCount    = 0;
+let lastFpsTime   = Date.now();
+let snapshotTimer = null;
+
+// ── 스냅샷 폴링 (cloudflare 모드) ────────────
+function startSnapshotPolling() {
+    const img = document.getElementById('stream-img');
+
+    function loadSnapshot() {
+        const tmpImg = new Image();
+        tmpImg.onload = () => {
+            img.src = tmpImg.src;
+            onStreamLoad();
+            snapshotTimer = setTimeout(loadSnapshot, 500);  // 0.5초마다 갱신
+        };
+        tmpImg.onerror = () => {
+            onStreamError();
+            snapshotTimer = setTimeout(loadSnapshot, 2000); // 오류 시 2초 후 재시도
+        };
+        tmpImg.src = STREAM_URL + '?t=' + Date.now();
+    }
+
+    loadSnapshot();
+}
 
 // ── 페이지 로드 시 자동 연결 ─────────────────
 window.addEventListener('load', () => {
@@ -177,15 +201,27 @@ window.addEventListener('load', () => {
 
 function connectStream(url) {
     const img = document.getElementById('stream-img');
-    img.src   = url + '?t=' + Date.now();
+
+    // 기존 스냅샷 타이머 정리
+    if (snapshotTimer) {
+        clearTimeout(snapshotTimer);
+        snapshotTimer = null;
+    }
+
+    isStreaming = false;
     setOverlay('loading');
-    document.getElementById('stream-badge').textContent  = '연결 중...';
-    document.getElementById('stream-badge').className    = 'px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500';
+    document.getElementById('stream-badge').textContent = '연결 중...';
+    document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500';
+
+    if (STREAM_MODE === 'snapshot') {
+        startSnapshotPolling();
+    } else {
+        img.src = url + '?t=' + Date.now();
+    }
 }
 
 function refreshStream() {
     if (STREAM_URL) {
-        isStreaming = false;
         connectStream(STREAM_URL);
     } else {
         setOverlay('no_pi');
