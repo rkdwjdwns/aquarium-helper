@@ -151,9 +151,17 @@ def tank_settings(request, tank_id):
     return render(request, 'monitoring/tank_settings.html', {'tank': tank})
 
 
-@login_required
 def tank_settings_api(request, tank_id):
-    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    """설정값 JSON 반환 (Pi용) — API KEY 인증"""
+    import os
+    server_key = os.getenv('PI_API_KEY', '')
+    client_key = request.headers.get('X-API-KEY', '')
+    if server_key and client_key != server_key:
+        return JsonResponse({'error': '인증 실패'}, status=401)
+    try:
+        tank = Tank.objects.get(id=tank_id)
+    except Tank.DoesNotExist:
+        return JsonResponse({'error': '어항 없음'}, status=404)
     return JsonResponse({
         'water':   {'temp_min': tank.temp_min, 'temp_max': tank.temp_max, 'ph_min': tank.ph_min, 'ph_max': tank.ph_max, 'do_min': tank.do_min, 'turbidity_max': tank.turbidity_max},
         'devices': {'heater_on': tank.heater_on_temp, 'heater_off': tank.heater_off_temp, 'cooling_on': tank.cooling_on_temp, 'cooling_off': tank.cooling_off_temp, 'filter_on': tank.filter_on_ntu, 'filter_off': tank.filter_off_ntu, 'airpump_on': tank.airpump_on_do, 'airpump_off': tank.airpump_off_do},
