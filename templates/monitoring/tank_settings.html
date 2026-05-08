@@ -5,21 +5,21 @@
 <form method="POST">
 {% csrf_token %}
 
-<div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-10 md:p-14 mb-6">
+<div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-5 sm:p-10 md:p-14 mb-6">
 
     {# 헤더 #}
-    <div class="flex justify-between items-center mb-12">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 sm:mb-12">
         <div>
             <span class="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em] block mb-2">Settings</span>
-            <h2 class="text-4xl font-black text-slate-800">{{ tank.name }} 설정</h2>
+            <h2 class="text-2xl sm:text-4xl font-black text-slate-800">{{ tank.name }} 설정</h2>
         </div>
         <div class="flex gap-3">
             <a href="{% url 'monitoring:dashboard' tank.id %}"
-               class="px-6 py-3 rounded-2xl font-black text-sm text-slate-400 border border-slate-200 hover:bg-slate-50 transition-colors">
+               class="px-4 sm:px-6 py-3 rounded-2xl font-black text-sm text-slate-400 border border-slate-200 hover:bg-slate-50 transition-colors">
                 취소
             </a>
             <button type="submit"
-                    class="px-8 py-3 rounded-2xl font-black text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100">
+                    class="px-6 sm:px-8 py-3 rounded-2xl font-black text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100">
                 저장
             </button>
         </div>

@@ -22,21 +22,21 @@
     </div>
     {% else %}
 
-    <div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-10 md:p-14 mb-10">
+    <div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-5 sm:p-10 md:p-14 mb-10">
 
         {# 헤더 #}
-        <div class="flex justify-between items-start mb-12">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-8 sm:mb-12">
             <div>
                 <span class="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em] block mb-2">Aquarium Unit</span>
-                <h2 class="text-4xl font-black text-slate-800">{{ tank.name }}</h2>
+                <h2 class="text-2xl sm:text-4xl font-black text-slate-800">{{ tank.name }}</h2>
             </div>
-            <div class="flex flex-col items-end gap-2">
+            <div class="flex sm:flex-col items-center sm:items-end gap-2">
                 <div class="flex items-center gap-2">
                     <a href="{% url 'monitoring:tank_settings' tank.id %}"
                        class="px-4 py-2 rounded-full text-xs font-black bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
                         설정
                     </a>
-                    <span id="status-badge" class="px-6 py-2 rounded-full text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
+                    <span id="status-badge" class="px-4 sm:px-6 py-2 rounded-full text-xs sm:text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
                 </div>
                 <span id="last-updated" class="text-[10px] text-slate-300 font-bold">마지막 업데이트: 방금</span>
             </div>
@@ -124,10 +124,10 @@
         </div>
 
         {# ✅ 추가: 수질 트렌드 차트 #}
-        <div class="bg-slate-50/30 rounded-[2.5rem] p-8 mb-10 border border-slate-100">
-            <div class="flex justify-between items-center mb-6">
+        <div class="bg-slate-50/30 rounded-[2.5rem] p-5 sm:p-8 mb-10 border border-slate-100">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">📈 수질 트렌드 (최근 12회)</h3>
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-wrap">
                     <button onclick="setChart('temp')"   id="btn-temp"   class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-red-100 text-red-500">수온</button>
                     <button onclick="setChart('ph')"     id="btn-ph"     class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400">pH</button>
                     <button onclick="setChart('do')"     id="btn-do"     class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400">DO</button>
