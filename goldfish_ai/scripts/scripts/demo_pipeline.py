@@ -52,7 +52,8 @@ except ImportError:
 
 from scripts.sensor_reader  import SensorReader, check_water_quality
 from scripts.feeding_events import FeedingEventLogger
-from scripts.server_tx      import ServerTx
+from scripts.server_tx        import ServerTx
+from scripts.behavior_bridge   import get_bridge
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -538,6 +539,9 @@ def run(args):
     print(f"  트랙필터  : {cfg['min_track_frames']}프레임 미만 제거")
     print(f"  출력      : {metrics_path}")
 
+    # BehaviorBridge 초기화
+    bridge = get_bridge(window_sec=30.0)
+
     # [7] Baseline 자동 적재
     baseline_df = try_load_baseline(cfg["baseline_csv"])
 
@@ -684,10 +688,17 @@ def run(args):
                     tx.send_sensor(sensor_data)
                     _last_sensor_tx = ts_now
 
-                # 30초마다 행동 분석 전송
+                # 30초마다 행동 분석 전송 + bridge 업데이트
                 if ts_now - _last_behavior_tx >= BEHAVIOR_TX_INTERVAL:
+                    recent = list(writer.recent_rows)
+                    # BehaviorBridge 업데이트 (pi_client/main.py가 참조)
+                    bridge.update(
+                        metrics_rows = recent,
+                        abr_rate     = 0.0,    # ABR Baseline 생성 후 연결
+                        frs_score    = 0,
+                    )
                     tx.send_behavior(
-                        metrics_rows = list(writer.recent_rows),
+                        metrics_rows = recent,
                         abr_result   = None,   # ABR Baseline 생성 후 연결
                         frs_score    = 0,
                         track_filter = track_filter,
