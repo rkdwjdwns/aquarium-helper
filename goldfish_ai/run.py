@@ -1,28 +1,252 @@
 """
-run.py — Goldfish AI 루트 진입점
+run.py — Goldfish AI 통합 메인 루프
 금붕어 자동 사육 AI 시스템 (v2.0)
 
-프로젝트 루트(GOLDFISH_AI/)에서 실행:
-  python run.py                          # 카메라, config.yaml 자동 로드
-  python run.py --show                   # 실시간 화면 표시
-  python run.py --source video.mp4       # 영상 파일
-  python run.py --config my_config.yaml  # 설정 파일 지정
-  python run.py --mock-sensor            # ESP32 없이 센서 Mock
+통합 항목:
+    [goldfish_ai]
+    - AI 파이프라인 (YOLO + ByteTrack + Feature) — 별도 Thread
+    - 센서 수신 (MQTT)
+    - 분석 모듈 (FRS / ABR / 패턴 / 성장)
+    - 서버 전송 (server_tx.py)
+    - 행동 브릿지 (behavior_bridge.py)
+    - 제어 판단 (decision.py)
 
-실행 중 키 (--show 모드):
-  f — 급이 이벤트 기록 + FRS 분석 자동 예약
-  q — 종료
+    [pi_client]
+    - 장치 명령 polling (command_poller.py) — 별도 Thread
+    - Pi IP 등록 (register_pi.py)
+    - 조명 타이머 (light_timer.py)
+    - 성장 기록 전송 (growth_sender.py)
+    - 활동 패턴 전송 (pattern_sender.py)
+
+실행:
+    python run.py                  # 기본
+    python run.py --show           # 화면 표시 (f키: 급이, q키: 종료)
+    python run.py --mock-sensor    # ESP32 없이 Mock 센서
+    python run.py --no-server      # 서버 전송 없이 로컬만
 """
 
+from __future__ import annotations
+
+import argparse
+import signal
 import sys
+import time
+import threading
 from pathlib import Path
 
-# 프로젝트 루트를 sys.path에 추가 (어디서 실행해도 import 보장)
+# ── 경로 설정 ─────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.demo_pipeline import main
+# pi_client 경로 추가
+PI_CLIENT = ROOT.parent / "pi_client"
+if PI_CLIENT.exists() and str(PI_CLIENT) not in sys.path:
+    sys.path.insert(0, str(PI_CLIENT))
+
+# ── goldfish_ai imports ───────────────────────────────────────────────────
+from scripts.demo_pipeline   import run as run_pipeline, load_config
+from scripts.sensor_reader   import SensorReader, check_water_quality
+from scripts.behavior_bridge import get_bridge
+from scripts.decision        import DecisionEngine
+from scripts.server_tx       import ServerTx
+
+# ── pi_client imports (없으면 Mock) ──────────────────────────────────────
+try:
+    from command_poller import start_polling
+    from register_pi    import register_pi_ip
+    from light_timer    import control_light, get_next_change
+    from growth_sender  import send_growth, estimate_weight
+    PI_CLIENT_OK = True
+except ImportError as e:
+    print(f"[RUN] pi_client import 실패 → 해당 기능 비활성화: {e}")
+    PI_CLIENT_OK = False
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 주기 설정 (초)
+# ─────────────────────────────────────────────────────────────────────────
+LIGHT_INTERVAL   = 60
+GROWTH_INTERVAL  = 3600
+DECISION_INTERVAL = 10   # 제어 판단 주기
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 종료 핸들러
+# ─────────────────────────────────────────────────────────────────────────
+_stop_event = threading.Event()
+
+def _on_exit(sig, frame):
+    print("\n[RUN] 종료 신호 수신 — 정리 중...")
+    _stop_event.set()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT,  _on_exit)
+signal.signal(signal.SIGTERM, _on_exit)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 성장 기록 전송 (pi_client/growth_sender.py 호출)
+# ─────────────────────────────────────────────────────────────────────────
+def _send_growth_records(tx: ServerTx):
+    """
+    analytics/growth_tracker.py의 최근 기록을 서버로 전송.
+    GrowthTracker는 demo_pipeline.py 내부에서 관리.
+    현재는 bridge의 size_index 기반 추정값으로 전송.
+    """
+    try:
+        behavior = get_bridge().get_latest()
+        size_index = behavior.get("size_index", 0.0)
+        if size_index <= 0:
+            return
+
+        # size_index → 체장 추정 (카메라 캘리브레이션 전 임시)
+        # px_to_cm_ratio 미확정 → 실측 후 config.yaml에 반영 예정
+        estimated_length = size_index * 0.5   # 임시 비율
+
+        for fish_id in range(1, 4):  # 3마리
+            tx.send_growth({
+                "fish_id":          fish_id,
+                "current_size_cm":  estimated_length,
+                "growth_per_day":   0.0,     # Baseline 쌓이면 계산
+                "estimated_stage":  "fry",   # 물고기 투입 초기
+                "moving_avg_size":  size_index,
+            })
+    except Exception as e:
+        print(f"[RUN] 성장 기록 전송 오류: {e}")
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 제어 판단 루프 (별도 Thread)
+# ─────────────────────────────────────────────────────────────────────────
+def _decision_loop(sensor: SensorReader, engine: DecisionEngine):
+    """
+    10초마다 수질 + 행동 데이터로 제어 판단.
+    실제 GPIO 제어는 command_poller.py가 담당.
+    판단 결과는 로그로 출력.
+    """
+    print("[Decision] 제어 판단 루프 시작")
+    while not _stop_event.is_set():
+        try:
+            sensor_data  = sensor.get_latest()
+            behavior     = get_bridge().get_latest()
+            result       = engine.decide(sensor_data, behavior)
+
+            if result.alerts:
+                for alert in result.alerts:
+                    print(f"[Decision] ⚠️  {alert}")
+
+            # TODO: decision.py 결과를 command_poller.py의 set_relay()로 연결
+            # 릴레이 배선 완료 후 아래 주석 해제
+            # for cmd in result.commands:
+            #     set_relay(cmd.device, cmd.is_on)
+
+        except Exception as e:
+            print(f"[Decision] 오류: {e}")
+
+        time.sleep(DECISION_INTERVAL)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 메인
+# ─────────────────────────────────────────────────────────────────────────
+def main():
+    parser = argparse.ArgumentParser(description="Goldfish AI 통합 메인")
+    parser.add_argument("--source",      default="0")
+    parser.add_argument("--config",      default="config.yaml")
+    parser.add_argument("--show",        action="store_true")
+    parser.add_argument("--max-frames",  type=int, default=None)
+    parser.add_argument("--mock-sensor", action="store_true")
+    parser.add_argument("--no-server",   action="store_true",
+                        help="서버 전송 비활성화 (로컬 테스트용)")
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
+
+    print(f"\n{'='*60}")
+    print(f"  Goldfish AI — 통합 메인 루프")
+    print(f"{'='*60}")
+    print(f"  config    : {args.config}")
+    print(f"  mock-sensor: {args.mock_sensor}")
+    print(f"  server    : {'비활성화' if args.no_server else cfg.get('server_enabled', False)}")
+    print(f"  pi_client : {'OK' if PI_CLIENT_OK else '미연결'}")
+
+    # ── Pi IP 등록 ────────────────────────────────────────────────────────
+    if PI_CLIENT_OK:
+        register_pi_ip()
+        print(f"  조명 예정: {get_next_change()}")
+
+    # ── 장치 명령 polling 시작 (pi_client) ───────────────────────────────
+    if PI_CLIENT_OK:
+        start_polling(interval=4.0)
+        print("[RUN] 장치 명령 polling 시작")
+
+    # ── 센서 Reader 시작 ──────────────────────────────────────────────────
+    sensor = SensorReader(
+        broker = cfg.get("mqtt_broker", "localhost"),
+        topic  = cfg.get("mqtt_topic",  "goldfish/sensors"),
+        mock   = args.mock_sensor,
+    )
+    sensor.start()
+
+    # ── 서버 전송 초기화 ──────────────────────────────────────────────────
+    server_enabled = cfg.get("server_enabled", False) and not args.no_server
+    tx = ServerTx(mock=not server_enabled or cfg.get("server_mock", True))
+
+    # ── 제어 판단 엔진 ────────────────────────────────────────────────────
+    engine = DecisionEngine()
+
+    # ── 제어 판단 루프 (별도 Thread) ──────────────────────────────────────
+    decision_thread = threading.Thread(
+        target  = _decision_loop,
+        args    = (sensor, engine),
+        daemon  = True,
+        name    = "DecisionLoop",
+    )
+    decision_thread.start()
+
+    # ── 주기 타이머 ──────────────────────────────────────────────────────
+    last_light_time  = 0.0
+    last_growth_time = 0.0
+
+    # ── 보조 루프 (조명/성장 주기 관리) ──────────────────────────────────
+    def _aux_loop():
+        nonlocal last_light_time, last_growth_time
+        while not _stop_event.is_set():
+            now = time.time()
+
+            if PI_CLIENT_OK and now - last_light_time >= LIGHT_INTERVAL:
+                try:
+                    control_light()
+                except Exception as e:
+                    print(f"[RUN] 조명 제어 오류: {e}")
+                last_light_time = now
+
+            if now - last_growth_time >= GROWTH_INTERVAL:
+                _send_growth_records(tx)
+                last_growth_time = now
+
+            time.sleep(5)
+
+    aux_thread = threading.Thread(
+        target=_aux_loop, daemon=True, name="AuxLoop"
+    )
+    aux_thread.start()
+
+    print("\n[RUN] 모든 모듈 시작 완료 — AI 파이프라인 실행\n")
+
+    # ── 메인 파이프라인 실행 (블로킹) ────────────────────────────────────
+    # demo_pipeline.run()이 메인 루프를 담당
+    # 종료 시 (q키 또는 Ctrl+C) 반환됨
+    try:
+        run_pipeline(args)
+    except SystemExit:
+        pass
+    finally:
+        sensor.stop()
+        tx.print_stats()
+        print("[RUN] 종료 완료")
+
 
 if __name__ == "__main__":
     main()
