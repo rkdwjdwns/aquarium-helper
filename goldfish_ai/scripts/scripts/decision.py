@@ -9,19 +9,21 @@ scripts/decision.py — 상태 판단 + 액추에이터 제어
     실제 GPIO 제어는 command_poller.py (pi_client/)가 담당.
     이 파일은 판단 로직만 담당하고 GPIO에 직접 접근하지 않음.
 
-설계 문서 3.3 액추에이터 제어 기준:
-    히터:   수온 25.5°C 미만 시 가동
-    냉각팬: 수온 26.5°C 초과 시 가동
-    여과기: 탁도 50 NTU 초과 시 가동 / 20 NTU 이하 시 중단
-    에어펌프: DO 4mg/L 이하 시 즉각 가동
+하드웨어 설계 명세서 4항 — 릴레이 자동 제어 기준표:
+    히터       : 수온 22.0℃ 미만 가동 / 23.5℃ 도달 시 중단
+    냉각팬     : 수온 25.5℃ 초과 가동 / 24.0℃ 도달 시 중단
+    기포기     : DO 5.5mg/L 이하 가동 / DO 7.0mg/L 도달 시 중단
+    여과기     : 탁도 50NTU 초과 가동 / 20NTU 이하 시 중단
+    조명       : 오전 08:00 점등 / 오후 20:00 소등
+    자동 급이기: 하루 3회 정량 / 급이 후 10분간 여과기 정지
 
-GPIO 핀 배치 (릴레이 배선 완료 후 확정):
-    HEATER   → command_poller.py RELAY_PINS["HEATER"]   (현재 17 예정)
-    COOLING  → command_poller.py RELAY_PINS["COOLING"]  (현재 18 예정)
-    FILTER   → command_poller.py RELAY_PINS["FILTER"]   (현재 27 예정)
-    AIR_PUMP → command_poller.py RELAY_PINS["AIR_PUMP"] (현재 22 예정)
-    FEEDER   → command_poller.py RELAY_PINS["FEEDER"]   (현재 23 예정)
-    LIGHT    → command_poller.py RELAY_PINS["LIGHT"]    (현재 24 예정)
+GPIO 핀 배치 (command_poller.py RELAY_PINS 기준):
+    HEATER   → 17
+    COOLING  → 18
+    FILTER   → 27
+    AIR_PUMP → 22
+    FEEDER   → 23
+    LIGHT    → 24
 """
 
 from __future__ import annotations
@@ -78,30 +80,29 @@ class Thresholds:
         do = wq.get("do_mg_l", {})
         tb = wq.get("turbidity_ntu", {})
 
-        # 수온
-        self.heater_on:       float = tc.get("actuator_heat_on",  25.5)
-        self.heater_off:      float = tc.get("temp_min",          21.0)
-        self.cooling_on:      float = tc.get("actuator_cool_on",  26.5)
-        self.cooling_off:     float = tc.get("temp_max",          24.0)
+        # 수온 — 명세서 4항 기준
+        self.heater_on:   float = tc.get("actuator_heat_on",  22.0)  # 22.0℃ 미만 가동
+        self.heater_off:  float = tc.get("actuator_heat_off", 23.5)  # 23.5℃ 도달 중단
+        self.cooling_on:  float = tc.get("actuator_cool_on",  25.5)  # 25.5℃ 초과 가동
+        self.cooling_off: float = tc.get("actuator_cool_off", 24.0)  # 24.0℃ 도달 중단
 
-        # DO (용존산소)
-        self.airpump_on:      float = do.get("actuator_on",       4.0)
-        self.airpump_off:     float = do.get("min",               5.0)
+        # DO (용존산소) — 명세서 4항 기준
+        self.airpump_on:  float = do.get("actuator_on",  5.5)  # 5.5mg/L 이하 가동
+        self.airpump_off: float = do.get("actuator_off", 7.0)  # 7.0mg/L 도달 중단
 
         # 탁도
-        self.filter_on:       float = tb.get("actuator_filter_on",  50.0)
-        self.filter_off:      float = tb.get("actuator_filter_off", 20.0)
+        self.filter_on:  float = tb.get("actuator_filter_on",  50.0)
+        self.filter_off: float = tb.get("actuator_filter_off", 20.0)
 
         # pH 경고 범위
         ph_cfg = wq.get("ph", {})
-        self.ph_min:          float = ph_cfg.get("min", 6.5)
-        self.ph_max:          float = ph_cfg.get("max", 8.0)
+        self.ph_min: float = ph_cfg.get("min", 6.5)
+        self.ph_max: float = ph_cfg.get("max", 8.0)
 
         # 행동 이상 판정
-        abr_cfg = (cfg or {}).get("analytics", {}).get("abr", {})
-        self.abr_critical:    float = 0.5   # POOR 상태
-        self.abr_warning:     float = 0.3   # WARNING 상태
-        self.top_ratio_warn:  float = 0.7   # 수면 과다 집군
+        self.abr_critical:   float = 0.5   # POOR 상태
+        self.abr_warning:    float = 0.3   # WARNING 상태
+        self.top_ratio_warn: float = 0.7   # 수면 과다 집군
 
     @classmethod
     def from_yaml(cls, yaml_path: str = "config.yaml") -> "Thresholds":
@@ -204,10 +205,9 @@ class DecisionEngine:
         """
         수온 기반 히터/냉각팬 제어.
 
-        설계 문서 3.3:
-            히터:   수온 25.5°C 미만 시 가동
-            냉각팬: 수온 26.5°C 초과 시 가동
-        히스테리시스 적용 (on/off 기준 분리)으로 채터링 방지.
+        명세서 4항:
+            히터   : 22.0℃ 미만 가동 / 23.5℃ 도달 중단
+            냉각팬 : 25.5℃ 초과 가동 / 24.0℃ 도달 중단
         """
         cmds = []
         t = s.temperature_c
@@ -217,9 +217,9 @@ class DecisionEngine:
             heater_on = True
             reason    = f"수온 {t:.1f}°C < 기준 {self.th.heater_on}°C"
             priority  = "critical" if t < 18.0 else "normal"
-        elif t >= self.th.heater_off + 1.0:   # 히스테리시스: 1°C 여유
+        elif t >= self.th.heater_off:   # 히스테리시스: heater_off(23.5℃) 도달 시 중단
             heater_on = False
-            reason    = f"수온 {t:.1f}°C 정상화"
+            reason    = f"수온 {t:.1f}°C → {self.th.heater_off}°C 도달, 중단"
             priority  = "normal"
         else:
             heater_on = self._prev["HEATER"]   # 유지
@@ -255,10 +255,11 @@ class DecisionEngine:
         self, s: "SensorData", alerts: list
     ) -> list[ControlCommand]:
         """
-        DO 기반 에어펌프 제어.
+        DO 기반 기포기(에어펌프) 제어.
 
-        설계 문서 3.3:
-            에어펌프: DO 4mg/L 이하 시 즉각 가동
+        명세서 4항:
+            기포기 : DO 5.5mg/L 이하 가동 / DO 7.0mg/L 도달 중단
+            (밀집으로 인한 돌연사 방지 — 최우선순위)
         """
         do = s.do_mg_l
 
@@ -373,9 +374,9 @@ class DecisionEngine:
         if not (self.th.ph_min <= s.ph <= self.th.ph_max):
             score -= 20
 
-        # DO (5mg/L 이하 -15, 4mg/L 이하 추가 -15)
-        if s.do_mg_l < 4.0:   score -= 30
-        elif s.do_mg_l < 5.0: score -= 15
+        # DO (5.5mg/L 이하 -15, 4.0mg/L 이하 추가 -15)
+        if s.do_mg_l < 4.0:    score -= 30
+        elif s.do_mg_l < 5.5:  score -= 15
 
         # 탁도 (50NTU 이상 -10, 100NTU 이상 추가 -10)
         if s.turbidity_ntu > 100: score -= 20

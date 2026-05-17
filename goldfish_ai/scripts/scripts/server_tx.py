@@ -34,6 +34,7 @@ from __future__ import annotations
 import logging
 import statistics
 import sys
+import time as _time
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
@@ -111,8 +112,11 @@ class ServerTx:
         # 전송 통계
         self._stats = {
             k: {"ok": 0, "fail": 0}
-            for k in ["sensor", "behavior", "feeding", "growth", "pattern"]
+            for k in ["sensor", "behavior", "feeding", "growth", "pattern", "event_log"]
         }
+
+        # EventLog 중복 전송 방지 (같은 메시지 60초 내 재전송 억제)
+        self._event_log_cache: dict[str, float] = {}
 
     # ══════════════════════════════════════════════════════════════════════
     # Pi IP 등록
@@ -509,6 +513,70 @@ class ServerTx:
         """
         if self._pattern_analyzer:
             self._pattern_analyzer.record(activity_level)
+
+    # ══════════════════════════════════════════════════════════════════════
+    # EventLog 전송 (AI 행동 이상 / 수질 위험 경고)
+    # ══════════════════════════════════════════════════════════════════════
+
+    def send_event_log(
+        self,
+        level:   str,   # "INFO" | "WARNING" | "DANGER"
+        message: str,
+        throttle_sec: float = 60.0,   # 같은 메시지 재전송 억제 시간(초)
+    ) -> bool:
+        """
+        AI 행동 분석 기반 경고를 서버 EventLog에 기록.
+        POST /monitoring/api/event-log/
+
+        [A 방식 역할]
+        센서 기반 제어는 서버가 auto_actions으로 처리하므로,
+        여기서는 AI 시각 분석으로만 감지 가능한 이상 이벤트만 전송:
+            - 수면 집군 (zone_top_ratio > 0.7) → 산소/먹이 요구 가능성
+            - 이상 행동 감지 (abr_score > 0.3)
+            - 수질 점수 위험 (< 50)
+
+        Args:
+            level        : "INFO" | "WARNING" | "DANGER"
+            message      : 경고 메시지
+            throttle_sec : 동일 메시지 재전송 억제 시간 (기본 60초)
+        """
+        # 중복 전송 억제 (같은 메시지가 throttle_sec 내에 재전송되면 스킵)
+        now = _time.time()
+        last_sent = self._event_log_cache.get(message, 0.0)
+        if now - last_sent < throttle_sec:
+            logger.debug(f"[ServerTx] EventLog 억제 ({throttle_sec}s): {message}")
+            return True
+        self._event_log_cache[message] = now
+
+        if self.mock:
+            logger.info(f"[ServerTx][Mock] send_event_log | [{level}] {message}")
+            return True
+
+        try:
+            import requests
+            from config import BASE_URL, HEADERS, TANK_ID
+
+            payload = {
+                "tank_id": TANK_ID,
+                "level":   level.upper(),
+                "message": message,
+            }
+            res = requests.post(
+                f"{BASE_URL}/api/event-log/",
+                json    = payload,
+                headers = HEADERS,
+                timeout = 5,
+            )
+            res.raise_for_status()
+            ok = True
+            logger.info(f"[ServerTx] EventLog 전송 | [{level}] {message}")
+
+        except Exception as e:
+            logger.error(f"[ServerTx] send_event_log 오류: {e}")
+            ok = False
+
+        self._stats["event_log"]["ok" if ok else "fail"] += 1
+        return ok
 
     # ══════════════════════════════════════════════════════════════════════
     # 통계 조회
