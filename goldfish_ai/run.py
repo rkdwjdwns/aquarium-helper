@@ -119,27 +119,48 @@ def _send_growth_records(tx: ServerTx):
 # ─────────────────────────────────────────────────────────────────────────
 # 제어 판단 루프 (별도 Thread)
 # ─────────────────────────────────────────────────────────────────────────
-def _decision_loop(sensor: SensorReader, engine: DecisionEngine):
+def _decision_loop(sensor: SensorReader, engine: DecisionEngine, tx: ServerTx):
     """
     10초마다 수질 + 행동 데이터로 제어 판단.
-    실제 GPIO 제어는 command_poller.py가 담당.
-    판단 결과는 로그로 출력.
+
+    [A 방식 — 서버 우선 제어]
+    decision.py 는 판단만 담당. 실제 릴레이 제어는 서버가 수행:
+        1. tx.send_sensor() → POST /api/sensor/
+        2. 서버가 히스테리시스 기준으로 auto_actions 결정
+        3. command_poller.py 가 GET /api/commands/ 폴링 → set_relay()
+
+    decision.py 는 서버가 모르는 AI 행동 분석 기반 경고(alerts)를
+    tx.send_event_log() 로 서버 EventLog 에 기록하는 역할만 수행.
     """
-    print("[Decision] 제어 판단 루프 시작")
+    print("[Decision] 제어 판단 루프 시작 (A 방식 — 서버 우선)")
     while not _stop_event.is_set():
         try:
-            sensor_data  = sensor.get_latest()
-            behavior     = get_bridge().get_latest()
-            result       = engine.decide(sensor_data, behavior)
+            sensor_data = sensor.get_latest()
+            behavior    = get_bridge().get_latest()
+            result      = engine.decide(sensor_data, behavior)
 
+            # ── 센서 데이터 서버 전송 (서버가 auto_actions 결정) ──────────
+            # command_poller.py 가 4초마다 GET /api/commands/ 로 결과를 받아
+            # set_relay() 를 호출함 → 릴레이 충돌 없음
+            if sensor_data.valid:
+                tx.send_sensor(sensor_data)
+
+            # ── AI 행동 분석 기반 경고 → 서버 EventLog 전송 ──────────────
+            # 수면 집군 / 이상 행동 등 센서만으로 감지 불가한 이벤트를 기록
             if result.alerts:
                 for alert in result.alerts:
                     print(f"[Decision] ⚠️  {alert}")
+                    tx.send_event_log(
+                        level   = "WARNING" if not result.behavior_ok else "INFO",
+                        message = alert,
+                    )
 
-            # TODO: decision.py 결과를 command_poller.py의 set_relay()로 연결
-            # 릴레이 배선 완료 후 아래 주석 해제
-            # for cmd in result.commands:
-            #     set_relay(cmd.device, cmd.is_on)
+            # ── 수질 점수 이상 시 DANGER 로그 ────────────────────────────
+            if result.water_score < 50:
+                tx.send_event_log(
+                    level   = "DANGER",
+                    message = f"수질 점수 위험: {result.water_score}/100",
+                )
 
         except Exception as e:
             print(f"[Decision] 오류: {e}")
@@ -199,7 +220,7 @@ def main():
     # ── 제어 판단 루프 (별도 Thread) ──────────────────────────────────────
     decision_thread = threading.Thread(
         target  = _decision_loop,
-        args    = (sensor, engine),
+        args    = (sensor, engine, tx),
         daemon  = True,
         name    = "DecisionLoop",
     )

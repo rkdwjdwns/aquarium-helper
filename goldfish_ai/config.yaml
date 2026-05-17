@@ -23,8 +23,8 @@ pipeline:
   speed_min_px_s: 0.0              # 속도 0 제거 (정지 프레임 노이즈)
 
   # 짧은 트랙 필터
-  min_track_frames: 8              # 이 값 미만 ID는 노이즈로 제거
-  expected_fish_count: 3           # 수조 내 실제 물고기 수
+  min_track_frames: 8              # 이 값 미만 ID는 노이즈로 제거 (논문 실측값 8프레임 기준)
+  expected_fish_count: 3           # 수조 내 실제 물고기 수 (대표 ID 추출 기준)
 
 # ─────────────────────────────────────────────────────────────────────────
 # Zone 기준 (카메라 위치 변경 시 이 값만 수정)
@@ -37,7 +37,7 @@ zone:
 # 센서 (ESP32 UART)
 # ─────────────────────────────────────────────────────────────────────────
 sensor:
-  port: "/dev/ttyACM0"             # ✅ ttyUSB0 → ttyACM0 (우리 ESP32)
+  port: "/dev/ttyUSB0"             # USB 연결 시
   # port: "/dev/ttyAMA0"           # GPIO 직결 시 (주석 해제)
   baudrate: 115200
   send_interval_hz: 1
@@ -110,36 +110,39 @@ feeding:
 # 분석 모듈 (미확정 항목 — 실측 후 수정)
 # ─────────────────────────────────────────────────────────────────────────
 analytics:
+  # FRS 가중치 (미확정 — 초기 실험 후 결정)
   frs:
     w1: 0.33      # RT (반응시간) 가중치
     w2: 0.33      # AR (활동증가율) 가중치
     w3: 0.34      # SF (수면접근빈도) 가중치
-    before_sec: 60.0
-    during_sec: 300.0
+    before_sec: 60.0   # [8] 급이 전 기준 구간 (초)
+    during_sec: 300.0  # [8] 급이 중 관찰 구간 (초)
 
+  # ABR (이상 행동율)
   abr:
-    sigma_threshold: 2.0
-    baseline_days: 3
+    sigma_threshold: 2.0           # |speed - μ| > N×σ
+    baseline_days: 3               # Baseline 수집 기간 (미확정)
 
+  # 미검출 처리
   detection:
-    missing_frame_threshold: 10
-    iou_overlap_threshold: 0.0
+    missing_frame_threshold: 10    # N프레임 이상 미검출 시 "미검출" 상태 (미확정)
+    iou_overlap_threshold: 0.0     # overlap 판단 기준
 
 # ─────────────────────────────────────────────────────────────────────────
 # 탁도 급이 피드백 (실측 보정 필요)
 # ─────────────────────────────────────────────────────────────────────────
 turbidity_feedback:
-  alpha: 0.5
-  eta: 0.8
-  k: 2.0
+  alpha: 0.5        # TSS_generated = alpha × 급이량(g)  — 실측 필요
+  eta: 0.8          # 여과 효율                          — 실측 필요
+  k: 2.0            # NTU = k × TSS                     — 실측 필요
 
 # ─────────────────────────────────────────────────────────────────────────
 # 서버 전송 정책
 # ─────────────────────────────────────────────────────────────────────────
 server:
-  enabled: true                    # ✅ false → true (실제 전송)
-  mock: false                      # ✅ true → false (실제 전송)
-  send_fields:
+  enabled: false                   # 실제 전송 시 true로 변경
+  mock: true                       # true=로그만 출력 / false=실제 전송
+  send_fields:                     # 전송 허용 필드 (참고용)
     - timestamp
     - fish_count
     - avg_speed
@@ -154,6 +157,6 @@ server:
 # ─────────────────────────────────────────────────────────────────────────
 storage:
   output_dir: "data"
-  flush_every: 30
-  baseline_csv: "data/activity_baseline.csv"
-  feeding_events_csv: "data/feeding_events.csv"
+  flush_every: 30                  # N행마다 CSV flush
+  baseline_csv: "data/activity_baseline.csv"   # [7] Baseline 저장 경로
+  feeding_events_csv: "data/feeding_events.csv" # [5] 급이 이벤트 저장 경로
