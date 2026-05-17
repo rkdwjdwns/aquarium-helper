@@ -37,7 +37,7 @@ zone:
 # 센서 (ESP32 UART)
 # ─────────────────────────────────────────────────────────────────────────
 sensor:
-  port: "/dev/ttyUSB0"             # USB 연결 시
+  port: "/dev/ttyACM0"             # USB 연결 시 (ESP32-S3)
   # port: "/dev/ttyAMA0"           # GPIO 직결 시 (주석 해제)
   baudrate: 115200
   send_interval_hz: 1
