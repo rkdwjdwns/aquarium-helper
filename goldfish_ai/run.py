@@ -104,12 +104,12 @@ def _send_growth_records(tx: ServerTx):
         # px_to_cm_ratio 미확정 → 실측 후 config.yaml에 반영 예정
         estimated_length = size_index * 0.5   # 임시 비율
 
-        for fish_id in range(1, 4):  # 3마리
+        for fish_id in range(1, 4):  # 3마리 (3~5cm 코멧 금붕어)
             tx.send_growth({
                 "fish_id":          fish_id,
                 "current_size_cm":  estimated_length,
                 "growth_per_day":   0.0,     # Baseline 쌓이면 계산
-                "estimated_stage":  "fry",   # 물고기 투입 초기
+                "estimated_stage":  "juvenile",  # 3~5cm 유어 단계
                 "moving_avg_size":  size_index,
             })
     except Exception as e:

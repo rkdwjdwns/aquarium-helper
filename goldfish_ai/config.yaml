@@ -83,14 +83,14 @@ lighting:
 # 성장 단계 (도메인 설계 문서 2.4)
 # ─────────────────────────────────────────────────────────────────────────
 growth_stage:
-  fry:                             # 치어
+  fry:                             # 치어 (~3cm 미만)
     length_max_cm: 3.0
     feed_ratio: 0.10               # 체중의 10%/day
     meals_per_day: 3
-  juvenile:                        # 유어
+  juvenile:                        # 유어 ★ 현재 단계 (3~5cm 코멧 금붕어 3마리)
     length_min_cm: 3.0
     length_max_cm: 7.0
-    feed_ratio: 0.03
+    feed_ratio: 0.03               # 체중의 3%/day
     meals_per_day: 3
   adult:                           # 성어
     length_min_cm: 7.0
