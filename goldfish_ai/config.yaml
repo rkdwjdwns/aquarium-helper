@@ -9,7 +9,7 @@ camera:
   backend: "v4l2"                  # Pi CSI 카메라: v4l2 / 일반 웹캠: auto
 
 model:
-  path: "models/goldfish_final_best.pt"
+  path: models/goldfish_finetuned_best.pt
   imgsz: 416                       # FPS 테스트 확정값
   conf: 0.4
   tracker: "bytetrack.yaml"

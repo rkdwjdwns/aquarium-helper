@@ -237,10 +237,11 @@ def main():
             now = time.time()
 
             if PI_CLIENT_OK and now - last_light_time >= LIGHT_INTERVAL:
-                try:
-                    control_light()
-                except Exception as e:
-                    print(f"[RUN] 조명 제어 오류: {e}")
+                # ※ 조명 자동 제어 임시 비활성화 (DB 상태 초기화 후 재활성화)
+                # try:
+                #     control_light()
+                # except Exception as e:
+                #     print(f"[RUN] 조명 제어 오류: {e}")
                 last_light_time = now
 
             if now - last_growth_time >= GROWTH_INTERVAL:
