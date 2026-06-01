@@ -54,7 +54,7 @@ from scripts.sensor_reader import SensorReader, check_water_quality
 from scripts.feeding_events import FeedingEventLogger
 from scripts.server_tx import ServerTx
 from scripts.behavior_bridge import get_bridge
-from scripts.auto_capture import set_shared_frame  # 파인튜닝 캡처 공유버퍼
+# from scripts.auto_capture import set_shared_frame  # 파인튜닝 캡처 비활성화
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -704,7 +704,7 @@ def run(args):
             if args.max_frames and frame_idx >= args.max_frames:
                 break
 
-            set_shared_frame(frame)  # 파인튜닝 캡처용 공유버퍼 업데이트
+            # set_shared_frame(frame)  # 파인튜닝 캡처 비활성화
 
             t0 = time.perf_counter()
             frame_resized = cv2.resize(frame, (cfg["imgsz"], cfg["imgsz"]))
