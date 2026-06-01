@@ -51,10 +51,10 @@ water_quality:
   temperature_c:
     min: 21.0
     max: 24.0
-    actuator_heat_on:  22.0        # 히터 가동 기준 (22.0℃ 미만)
-    actuator_heat_off: 23.5        # 히터 중단 기준
-    actuator_cool_on:  25.5        # 냉각팬 가동 기준 (25.5℃ 초과)
-    actuator_cool_off: 24.0        # 냉각팬 중단 기준
+    actuator_heat_on:  21.5        # 히터 가동 기준 (21.5℃ 미만)
+    actuator_heat_off: 24.0        # 히터 중단 기준 (히터 자체 온도조절기)
+    actuator_cool_on:  -999.0      # 냉각팬 상시 ON (조건 없음)
+    actuator_cool_off: 999.0       # 냉각팬 상시 ON (꺼지는 조건 없음)
 
   ph:
     min: 6.5
