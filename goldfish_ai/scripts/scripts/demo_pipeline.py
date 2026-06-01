@@ -41,6 +41,12 @@ from typing import Optional
 import cv2
 
 try:
+    from picamera2 import Picamera2
+    PICAMERA2_AVAILABLE = True
+except ImportError:
+    PICAMERA2_AVAILABLE = False
+
+try:
     from ultralytics import YOLO
 except ImportError:
     raise SystemExit("[ERROR] pip install ultralytics")
@@ -638,18 +644,33 @@ def run(args):
 
     model = YOLO(cfg["model"])
     src = int(args.source) if args.source.isdigit() else args.source
-    cap = cv2.VideoCapture(src, cv2.CAP_V4L2 if isinstance(src, int) else 0)
-    if not cap.isOpened():
-        raise SystemExit(f"[ERROR] 영상 소스를 열 수 없습니다: {args.source}")
+    picam2 = None
+    if isinstance(src, int) and PICAMERA2_AVAILABLE:
+        # rpicam (Pi CSI 카메라) — picamera2 사용
+        picam2 = Picamera2()
+        picam2_cfg = picam2.create_video_configuration(
+            main={"size": (1536, 864), "format": "RGB888"}
+        )
+        picam2.configure(picam2_cfg)
+        picam2.start()
+        cap = None
+        print("[Camera] picamera2로 CSI 카메라 열림")
+    else:
+        cap = cv2.VideoCapture(src)
+        if not cap.isOpened():
+            raise SystemExit(f"[ERROR] 영상 소스를 열 수 없습니다: {args.source}")
 
     # [4] 카메라 실측 FPS
-    cam_fps = cap.get(cv2.CAP_PROP_FPS)
-    if 5 < cam_fps < 60:
-        cfg["fps_ref"] = cam_fps
-        cfg["activity_window"] = max(10, int(cam_fps * 2))
-        print(f"  카메라 FPS: {cam_fps:.1f} → activity_window={cfg['activity_window']}")
+    if cap is not None:
+        cam_fps = cap.get(cv2.CAP_PROP_FPS)
+        if 5 < cam_fps < 60:
+            cfg["fps_ref"] = cam_fps
+            cfg["activity_window"] = max(10, int(cam_fps * 2))
+            print(f"  카메라 FPS: {cam_fps:.1f} → activity_window={cfg['activity_window']}")
+        else:
+            print(f"  FPS 감지 실패 → config 기본값: {cfg['fps_ref']}fps")
     else:
-        print(f"  FPS 감지 실패 → config 기본값: {cfg['fps_ref']}fps")
+        print(f"  picamera2 사용 → config 기본값: {cfg['fps_ref']}fps")
 
     extractor = FeatureExtractor(cfg)
     track_filter = TrackFilter(
@@ -696,7 +717,12 @@ def run(args):
 
     try:
         while True:
-            ret, frame = cap.read()
+            if picam2 is not None:
+                frame = picam2.capture_array()
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                ret = True
+            else:
+                ret, frame = cap.read()
             if not ret:
                 if isinstance(src, str):
                     break
@@ -864,6 +890,9 @@ def run(args):
         print("\n  중단됨 (Ctrl+C)")
 
     finally:
+        if picam2 is not None:
+        picam2.stop()
+    if cap is not None:
         cap.release()
         sensor.stop()
         if args.show:
