@@ -10,8 +10,8 @@ scripts/decision.py — 상태 판단 + 액추에이터 제어
     이 파일은 판단 로직만 담당하고 GPIO에 직접 접근하지 않음.
 
 하드웨어 설계 명세서 4항 — 릴레이 자동 제어 기준표:
-    히터       : 수온 22.0℃ 미만 가동 / 23.5℃ 도달 시 중단
-    냉각팬     : 수온 25.5℃ 초과 가동 / 24.0℃ 도달 시 중단
+    히터       : 수온 21.5℃ 미만 가동 / 24.0℃ 도달 시 중단 (자체 온도조절기)
+    냉각팬     : 상시 ON (매 루프 ON 명령)
     기포기     : DO 6.0mg/L 이하 가동 / DO 8.0mg/L 도달 시 중단
     여과기     : 탁도 50NTU 초과 가동 / 20NTU 이하 시 중단
     조명       : 오전 08:00 점등 / 오후 20:00 소등
@@ -83,10 +83,10 @@ class Thresholds:
         tb = wq.get("turbidity_ntu", {})
 
         # 수온 — 명세서 4항 기준
-        self.heater_on: float = tc.get("actuator_heat_on", 22.0)  # 22.0℃ 미만 가동
-        self.heater_off: float = tc.get("actuator_heat_off", 23.5)  # 23.5℃ 도달 중단
-        self.cooling_on: float = tc.get("actuator_cool_on", 25.5)  # 25.5℃ 초과 가동
-        self.cooling_off: float = tc.get("actuator_cool_off", 24.0)  # 24.0℃ 도달 중단
+        self.heater_on: float = tc.get("actuator_heat_on", 21.5)  # 21.5℃ 미만 가동
+        self.heater_off: float = tc.get("actuator_heat_off", 24.0)  # 24.0℃ 도달 중단 (자체 온도조절기)
+        self.cooling_on: float = tc.get("actuator_cool_on", -999.0)  # 상시 ON
+        self.cooling_off: float = tc.get("actuator_cool_off", 999.0)  # 상시 ON
 
         # DO (용존산소) — 명세서 4항 기준
         self.airpump_on: float = do.get("actuator_on", 6.0)  # 6.0mg/L 이하 가동
@@ -208,9 +208,8 @@ class DecisionEngine:
         """
         수온 기반 히터/냉각팬 제어.
 
-        명세서 4항:
-            히터   : 22.0℃ 미만 가동 / 23.5℃ 도달 중단
-            냉각팬 : 25.5℃ 초과 가동 / 24.0℃ 도달 중단
+        히터   : 21.5℃ 미만 가동 / 24.0℃ 도달 중단 (자체 온도조절기)
+        냉각팬 : 상시 ON (매 루프 ON 명령)
         """
         cmds = []
         t = s.temperature_c
@@ -220,7 +219,7 @@ class DecisionEngine:
             heater_on = True
             reason = f"수온 {t:.1f}°C < 기준 {self.th.heater_on}°C"
             priority = "critical" if t < 18.0 else "normal"
-        elif t >= self.th.heater_off:  # 히스테리시스: heater_off(23.5℃) 도달 시 중단
+        elif t >= self.th.heater_off:  # 히스테리시스: heater_off(24.0℃) 도달 시 중단
             heater_on = False
             reason = f"수온 {t:.1f}°C → {self.th.heater_off}°C 도달, 중단"
             priority = "normal"
@@ -233,21 +232,10 @@ class DecisionEngine:
             cmds.append(ControlCommand("HEATER", heater_on, reason, priority))
             self._prev["HEATER"] = heater_on
 
-        # 냉각팬
-        if t > self.th.cooling_on:
-            cooling_on = True
-            reason = f"수온 {t:.1f}°C > 기준 {self.th.cooling_on}°C"
-            priority = "critical" if t > 28.0 else "normal"
-            alerts.append(f"수온 과열: {t:.1f}°C")
-        elif t <= self.th.cooling_off:
-            cooling_on = False
-            reason = f"수온 {t:.1f}°C 정상화"
-            priority = "normal"
-        else:
-            cooling_on = self._prev["COOLING"]
-            reason = "유지"
-            priority = "low"
-
+        # 냉각팬 — 상시 ON (매 루프마다 ON 명령)
+        cooling_on = True
+        reason = "냉각팬 상시 가동"
+        priority = "normal"
         if cooling_on != self._prev["COOLING"]:
             cmds.append(ControlCommand("COOLING", cooling_on, reason, priority))
             self._prev["COOLING"] = cooling_on
