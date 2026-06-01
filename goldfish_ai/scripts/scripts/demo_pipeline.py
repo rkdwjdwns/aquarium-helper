@@ -891,9 +891,9 @@ def run(args):
 
     finally:
         if picam2 is not None:
-        picam2.stop()
-    if cap is not None:
-        cap.release()
+            picam2.stop()
+        if cap is not None:
+            cap.release()
         sensor.stop()
         if args.show:
             cv2.destroyAllWindows()
