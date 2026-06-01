@@ -110,7 +110,7 @@ def load_config(path: str = "config.yaml") -> dict:
 
 def _default_config() -> dict:
     return {
-        "model": "models/goldfish_final_best.pt",
+        "model": "models/goldfish_finetuned_best.pt",
         "imgsz": 416,
         "conf": 0.4,
         "tracker": "bytetrack.yaml",
