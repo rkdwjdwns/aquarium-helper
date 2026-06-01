@@ -12,6 +12,7 @@ model:
   path: models/goldfish_finetuned_best.pt
   imgsz: 416                       # FPS 테스트 확정값
   conf: 0.4
+  iou: 0.45                        # NMS 중복박스 제거 강화
   tracker: "bytetrack.yaml"
 
 pipeline:
@@ -50,8 +51,10 @@ water_quality:
   temperature_c:
     min: 21.0
     max: 24.0
-    actuator_heat_on:  25.5        # 히터 가동 기준
-    actuator_cool_on:  26.5        # 냉각팬 가동 기준
+    actuator_heat_on:  22.0        # 히터 가동 기준 (22.0℃ 미만)
+    actuator_heat_off: 23.5        # 히터 중단 기준
+    actuator_cool_on:  25.5        # 냉각팬 가동 기준 (25.5℃ 초과)
+    actuator_cool_off: 24.0        # 냉각팬 중단 기준
 
   ph:
     min: 6.5
@@ -63,7 +66,8 @@ water_quality:
     min: 5.0
     max: 8.0
     critical_min: 4.0              # 에어펌프 즉각 가동
-    actuator_on: 4.0
+    actuator_on:  6.0              # 6.0mg/L 이하 → 에어펌프 ON
+    actuator_off: 8.0              # 8.0mg/L 이상 → 에어펌프 OFF
 
   turbidity_ntu:
     max: 50.0                      # 여과기 가동
