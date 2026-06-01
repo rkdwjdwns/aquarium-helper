@@ -12,7 +12,7 @@ scripts/decision.py — 상태 판단 + 액추에이터 제어
 하드웨어 설계 명세서 4항 — 릴레이 자동 제어 기준표:
     히터       : 수온 22.0℃ 미만 가동 / 23.5℃ 도달 시 중단
     냉각팬     : 수온 25.5℃ 초과 가동 / 24.0℃ 도달 시 중단
-    기포기     : DO 5.5mg/L 이하 가동 / DO 7.0mg/L 도달 시 중단
+    기포기     : DO 6.0mg/L 이하 가동 / DO 8.0mg/L 도달 시 중단
     여과기     : 탁도 50NTU 초과 가동 / 20NTU 이하 시 중단
     조명       : 오전 08:00 점등 / 오후 20:00 소등
     자동 급이기: 하루 3회 정량 / 급이 후 10분간 여과기 정지
@@ -45,11 +45,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ControlCommand:
     """단일 액추에이터 제어 명령"""
-    device:    str    # "HEATER" | "COOLING" | "FILTER" | "AIR_PUMP" | "FEEDER" | "LIGHT"
-    is_on:     bool
-    reason:    str    # 판단 근거 (로그용)
-    priority:  str    # "critical" | "normal" | "low"
-    timestamp: float  = field(default_factory=time.time)
+
+    device: str  # "HEATER" | "COOLING" | "FILTER" | "AIR_PUMP" | "FEEDER" | "LIGHT"
+    is_on: bool
+    reason: str  # 판단 근거 (로그용)
+    priority: str  # "critical" | "normal" | "low"
+    timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -58,11 +59,12 @@ class ControlCommand:
 @dataclass
 class DecisionResult:
     """전체 판단 결과"""
-    timestamp:    float
-    commands:     list[ControlCommand]
-    alerts:       list[str]    # 경고 메시지 목록
-    water_score:  int          # 수질 종합 점수 (0~100)
-    behavior_ok:  bool         # 행동 정상 여부
+
+    timestamp: float
+    commands: list[ControlCommand]
+    alerts: list[str]  # 경고 메시지 목록
+    water_score: int  # 수질 종합 점수 (0~100)
+    behavior_ok: bool  # 행동 정상 여부
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -81,17 +83,17 @@ class Thresholds:
         tb = wq.get("turbidity_ntu", {})
 
         # 수온 — 명세서 4항 기준
-        self.heater_on:   float = tc.get("actuator_heat_on",  22.0)  # 22.0℃ 미만 가동
-        self.heater_off:  float = tc.get("actuator_heat_off", 23.5)  # 23.5℃ 도달 중단
-        self.cooling_on:  float = tc.get("actuator_cool_on",  25.5)  # 25.5℃ 초과 가동
+        self.heater_on: float = tc.get("actuator_heat_on", 22.0)  # 22.0℃ 미만 가동
+        self.heater_off: float = tc.get("actuator_heat_off", 23.5)  # 23.5℃ 도달 중단
+        self.cooling_on: float = tc.get("actuator_cool_on", 25.5)  # 25.5℃ 초과 가동
         self.cooling_off: float = tc.get("actuator_cool_off", 24.0)  # 24.0℃ 도달 중단
 
         # DO (용존산소) — 명세서 4항 기준
-        self.airpump_on:  float = do.get("actuator_on",  5.5)  # 5.5mg/L 이하 가동
-        self.airpump_off: float = do.get("actuator_off", 7.0)  # 7.0mg/L 도달 중단
+        self.airpump_on: float = do.get("actuator_on", 6.0)  # 6.0mg/L 이하 가동
+        self.airpump_off: float = do.get("actuator_off", 8.0)  # 8.0mg/L 도달 중단
 
         # 탁도
-        self.filter_on:  float = tb.get("actuator_filter_on",  50.0)
+        self.filter_on: float = tb.get("actuator_filter_on", 50.0)
         self.filter_off: float = tb.get("actuator_filter_off", 20.0)
 
         # pH 경고 범위
@@ -100,15 +102,16 @@ class Thresholds:
         self.ph_max: float = ph_cfg.get("max", 8.0)
 
         # 행동 이상 판정
-        self.abr_critical:   float = 0.5   # POOR 상태
-        self.abr_warning:    float = 0.3   # WARNING 상태
-        self.top_ratio_warn: float = 0.7   # 수면 과다 집군
+        self.abr_critical: float = 0.5  # POOR 상태
+        self.abr_warning: float = 0.3  # WARNING 상태
+        self.top_ratio_warn: float = 0.7  # 수면 과다 집군
 
     @classmethod
     def from_yaml(cls, yaml_path: str = "config.yaml") -> "Thresholds":
         """config.yaml에서 임계값 로드."""
         try:
             import yaml
+
             with open(yaml_path, encoding="utf-8") as f:
                 cfg = yaml.safe_load(f)
             return cls(cfg)
@@ -133,12 +136,12 @@ class DecisionEngine:
 
         # 이전 상태 (채터링 방지 — 상태가 바뀔 때만 명령 생성)
         self._prev: dict[str, bool] = {
-            "HEATER":   False,
-            "COOLING":  False,
-            "FILTER":   False,
+            "HEATER": False,
+            "COOLING": False,
+            "FILTER": False,
             "AIR_PUMP": False,
-            "FEEDER":   False,
-            "LIGHT":    False,
+            "FEEDER": False,
+            "LIGHT": False,
         }
 
     # ══════════════════════════════════════════════════════════════════════
@@ -147,7 +150,7 @@ class DecisionEngine:
 
     def decide(
         self,
-        sensor_data:     "SensorData",
+        sensor_data: "SensorData",
         behavior_result: Optional[dict] = None,
     ) -> DecisionResult:
         """
@@ -161,7 +164,7 @@ class DecisionEngine:
             DecisionResult (commands, alerts, water_score, behavior_ok)
         """
         commands: list[ControlCommand] = []
-        alerts:   list[str]            = []
+        alerts: list[str] = []
         behavior = behavior_result or {}
 
         if sensor_data.valid:
@@ -188,11 +191,11 @@ class DecisionEngine:
                 logger.warning(f"[Decision] ⚠️  {alert}")
 
         return DecisionResult(
-            timestamp    = time.time(),
-            commands     = commands,
-            alerts       = alerts,
-            water_score  = water_score,
-            behavior_ok  = behavior_ok,
+            timestamp=time.time(),
+            commands=commands,
+            alerts=alerts,
+            water_score=water_score,
+            behavior_ok=behavior_ok,
         )
 
     # ══════════════════════════════════════════════════════════════════════
@@ -215,16 +218,16 @@ class DecisionEngine:
         # 히터
         if t < self.th.heater_on:
             heater_on = True
-            reason    = f"수온 {t:.1f}°C < 기준 {self.th.heater_on}°C"
-            priority  = "critical" if t < 18.0 else "normal"
-        elif t >= self.th.heater_off:   # 히스테리시스: heater_off(23.5℃) 도달 시 중단
+            reason = f"수온 {t:.1f}°C < 기준 {self.th.heater_on}°C"
+            priority = "critical" if t < 18.0 else "normal"
+        elif t >= self.th.heater_off:  # 히스테리시스: heater_off(23.5℃) 도달 시 중단
             heater_on = False
-            reason    = f"수온 {t:.1f}°C → {self.th.heater_off}°C 도달, 중단"
-            priority  = "normal"
+            reason = f"수온 {t:.1f}°C → {self.th.heater_off}°C 도달, 중단"
+            priority = "normal"
         else:
-            heater_on = self._prev["HEATER"]   # 유지
-            reason    = "유지"
-            priority  = "low"
+            heater_on = self._prev["HEATER"]  # 유지
+            reason = "유지"
+            priority = "low"
 
         if heater_on != self._prev["HEATER"]:
             cmds.append(ControlCommand("HEATER", heater_on, reason, priority))
@@ -233,17 +236,17 @@ class DecisionEngine:
         # 냉각팬
         if t > self.th.cooling_on:
             cooling_on = True
-            reason     = f"수온 {t:.1f}°C > 기준 {self.th.cooling_on}°C"
-            priority   = "critical" if t > 28.0 else "normal"
+            reason = f"수온 {t:.1f}°C > 기준 {self.th.cooling_on}°C"
+            priority = "critical" if t > 28.0 else "normal"
             alerts.append(f"수온 과열: {t:.1f}°C")
         elif t <= self.th.cooling_off:
             cooling_on = False
-            reason     = f"수온 {t:.1f}°C 정상화"
-            priority   = "normal"
+            reason = f"수온 {t:.1f}°C 정상화"
+            priority = "normal"
         else:
             cooling_on = self._prev["COOLING"]
-            reason     = "유지"
-            priority   = "low"
+            reason = "유지"
+            priority = "low"
 
         if cooling_on != self._prev["COOLING"]:
             cmds.append(ControlCommand("COOLING", cooling_on, reason, priority))
@@ -251,30 +254,28 @@ class DecisionEngine:
 
         return cmds
 
-    def _decide_airpump(
-        self, s: "SensorData", alerts: list
-    ) -> list[ControlCommand]:
+    def _decide_airpump(self, s: "SensorData", alerts: list) -> list[ControlCommand]:
         """
         DO 기반 기포기(에어펌프) 제어.
 
         명세서 4항:
-            기포기 : DO 5.5mg/L 이하 가동 / DO 7.0mg/L 도달 중단
+            기포기 : DO 6.0mg/L 이하 가동 / DO 8.0mg/L 도달 중단
             (밀집으로 인한 돌연사 방지 — 최우선순위)
         """
         do = s.do_mg_l
 
         if do <= self.th.airpump_on:
-            is_on    = True
-            reason   = f"DO {do:.1f}mg/L ≤ 임계값 {self.th.airpump_on}"
+            is_on = True
+            reason = f"DO {do:.1f}mg/L ≤ 임계값 {self.th.airpump_on}"
             priority = "critical"
             alerts.append(f"DO 위험 수준: {do:.1f}mg/L (즉각 에어펌프 가동)")
         elif do >= self.th.airpump_off:
-            is_on    = False
-            reason   = f"DO {do:.1f}mg/L ≥ 정상 {self.th.airpump_off}"
+            is_on = False
+            reason = f"DO {do:.1f}mg/L ≥ 정상 {self.th.airpump_off}"
             priority = "normal"
         else:
-            is_on    = self._prev["AIR_PUMP"]
-            reason   = "유지"
+            is_on = self._prev["AIR_PUMP"]
+            reason = "유지"
             priority = "low"
 
         if is_on != self._prev["AIR_PUMP"]:
@@ -282,9 +283,7 @@ class DecisionEngine:
             return [ControlCommand("AIR_PUMP", is_on, reason, priority)]
         return []
 
-    def _decide_filter(
-        self, s: "SensorData", alerts: list
-    ) -> list[ControlCommand]:
+    def _decide_filter(self, s: "SensorData", alerts: list) -> list[ControlCommand]:
         """
         탁도 기반 여과기 제어.
 
@@ -294,18 +293,18 @@ class DecisionEngine:
         ntu = s.turbidity_ntu
 
         if ntu > self.th.filter_on:
-            is_on    = True
-            reason   = f"탁도 {ntu:.1f}NTU > {self.th.filter_on}"
+            is_on = True
+            reason = f"탁도 {ntu:.1f}NTU > {self.th.filter_on}"
             priority = "normal"
             if ntu > 100:
                 alerts.append(f"탁도 스트레스 수준: {ntu:.1f}NTU")
         elif ntu <= self.th.filter_off:
-            is_on    = False
-            reason   = f"탁도 {ntu:.1f}NTU ≤ {self.th.filter_off}"
+            is_on = False
+            reason = f"탁도 {ntu:.1f}NTU ≤ {self.th.filter_off}"
             priority = "low"
         else:
-            is_on    = self._prev["FILTER"]
-            reason   = "유지"
+            is_on = self._prev["FILTER"]
+            reason = "유지"
             priority = "low"
 
         if is_on != self._prev["FILTER"]:
@@ -331,19 +330,22 @@ class DecisionEngine:
             - 이상 행동(is_anomaly) → 경고 생성
         """
         cmds = []
-        top_ratio  = behavior.get("zone_top_ratio", 0.0)
+        top_ratio = behavior.get("zone_top_ratio", 0.0)
         is_anomaly = behavior.get("is_anomaly", False)
-        abr_score  = behavior.get("abr_score", 0.0)
-        status     = behavior.get("status", "NORMAL")
+        abr_score = behavior.get("abr_score", 0.0)
+        status = behavior.get("status", "NORMAL")
 
         # 수면 과다 집군 → 에어펌프 추가 가동
         if top_ratio > self.th.top_ratio_warn:
             if not self._prev["AIR_PUMP"]:
-                cmds.append(ControlCommand(
-                    "AIR_PUMP", True,
-                    f"수면 집군 {top_ratio:.0%} — 산소 부족 의심",
-                    "normal",
-                ))
+                cmds.append(
+                    ControlCommand(
+                        "AIR_PUMP",
+                        True,
+                        f"수면 집군 {top_ratio:.0%} — 산소 부족 의심",
+                        "normal",
+                    )
+                )
                 self._prev["AIR_PUMP"] = True
             alerts.append(f"수면 과다 집군: {top_ratio:.0%} — DO 확인 필요")
 
@@ -375,12 +377,16 @@ class DecisionEngine:
             score -= 20
 
         # DO (5.5mg/L 이하 -15, 4.0mg/L 이하 추가 -15)
-        if s.do_mg_l < 4.0:    score -= 30
-        elif s.do_mg_l < 5.5:  score -= 15
+        if s.do_mg_l < 4.0:
+            score -= 30
+        elif s.do_mg_l < 5.5:
+            score -= 15
 
         # 탁도 (50NTU 이상 -10, 100NTU 이상 추가 -10)
-        if s.turbidity_ntu > 100: score -= 20
-        elif s.turbidity_ntu > 50: score -= 10
+        if s.turbidity_ntu > 100:
+            score -= 20
+        elif s.turbidity_ntu > 50:
+            score -= 10
 
         return max(score, 0)
 
@@ -399,11 +405,13 @@ class DecisionEngine:
 if __name__ == "__main__":
     import sys
     from pathlib import Path
+
     ROOT = Path(__file__).resolve().parent.parent
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
 
     import logging
+
     logging.basicConfig(level=logging.INFO)
 
     from scripts.sensor_reader import SensorData
@@ -413,43 +421,69 @@ if __name__ == "__main__":
     # 정상 수질 테스트
     print("\n[테스트 1] 정상 수질")
     normal = SensorData(
-        timestamp=0, temperature_c=22.5, ph=7.2,
-        do_mg_l=6.8, turbidity_ntu=12.3, valid=True
+        timestamp=0,
+        temperature_c=22.5,
+        ph=7.2,
+        do_mg_l=6.8,
+        turbidity_ntu=12.3,
+        valid=True,
     )
     result = engine.decide(normal)
-    print(f"  수질점수: {result.water_score} | 명령: {len(result.commands)}개 | 경고: {result.alerts}")
+    print(
+        f"  수질점수: {result.water_score} | 명령: {len(result.commands)}개 | 경고: {result.alerts}"
+    )
 
     # DO 위험 테스트
     print("\n[테스트 2] DO 위험 (3.5mg/L)")
     danger = SensorData(
-        timestamp=0, temperature_c=22.5, ph=7.2,
-        do_mg_l=3.5, turbidity_ntu=12.3, valid=True
+        timestamp=0,
+        temperature_c=22.5,
+        ph=7.2,
+        do_mg_l=3.5,
+        turbidity_ntu=12.3,
+        valid=True,
     )
     result = engine.decide(danger)
-    print(f"  수질점수: {result.water_score} | 명령: {len(result.commands)}개 | 경고: {result.alerts}")
+    print(
+        f"  수질점수: {result.water_score} | 명령: {len(result.commands)}개 | 경고: {result.alerts}"
+    )
     for cmd in result.commands:
-        print(f"  → {cmd.device} {'ON' if cmd.is_on else 'OFF'} [{cmd.priority}] {cmd.reason}")
+        print(
+            f"  → {cmd.device} {'ON' if cmd.is_on else 'OFF'} [{cmd.priority}] {cmd.reason}"
+        )
 
     # 고온 테스트
     print("\n[테스트 3] 고온 (27°C)")
     hot = SensorData(
-        timestamp=0, temperature_c=27.0, ph=7.2,
-        do_mg_l=6.0, turbidity_ntu=15.0, valid=True
+        timestamp=0,
+        temperature_c=27.0,
+        ph=7.2,
+        do_mg_l=6.0,
+        turbidity_ntu=15.0,
+        valid=True,
     )
     result = engine.decide(hot)
-    print(f"  수질점수: {result.water_score} | 명령: {len(result.commands)}개 | 경고: {result.alerts}")
+    print(
+        f"  수질점수: {result.water_score} | 명령: {len(result.commands)}개 | 경고: {result.alerts}"
+    )
     for cmd in result.commands:
-        print(f"  → {cmd.device} {'ON' if cmd.is_on else 'OFF'} [{cmd.priority}] {cmd.reason}")
+        print(
+            f"  → {cmd.device} {'ON' if cmd.is_on else 'OFF'} [{cmd.priority}] {cmd.reason}"
+        )
 
     # 행동 이상 테스트
     print("\n[테스트 4] 행동 이상 (수면 집군)")
     behavior = {
-        "zone_top_ratio": 0.75, "is_anomaly": True,
-        "abr_score": 0.35, "status": "WARNING"
+        "zone_top_ratio": 0.75,
+        "is_anomaly": True,
+        "abr_score": 0.35,
+        "status": "WARNING",
     }
     result = engine.decide(normal, behavior)
     print(f"  behavior_ok: {result.behavior_ok} | 경고: {result.alerts}")
     for cmd in result.commands:
-        print(f"  → {cmd.device} {'ON' if cmd.is_on else 'OFF'} [{cmd.priority}] {cmd.reason}")
+        print(
+            f"  → {cmd.device} {'ON' if cmd.is_on else 'OFF'} [{cmd.priority}] {cmd.reason}"
+        )
 
     print(f"\n  현재 장치 상태: {engine.get_device_states()}")
