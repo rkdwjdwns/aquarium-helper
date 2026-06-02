@@ -39,8 +39,8 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# pi_client 경로 추가
-PI_CLIENT = ROOT.parent / "pi_client"
+# pi_client 경로 추가 (v6: goldfish_ai/ 안으로 이동됨)
+PI_CLIENT = ROOT / "pi_client"
 if PI_CLIENT.exists() and str(PI_CLIENT) not in sys.path:
     sys.path.insert(0, str(PI_CLIENT))
 
