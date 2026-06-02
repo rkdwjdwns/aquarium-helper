@@ -6,3 +6,9 @@ __pycache__/
 *.py[cod]
 .env
 staticfiles/
+
+node_modules/
+package-lock.json
+package.json
+goldfish_ai/models/*.pt
+data/
