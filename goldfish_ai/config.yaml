@@ -7,6 +7,7 @@
 camera:
   source: 0                        # 카메라 인덱스 (영상 파일이면 경로 입력)
   backend: "v4l2"                  # Pi CSI 카메라: v4l2 / 일반 웹캠: auto
+  px_to_cm_ratio: 0.0              # 1px당 cm 환산 비율 — 0이면 성장 기록 스킵 (카메라 고정 후 실측 필수)
 
 model:
   path: models/goldfish_finetuned_best.pt
@@ -81,7 +82,7 @@ water_quality:
 lighting:
   day_hours: 8                     # 주간 조명 시간 (최대 10시간)
   on_hour: 8                       # 조명 켜는 시각 (8시)
-  off_hour: 20                     # 조명 끄는 시각 (20시)
+  off_hour: 16                     # 조명 끄는 시각 (16시)
 
 # ─────────────────────────────────────────────────────────────────────────
 # 성장 단계 (도메인 설계 문서 2.4)
@@ -121,7 +122,6 @@ analytics:
     w3: 0.34      # SF (수면접근빈도) 가중치
     before_sec: 60.0   # [8] 급이 전 기준 구간 (초)
     during_sec: 300.0  # [8] 급이 중 관찰 구간 (초)
-
   # ABR (이상 행동율)
   abr:
     sigma_threshold: 2.0           # |speed - μ| > N×σ
