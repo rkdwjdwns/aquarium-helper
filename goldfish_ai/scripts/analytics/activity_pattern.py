@@ -136,8 +136,10 @@ class MultiDayActivityAnalyzer:
             logger.warning(f"[ActivityPattern] 날짜 필터 후 데이터 없음 ({start_date} ~ {end_date})")
             return df
 
-        # zone 재계산 (config 기반 — 원본 1/3, 2/3 하드코딩 교체)
-        df["zone"] = df["center_y"].apply(self._classify_zone)
+        # zone: CSV에 이미 있으면 그대로 사용, 없으면 config 기반 재계산
+        if "zone" not in df.columns:
+            df["zone"] = df["center_y"].apply(self._classify_zone)
+        # else: fish_metrics CSV의 zone 컬럼을 그대로 신뢰 (파이프라인 기준 일관성 유지)
 
         # 컬럼 통일: activity / speed_px_s
         if "activity" not in df.columns:

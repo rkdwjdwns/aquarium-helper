@@ -29,10 +29,15 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
-import pandas as pd
-
 logger = logging.getLogger(__name__)
+
+try:
+    import numpy as np
+    import pandas as pd
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    logger.warning("[ABR] numpy/pandas 없음 — ABRAnalyzer 비활성화 (pip install numpy pandas)")
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -115,6 +120,10 @@ class ABRAnalyzer:
             feeding_events.csv 연동 후 구현 예정.
             현재는 전체 구간을 Baseline으로 사용.
         """
+        if not NUMPY_AVAILABLE:
+            logger.error("[ABR] fit: numpy/pandas 없음 — pip install numpy pandas")
+            return self
+
         if baseline_df.empty:
             logger.warning("[ABR] fit: Baseline 데이터 없음")
             return self
@@ -164,6 +173,13 @@ class ABRAnalyzer:
         """
         import time
         ts = timestamp or time.time()
+
+        if not NUMPY_AVAILABLE:
+            return ABRResult(
+                timestamp=ts, rate=0, n_anomaly=0, n_total=0,
+                mu=0, sigma=0, threshold=self.threshold,
+                valid=False, reason="numpy/pandas 미설치 — pip install numpy pandas",
+            )
 
         if not self._fitted:
             return ABRResult(

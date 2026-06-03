@@ -137,9 +137,9 @@ class FeedingResponseAnalyzer:
 
     def __init__(
         self,
-        w_response_time: float = 0.30,   # 미확정 — config.yaml FRS.w1
-        w_activity:      float = 0.40,   # 미확정 — config.yaml FRS.w2
-        w_surface:       float = 0.30,   # 미확정 — config.yaml FRS.w3
+        w_response_time: float = 0.33,   # config.yaml analytics.frs.w1
+        w_activity:      float = 0.33,   # config.yaml analytics.frs.w2
+        w_surface:       float = 0.34,   # config.yaml analytics.frs.w3
         before_sec:      float = 60.0,
         during_sec:      float = 300.0,
         csv_path:        str   = "data/feeding_response.csv",
