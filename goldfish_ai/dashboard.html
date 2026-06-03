@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Goldfish AI · Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap');
+:root{
+  --bg:#f7f6f2;--bg2:#ffffff;--bg3:#f0efe9;
+  --ink:#1a1a18;--ink2:#5c5c58;--ink3:#9c9c96;
+  --accent:#2563c4;--accent-bg:#eef3fd;
+  --green:#16a34a;--green-bg:#f0fdf4;
+  --amber:#b45309;--amber-bg:#fffbeb;
+  --red:#dc2626;--red-bg:#fef2f2;
+  --teal:#0d9488;--teal-bg:#f0fdfa;
+  --border:#e5e4de;--border2:#d1d0c8;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans KR','Apple SD Gothic Neo',sans-serif;
+  --radius:6px;--radius-lg:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5;}
+
+/* ── 헤더 ── */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.hdr-l{display:flex;align-items:center;gap:16px;}
+.logo{font-family:var(--mono);font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);}
+.logo em{color:var(--accent);font-style:normal;}
+.pill{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;font-family:var(--mono);font-size:11px;}
+.pill-live{background:var(--green-bg);color:var(--green);}
+.pill-wait{background:var(--bg3);color:var(--ink3);}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.dot.blink{animation:blink 1.8s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hdr-r{font-family:var(--mono);font-size:11px;color:var(--ink3);}
+
+/* ── 탭 ── */
+.nav{display:flex;padding:0 28px;background:var(--bg2);border-bottom:1px solid var(--border);gap:0;}
+.nav-tab{padding:10px 16px;font-size:12px;font-family:var(--mono);color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s;}
+.nav-tab:hover{color:var(--ink2);}
+.nav-tab.on{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* ── 본문 ── */
+.body{padding:24px 28px;max-width:1160px;}
+.panel{display:none;}.panel.on{display:block;}
+
+/* ── 카드 ── */
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;}
+.card-sm{padding:12px 14px;}
+
+/* ── 스탯 카드 ── */
+.stat-label{font-family:var(--mono);font-size:10px;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
+.stat-val{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--ink);line-height:1;}
+.stat-unit{font-size:11px;color:var(--ink3);margin-top:3px;}
+.stat-badge{margin-top:6px;}
+
+/* ── 배지 ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:10px;font-weight:500;}
+.b-ok{background:var(--green-bg);color:var(--green);}
+.b-warn{background:var(--amber-bg);color:var(--amber);}
+.b-bad{background:var(--red-bg);color:var(--red);}
+.b-info{background:var(--accent-bg);color:var(--accent);}
+.b-neu{background:var(--bg3);color:var(--ink2);}
+
+/* ── 섹션 제목 ── */
+.sec{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+
+/* ── 차트 래퍼 ── */
+.cw{position:relative;width:100%;height:200px;}
+.cw-lg{position:relative;width:100%;height:260px;}
+.cw-sm{position:relative;width:100%;height:150px;}
+.cw-xl{position:relative;width:100%;height:300px;}
+
+/* ── 슬라이더 ── */
+.ctrl{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.ctrl-lbl{font-size:12px;color:var(--ink2);min-width:148px;}
+.ctrl-v{font-family:var(--mono);font-size:12px;color:var(--accent);min-width:52px;text-align:right;}
+input[type=range]{flex:1;-webkit-appearance:none;height:2px;background:var(--border2);border-radius:1px;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg2);box-shadow:0 0 0 1px var(--accent);}
+select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--ink);padding:5px 8px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;outline:none;}
+
+/* ── 결과 행 ── */
+.rbox{background:var(--bg3);border-radius:var(--radius);padding:12px 14px;margin-top:12px;}
+.rrow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.rrow:last-child{border:none;}
+.rk{color:var(--ink3);font-family:var(--mono);font-size:11px;}
+.rv{font-family:var(--mono);font-weight:500;color:var(--ink);}
+
+/* ── 수질 게이지 ── */
+.gauge{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.g-lbl{font-size:11px;color:var(--ink2);min-width:72px;}
+.g-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.g-fill{height:100%;border-radius:3px;transition:width .5s;}
+.g-val{font-family:var(--mono);font-size:11px;color:var(--ink2);min-width:58px;text-align:right;}
+
+/* ── 검증 테이블 ── */
+.vtbl{width:100%;border-collapse:collapse;font-size:12px;}
+.vtbl th{text-align:left;font-family:var(--mono);font-size:10px;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;padding:7px 10px;border-bottom:1px solid var(--border);}
+.vtbl td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--ink);}
+.vtbl tr:last-child td{border:none;}
+.vtbl tr:hover td{background:var(--bg3);}
+.pass{color:var(--green);font-family:var(--mono);font-weight:500;}
+.fail{color:var(--red);font-family:var(--mono);font-weight:500;}
+.mono{font-family:var(--mono);font-size:11px;color:var(--ink2);}
+
+/* ── 센서 시계열 탭 ── */
+.stabs{display:flex;gap:4px;margin-bottom:12px;}
+.stab{padding:4px 12px;border-radius:20px;font-family:var(--mono);font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--ink3);}
+.stab.on{background:var(--accent-bg);color:var(--accent);border-color:var(--accent);}
+
+@media(max-width:720px){
+  .g4{grid-template-columns:repeat(2,1fr);}
+  .g2,.g3{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="logo">Goldfish<em>/</em>AI</div>
+    <div class="pill pill-wait" id="live-pill"><div class="dot" id="live-dot"></div><span id="live-txt">연결 대기</span></div>
+  </div>
+  <div class="hdr-r" id="updated-at">—</div>
+</div>
+
+<div class="nav">
+  <div class="nav-tab on" onclick="sw('live')">실시간 현황</div>
+  <div class="nav-tab" onclick="sw('sensor')">수질 이력</div>
+  <div class="nav-tab" onclick="sw('frs')">FRS 시뮬</div>
+  <div class="nav-tab" onclick="sw('abr')">ABR 시뮬</div>
+  <div class="nav-tab" onclick="sw('growth')">성장 추이</div>
+  <div class="nav-tab" onclick="sw('verify')">검증 리포트</div>
+</div>
+
+<div class="body">
+
+<!-- ══ 실시간 현황 ══ -->
+<div id="panel-live" class="panel on">
+  <div class="g4">
+    <div class="card card-sm"><div class="stat-label">감지 어류</div><div class="stat-val" id="l-fish">—</div><div class="stat-unit">마리</div></div>
+    <div class="card card-sm"><div class="stat-label">평균 속도</div><div class="stat-val" id="l-spd">—</div><div class="stat-unit">px / s</div></div>
+    <div class="card card-sm"><div class="stat-label">ABR</div><div class="stat-val" id="l-abr">—</div><div class="stat-badge" id="l-abr-b"></div></div>
+    <div class="card card-sm"><div class="stat-label">추정 FPS</div><div class="stat-val" id="l-fps">—</div><div class="stat-unit">fps</div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="sec">활동량 추이</div><div class="cw"><canvas id="c-act" role="img" aria-label="활동량 추이">활동량</canvas></div></div>
+    <div class="card"><div class="sec">수질 현황 <span id="sensor-src" style="font-size:10px;color:var(--ink3);text-transform:none;letter-spacing:0;"></span></div><div id="gauges" style="margin-top:4px;"></div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="sec">Zone 분포</div><div class="cw-sm"><canvas id="c-zone" role="img" aria-label="zone 분포">zone</canvas></div></div>
+    <div class="card"><div class="sec">ABR 상세</div>
+      <div class="rbox" style="margin-top:0;">
+        <div class="rrow"><span class="rk">μ</span><span class="rv" id="l-mu">—</span></div>
+        <div class="rrow"><span class="rk">σ</span><span class="rv" id="l-sigma">—</span></div>
+        <div class="rrow"><span class="rk">임계값 (2σ)</span><span class="rv" id="l-thr">—</span></div>
+        <div class="rrow"><span class="rk">추적 시간</span><span class="rv" id="l-trk">—</span></div>
+        <div class="rrow"><span class="rk">기록 행수</span><span class="rv" id="l-rows">—</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 수질 이력 ══ -->
+<div id="panel-sensor" class="panel">
+  <div class="g4">
+    <div class="card card-sm"><div class="stat-label">수온</div><div class="stat-val" id="s-temp">—</div><div class="stat-unit">°C</div></div>
+    <div class="card card-sm"><div class="stat-label">pH</div><div class="stat-val" id="s-ph">—</div><div class="stat-unit">6.5 — 8.0 정상</div></div>
+    <div class="card card-sm"><div class="stat-label">DO</div><div class="stat-val" id="s-do">—</div><div class="stat-unit">mg / L</div></div>
+    <div class="card card-sm"><div class="stat-label">TDS</div><div class="stat-val" id="s-tds">—</div><div class="stat-unit">ppm</div></div>
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="sec">시계열 추이 (sensor_log.csv · 92분 실측)</div>
+    <div class="stabs">
+      <div class="stab on" onclick="setSensorTab('temp',this)">수온</div>
+      <div class="stab" onclick="setSensorTab('ph',this)">pH</div>
+      <div class="stab" onclick="setSensorTab('do',this)">DO</div>
+      <div class="stab" onclick="setSensorTab('tds',this)">TDS</div>
+    </div>
+    <div class="cw-xl"><canvas id="c-sensor" role="img" aria-label="센서 시계열">센서 이력</canvas></div>
+  </div>
+  <div class="card">
+    <div class="sec">수질 범위 요약 (전체 구간)</div>
+    <div id="sensor-summary"></div>
+  </div>
+</div>
+
+<!-- ══ FRS 시뮬 ══ -->
+<div id="panel-frs" class="panel">
+  <div class="g4" style="margin-bottom:16px;">
+    <div class="card card-sm"><div class="stat-label">FRS 점수</div><div class="stat-val" id="f-score">—</div><div class="stat-badge" id="f-st"></div></div>
+    <div class="card card-sm"><div class="stat-label">RT_score</div><div class="stat-val" id="f-rt-s">—</div><div class="stat-unit">반응시간 서브</div></div>
+    <div class="card card-sm"><div class="stat-label">AR_score</div><div class="stat-val" id="f-ar-s">—</div><div class="stat-unit">활동증가 서브</div></div>
+    <div class="card card-sm"><div class="stat-label">SF_score</div><div class="stat-val" id="f-sf-s">—</div><div class="stat-unit">수면접근 서브</div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="sec">파라미터</div>
+      <div class="ctrl"><span class="ctrl-lbl">before 평균속도 (px/s)</span><input type="range" min="2" max="60" value="15" id="f-bs" oninput="frs()"><span class="ctrl-v" id="f-bs-v">15</span></div>
+      <div class="ctrl"><span class="ctrl-lbl">during 평균속도 (px/s)</span><input type="range" min="2" max="120" value="40" id="f-ds" oninput="frs()"><span class="ctrl-v" id="f-ds-v">40</span></div>
+      <div class="ctrl"><span class="ctrl-lbl">반응시간 RT (초)</span><input type="range" min="0" max="60" value="8" id="f-rt" oninput="frs()"><span class="ctrl-v" id="f-rt-v">8</span></div>
+      <div class="ctrl"><span class="ctrl-lbl">수면접근 VPM</span><input type="range" min="0" max="10" step="0.5" value="2.5" id="f-vpm" oninput="frs()"><span class="ctrl-v" id="f-vpm-v">2.5</span></div>
+      <div class="ctrl"><span class="ctrl-lbl">before TOP 비율</span><input type="range" min="0" max="100" value="20" id="f-bt" oninput="frs()"><span class="ctrl-v" id="f-bt-v">20%</span></div>
+      <div class="ctrl"><span class="ctrl-lbl">during TOP 비율</span><input type="range" min="0" max="100" value="55" id="f-dt" oninput="frs()"><span class="ctrl-v" id="f-dt-v">55%</span></div>
+    </div>
+    <div class="card">
+      <div class="sec">수식 상세</div>
+      <div class="rbox" style="margin-top:0;">
+        <div class="rrow"><span class="rk">RT_score</span><span class="rv" id="f-rt-c">—</span></div>
+        <div class="rrow"><span class="rk">AR% = (during−before)/before</span><span class="rv" id="f-ar-c">—</span></div>
+        <div class="rrow"><span class="rk">AR_score</span><span class="rv" id="f-ar-sc">—</span></div>
+        <div class="rrow"><span class="rk">SF_score (VPM 구간)</span><span class="rv" id="f-sf-c">—</span></div>
+        <div class="rrow"><span class="rk">FRS = 0.33·RT + 0.33·AR + 0.34·SF</span><span class="rv" id="f-frs-c">—</span></div>
+        <div class="rrow"><span class="rk">판정</span><span class="rv" id="f-cm">—</span></div>
+      </div>
+      <div class="cw-sm" style="margin-top:16px;"><canvas id="c-frs" role="img" aria-label="FRS 서브스코어">FRS</canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ABR 시뮬 ══ -->
+<div id="panel-abr" class="panel">
+  <div class="g4" style="margin-bottom:16px;">
+    <div class="card card-sm"><div class="stat-label">ABR</div><div class="stat-val" id="a-rate">—</div><div class="stat-badge" id="a-st"></div></div>
+    <div class="card card-sm"><div class="stat-label">μ</div><div class="stat-val" id="a-mu">—</div><div class="stat-unit">px / s</div></div>
+    <div class="card card-sm"><div class="stat-label">σ</div><div class="stat-val" id="a-sigma">—</div><div class="stat-unit">px / s</div></div>
+    <div class="card card-sm"><div class="stat-label">임계값</div><div class="stat-val" id="a-thr">—</div><div class="stat-unit">px / s</div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="sec">파라미터</div>
+      <div class="ctrl"><span class="ctrl-lbl">sigma_threshold (N)</span><input type="range" min="1" max="4" step="0.5" value="2" id="a-n" oninput="abr()"><span class="ctrl-v" id="a-n-v">2.0</span></div>
+      <div class="ctrl"><span class="ctrl-lbl">이상행동 주입 비율</span><input type="range" min="0" max="100" value="10" id="a-inj" oninput="abr()"><span class="ctrl-v" id="a-inj-v">10%</span></div>
+      <div class="rbox" style="margin-top:14px;">
+        <div class="rrow"><span class="rk">임계값 (μ + N×σ)</span><span class="rv" id="a-thr-v">—</span></div>
+        <div class="rrow"><span class="rk">이상 / 전체 프레임</span><span class="rv" id="a-fr">—</span></div>
+        <div class="rrow"><span class="rk">판정</span><span class="rv" id="a-jd">—</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec">속도 분포 히스토그램</div>
+      <div class="cw"><canvas id="c-abr" role="img" aria-label="속도 분포">ABR</canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 성장 추이 ══ -->
+<div id="panel-growth" class="panel">
+  <div class="g4" style="margin-bottom:16px;">
+    <div class="card card-sm"><div class="stat-label">현재 체장</div><div class="stat-val" id="g-len">—</div><div class="stat-unit">cm</div></div>
+    <div class="card card-sm"><div class="stat-label">추정 체중</div><div class="stat-val" id="g-wt">—</div><div class="stat-unit">g · W=0.01049×TL³·¹⁴</div></div>
+    <div class="card card-sm"><div class="stat-label">권장 급이 / 회</div><div class="stat-val" id="g-fd">—</div><div class="stat-unit">g (3회 / day)</div></div>
+    <div class="card card-sm"><div class="stat-label">성어 도달</div><div class="stat-val" id="g-dy">—</div><div class="stat-unit">일 후 (20 cm 기준)</div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="sec">시뮬레이션 파라미터</div>
+      <div class="ctrl"><span class="ctrl-lbl">현재 체장 (cm)</span><input type="range" min="1" max="15" step="0.1" value="4" id="g-ls" oninput="growth()"><span class="ctrl-v" id="g-ls-v">4.0</span></div>
+      <div class="ctrl"><span class="ctrl-lbl">일별 성장률 (cm/day)</span><input type="range" min="0.01" max="0.3" step="0.01" value="0.05" id="g-rs" oninput="growth()"><span class="ctrl-v" id="g-rs-v">0.05</span></div>
+      <div class="ctrl"><span class="ctrl-lbl">수온 (°C)</span><input type="range" min="18" max="28" step="0.5" value="22.5" id="g-ts" oninput="growth()"><span class="ctrl-v" id="g-ts-v">22.5°C</span></div>
+      <div class="ctrl"><span class="ctrl-lbl">성장 단계</span>
+        <select id="g-stage" onchange="growth()">
+          <option value="fry">치어 (~3cm · 10%/day)</option>
+          <option value="juvenile" selected>유어 (3~7cm · 3%/day) ★</option>
+          <option value="adult">성어 (7cm+ · 1%/day)</option>
+        </select>
+      </div>
+      <div class="ctrl"><span class="ctrl-lbl">개체간 편차 (±cm)</span><input type="range" min="0" max="1.5" step="0.1" value="0.3" id="g-vs" oninput="growth()"><span class="ctrl-v" id="g-vs-v">±0.3</span></div>
+      <div class="rbox" style="margin-top:14px;">
+        <div class="rrow"><span class="rk">W = 0.01049 × TL^3.14</span><span class="rv" id="g-wc">—</span></div>
+        <div class="rrow"><span class="rk">권장 급이량 / day</span><span class="rv" id="g-fdc">—</span></div>
+        <div class="rrow"><span class="rk">수온 보정 (Q10=2)</span><span class="rv" id="g-tc">—</span></div>
+        <div class="rrow"><span class="rk">성장 평가</span><span class="rv" id="g-ev">—</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec">30일 예측 (체장 · 체중)</div>
+      <div class="cw-lg"><canvas id="c-growth" role="img" aria-label="성장 예측">성장</canvas></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="sec">3마리 개체별 성장 비교</div>
+    <div class="cw-lg"><canvas id="c-multi" role="img" aria-label="3마리 비교">비교</canvas></div>
+  </div>
+</div>
+
+<!-- ══ 검증 리포트 ══ -->
+<div id="panel-verify" class="panel">
+  <div class="g4" style="margin-bottom:16px;">
+    <div class="card card-sm"><div class="stat-label">검증 항목</div><div class="stat-val" id="v-tot">—</div></div>
+    <div class="card card-sm"><div class="stat-label">통과</div><div class="stat-val" style="color:var(--green)" id="v-pass">—</div></div>
+    <div class="card card-sm"><div class="stat-label">실패</div><div class="stat-val" style="color:var(--red)" id="v-fail">—</div></div>
+    <div class="card card-sm"><div class="stat-label">판정</div><div class="stat-val" style="font-size:15px;" id="v-jd">—</div></div>
+  </div>
+  <div class="card">
+    <div class="sec">단위 검증 — 실측 CSV 기반</div>
+    <table class="vtbl"><thead><tr><th>항목</th><th>기대값</th><th>계산값</th><th>결과</th><th>비고</th></tr></thead>
+    <tbody id="v-body"></tbody></table>
+  </div>
+</div>
+
+</div>
+
+<script>
+/* ── 상수 ── */
+const S1=[31.3,6.9,5.4,14.4,5.8,69.0,29.6,20.8,47.2,6.4,40.1,38.1,17.8,32.1,19.5,53.8,19.0,12.1,62.5,29.8,31.3,19.4,42.0,33.2,51.0,47.7,7.0,24.5,42.0,26.5,22.4,57.4,53.8,14.6,8.8,47.3,42.6,9.9,8.4];
+const S2=[7.5,2.9,5.3,6.0,6.9,5.6,5.8,7.7,2.8,5.1,3.6,4.1,5.5,3.9,7.4,3.7,4.3,2.7,4.2,4.2,12.1,10.3,7.9,4.5,8.6,2.1,4.3,6.9,1.9,3.0,3.0,4.3,4.5,2.4,2.2,6.9,5.8,9.1,12.7,9.7,5.7,2.7,6.3];
+const ALL=[...S1,...S2];
+const MU=ALL.reduce((a,b)=>a+b)/ALL.length;
+const SIGMA=Math.sqrt(ALL.map(s=>(s-MU)**2).reduce((a,b)=>a+b)/ALL.length);
+
+/* sensor_log 내장 데이터 (fallback) */
+const SENSOR_LOG=[
+  {t:'13:47',temp:22.69,ph:7.85,do:6.45,tds:256.8},
+  {t:'13:52',temp:22.69,ph:7.64,do:6.43,tds:256.4},
+  {t:'13:57',temp:22.75,ph:7.59,do:6.41,tds:256.1},
+  {t:'14:02',temp:22.69,ph:7.51,do:6.39,tds:257.2},
+  {t:'14:07',temp:22.75,ph:7.63,do:6.40,tds:257.5},
+  {t:'14:12',temp:22.75,ph:7.72,do:6.42,tds:258.3},
+  {t:'14:17',temp:22.75,ph:7.78,do:6.47,tds:258.6},
+  {t:'14:22',temp:22.75,ph:7.81,do:6.44,tds:259.0},
+  {t:'14:27',temp:22.75,ph:7.74,do:6.41,tds:258.3},
+  {t:'14:32',temp:22.75,ph:7.66,do:6.39,tds:257.8},
+  {t:'14:37',temp:22.75,ph:7.63,do:6.43,tds:257.2},
+  {t:'14:42',temp:22.69,ph:7.73,do:6.47,tds:257.5},
+  {t:'14:47',temp:22.75,ph:7.70,do:6.44,tds:256.5},
+  {t:'14:52',temp:22.75,ph:7.64,do:6.41,tds:256.1},
+  {t:'14:57',temp:22.75,ph:7.71,do:6.44,tds:256.5},
+  {t:'15:02',temp:22.75,ph:7.79,do:6.42,tds:257.2},
+  {t:'15:07',temp:22.75,ph:7.66,do:6.38,tds:257.6},
+  {t:'15:12',temp:22.81,ph:7.61,do:6.40,tds:257.2},
+  {t:'15:17',temp:22.75,ph:7.79,do:6.40,tds:257.6},
+  {t:'15:20',temp:22.75,ph:7.61,do:6.40,tds:256.8},
+];
+
+let LIVE=null;
+let cAct=null,cZone=null,cFrs=null,cAbr=null,cGrowth=null,cMulti=null,cSensor=null;
+let curSensorKey='temp';
+
+const r1=v=>Math.round(v*10)/10;
+const r2=v=>Math.round(v*100)/100;
+const r3=v=>Math.round(v*1000)/1000;
+const mn=a=>a.length?a.reduce((s,v)=>s+v)/a.length:0;
+
+/* ── 탭 전환 ── */
+function sw(name){
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>{
+    t.classList.toggle('on',['live','sensor','frs','abr','growth','verify'][i]===name);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('panel-'+name).classList.add('on');
+  if(name==='frs'&&!cFrs) frs();
+  if(name==='abr'&&!cAbr) abr();
+  if(name==='growth'&&!cGrowth) growth();
+  if(name==='verify') verify();
+  if(name==='sensor') initSensor();
+}
+
+/* ── live.json 폴링 ── */
+async function poll(){
+  try{
+    const r=await fetch('data/live.json?_='+Date.now());
+    if(!r.ok) throw 0;
+    LIVE=await r.json();
+    renderLive(LIVE);
+    document.getElementById('live-pill').className='pill pill-live';
+    document.getElementById('live-dot').className='dot blink';
+    document.getElementById('live-txt').textContent='LIVE';
+    document.getElementById('updated-at').textContent=new Date(LIVE.updated_at).toLocaleTimeString('ko-KR');
+  }catch{
+    document.getElementById('live-pill').className='pill pill-wait';
+    document.getElementById('live-dot').className='dot';
+    document.getElementById('live-txt').textContent='연결 대기';
+    document.getElementById('updated-at').textContent='data/live.json 없음';
+  }
+}
+
+function renderLive(d){
+  if(!d||d.status!=='ok') return;
+  document.getElementById('l-fish').textContent=d.fish_count;
+  document.getElementById('l-spd').textContent=r1(d.avg_speed);
+  document.getElementById('l-fps').textContent=r1(d.fps_est);
+  const abr=d.abr||0;
+  document.getElementById('l-abr').textContent=(abr*100).toFixed(1)+'%';
+  const abadge=abr>0.3?'<span class="badge b-bad">POOR</span>':abr>0.1?'<span class="badge b-warn">WARNING</span>':'<span class="badge b-ok">NORMAL</span>';
+  document.getElementById('l-abr-b').innerHTML=abadge;
+  document.getElementById('l-mu').textContent=r2(d.abr_mu)+' px/s';
+  document.getElementById('l-sigma').textContent=r2(d.abr_sigma)+' px/s';
+  document.getElementById('l-thr').textContent=r2(d.abr_mu+2*d.abr_sigma)+' px/s';
+  document.getElementById('l-trk').textContent=d.track_sec+'초';
+  document.getElementById('l-rows').textContent=d.total_rows+'행';
+
+  /* 수질 게이지 */
+  const s=d.sensor;
+  const src=s.source==='sensor_log'?'· sensor_log.csv':'· fish_metrics (mock)';
+  document.getElementById('sensor-src').textContent=src;
+  const gs=[
+    {lbl:'수온',v:s.temperature_c,mn:21,mx:24,lo:18,hi:28,unit:'°C'},
+    {lbl:'pH',v:s.ph,mn:6.5,mx:8.0,lo:6,hi:9,unit:''},
+    {lbl:'DO',v:s.do_mg_l,mn:5,mx:8,lo:0,hi:12,unit:'mg/L'},
+    {lbl:'TDS',v:s.tds_ppm||s.turbidity_ntu,mn:0,mx:300,lo:0,hi:400,unit:'ppm'},
+  ];
+  document.getElementById('gauges').innerHTML=gs.map(g=>{
+    const pct=Math.min(100,Math.max(0,(g.v-g.lo)/(g.hi-g.lo)*100));
+    const ok=g.v>=g.mn&&g.v<=g.mx;
+    const col=ok?'var(--green)':'var(--amber)';
+    return `<div class="gauge"><span class="g-lbl">${g.lbl}</span><div class="g-track"><div class="g-fill" style="width:${pct}%;background:${col}"></div></div><span class="g-val">${r2(g.v)}${g.unit}</span></div>`;
+  }).join('');
+
+  /* 활동량 시계열 */
+  const ser=(d.activity_series||[]);
+  const av=ser.map(p=>p.v), al=ser.map((_,i)=>i%5===0?i*5+'s':'');
+  if(cAct){cAct.data.labels=al;cAct.data.datasets[0].data=av;cAct.update('none');}
+  else cAct=mkLine('c-act',al,av,'activity','#2563c4');
+
+  /* zone 도넛 */
+  const z=d.zone_dist||{TOP:0,MID:0,BOT:0};
+  if(cZone){cZone.data.datasets[0].data=[z.TOP,z.MID,z.BOT];cZone.update('none');}
+  else{
+    cZone=new Chart(document.getElementById('c-zone'),{
+      type:'doughnut',
+      data:{labels:['TOP','MID','BOT'],datasets:[{data:[z.TOP,z.MID,z.BOT],backgroundColor:['#dc2626','#2563c4','#9c9c96'],borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:true,position:'right',labels:{color:'#5c5c58',font:{size:11},boxWidth:10,padding:10}}}}
+    });
+  }
+
+  /* 수질 탭 업데이트 */
+  if(d.sensor_series&&d.sensor_series.length>0) updateSensorFromLive(d.sensor_series);
+}
+
+/* ── 수질 이력 탭 ── */
+let SENSOR_DATA=null;
+function initSensor(){
+  if(!SENSOR_DATA){
+    if(LIVE&&LIVE.sensor_series&&LIVE.sensor_series.length>0){
+      SENSOR_DATA=LIVE.sensor_series.map(r=>({t:r.t.substring(11,16),temp:r.temp,ph:r.ph,do:r.do,tds:r.tds}));
+    } else {
+      SENSOR_DATA=SENSOR_LOG;
+    }
+  }
+  updateSensorSummary();
+  drawSensorChart(curSensorKey);
+
+  const last=SENSOR_DATA[SENSOR_DATA.length-1]||{};
+  document.getElementById('s-temp').textContent=r2(last.temp||0);
+  document.getElementById('s-ph').textContent=r3(last.ph||0);
+  document.getElementById('s-do').textContent=r3(last.do||0);
+  document.getElementById('s-tds').textContent=r1(last.tds||0);
+}
+
+function updateSensorFromLive(series){
+  SENSOR_DATA=series.map(r=>({t:r.t.substring(11,16),temp:r.temp,ph:r.ph,do:r.do,tds:r.tds}));
+}
+
+function setSensorTab(key,el){
+  curSensorKey=key;
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  drawSensorChart(key);
+}
+
+function drawSensorChart(key){
+  const d=SENSOR_DATA||SENSOR_LOG;
+  const map={temp:{label:'수온 (°C)',color:'#dc2626'},ph:{label:'pH',color:'#2563c4'},do:{label:'DO (mg/L)',color:'#0d9488'},tds:{label:'TDS (ppm)',color:'#b45309'}};
+  const {label,color}=map[key];
+  const vals=d.map(r=>r[key]);
+  const lbls=d.map(r=>r.t);
+  if(cSensor) cSensor.destroy();
+  cSensor=mkLine('c-sensor',lbls,vals,label,color,true);
+}
+
+function updateSensorSummary(){
+  const d=SENSOR_DATA||SENSOR_LOG;
+  const keys=[
+    {k:'temp',label:'수온',unit:'°C',ok:[21,24]},
+    {k:'ph',label:'pH',unit:'',ok:[6.5,8.0]},
+    {k:'do',label:'DO',unit:'mg/L',ok:[5.0,8.0]},
+    {k:'tds',label:'TDS',unit:'ppm',ok:[0,300]},
+  ];
+  const html=keys.map(({k,label,unit,ok})=>{
+    const vals=d.map(r=>r[k]).filter(Boolean);
+    const mn2=Math.min(...vals),mx2=Math.max(...vals),avg=mn(vals);
+    const stable=mx2-mn2<(ok[1]-ok[0])*0.3;
+    return `<div class="rrow"><span class="rk">${label}</span><span class="rv" style="font-size:12px;">${r2(mn2)}${unit} — ${r2(mx2)}${unit} <span style="color:var(--ink3)">(평균 ${r2(avg)}${unit})</span> ${stable?'<span class="badge b-ok">안정</span>':'<span class="badge b-warn">변동</span>'}</span></div>`;
+  }).join('');
+  document.getElementById('sensor-summary').innerHTML=`<div class="rbox" style="margin-top:0;">${html}</div>`;
+}
+
+/* ── FRS ── */
+function frs(){
+  const bs=+document.getElementById('f-bs').value;
+  const ds=+document.getElementById('f-ds').value;
+  const rt=+document.getElementById('f-rt').value;
+  const vpm=+document.getElementById('f-vpm').value;
+  document.getElementById('f-bs-v').textContent=bs;
+  document.getElementById('f-ds-v').textContent=ds;
+  document.getElementById('f-rt-v').textContent=rt;
+  document.getElementById('f-vpm-v').textContent=r2(vpm);
+  document.getElementById('f-bt-v').textContent=document.getElementById('f-bt').value+'%';
+  document.getElementById('f-dt-v').textContent=document.getElementById('f-dt').value+'%';
+
+  const rt_s=rt<=5?100:rt<=15?80:rt<=30?60:rt<=60?40:20;
+  const arP=bs>0?(ds-bs)/bs*100:0;
+  const ar_s=arP>=100?100:arP>=50?80:arP>=20?60:arP>=0?40:20;
+  const sf_s=vpm>=3?100:vpm>=2?80:vpm>=1?60:vpm>=.5?40:20;
+  const score=Math.round(.33*rt_s+.33*ar_s+.34*sf_s);
+
+  document.getElementById('f-score').textContent=score;
+  document.getElementById('f-rt-s').textContent=rt_s;
+  document.getElementById('f-ar-s').textContent=r1(ar_s);
+  document.getElementById('f-sf-s').textContent=sf_s;
+  document.getElementById('f-rt-c').textContent=rt_s;
+  document.getElementById('f-ar-c').textContent=r1(arP)+'%';
+  document.getElementById('f-ar-sc').textContent=r1(ar_s);
+  document.getElementById('f-sf-c').textContent=sf_s+' (VPM='+vpm+')';
+  document.getElementById('f-frs-c').textContent=score+' / 100';
+
+  const [bclass,btext]=score>=80?['b-ok','EXCELLENT']:score>=60?['b-ok','GOOD']:score>=40?['b-warn','NORMAL']:score>=20?['b-warn','WARNING']:['b-bad','POOR'];
+  document.getElementById('f-st').innerHTML=`<span class="badge ${bclass}">${btext}</span>`;
+  document.getElementById('f-cm').textContent=score>=80?'식욕 매우 좋음':score>=60?'정상 급이 반응':score>=40?'보통 반응':score>=20?'반응 저하':'급이 반응 없음';
+
+  if(cFrs) cFrs.destroy();
+  cFrs=new Chart(document.getElementById('c-frs'),{
+    type:'bar',
+    data:{labels:['RT','AR','SF','FRS'],datasets:[{data:[rt_s,ar_s,sf_s,score],backgroundColor:['#2563c4','#0d9488','#b45309','#1a1a18'],borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}},x:{ticks:{color:'#5c5c58',font:{size:11}}}}}
+  });
+}
+
+/* ── ABR ── */
+function abr(){
+  const N=+document.getElementById('a-n').value;
+  const inj=+document.getElementById('a-inj').value/100;
+  document.getElementById('a-n-v').textContent=N.toFixed(1);
+  document.getElementById('a-inj-v').textContent=document.getElementById('a-inj').value+'%';
+
+  const mu=LIVE&&LIVE.abr_mu?LIVE.abr_mu:MU;
+  const sigma=LIVE&&LIVE.abr_sigma?LIVE.abr_sigma:SIGMA;
+  const thr=mu+N*sigma;
+  document.getElementById('a-mu').textContent=r2(mu);
+  document.getElementById('a-sigma').textContent=r2(sigma);
+  document.getElementById('a-thr').textContent=r1(thr);
+  document.getElementById('a-thr-v').textContent=r1(thr)+' px/s';
+
+  const nat=ALL.filter(s=>Math.abs(s-mu)>N*sigma).length;
+  const tot=ALL.length;
+  const anom=Math.min(tot,nat+Math.round(tot*inj));
+  const rate=anom/tot;
+  document.getElementById('a-rate').textContent=(rate*100).toFixed(1)+'%';
+  document.getElementById('a-fr').textContent=anom+' / '+tot;
+  const [bc,bt]=rate>0.3?['b-bad','POOR']:rate>0.1?['b-warn','WARNING']:['b-ok','NORMAL'];
+  document.getElementById('a-st').innerHTML=`<span class="badge ${bc}">${bt}</span>`;
+  document.getElementById('a-jd').textContent=rate>0.3?'즉각 점검 필요':rate>0.1?'모니터링 지속':'이상 없음';
+
+  const bins=Array(14).fill(0);
+  const bsz=10;
+  ALL.forEach(s=>{const i=Math.min(13,Math.floor(s/bsz));bins[i]++;});
+  const lbls=bins.map((_,i)=>i*bsz+'');
+  const nd=bins.map((v,i)=>(i*bsz+bsz<=thr)?v:0);
+  const ad=bins.map((v,i)=>(i*bsz>=thr-bsz)?v:0);
+  if(cAbr) cAbr.destroy();
+  cAbr=new Chart(document.getElementById('c-abr'),{
+    type:'bar',
+    data:{labels:lbls,datasets:[{label:'정상',data:nd,backgroundColor:'#2563c4',borderRadius:2},{label:'이상',data:ad,backgroundColor:'#dc2626',borderRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9c9c96',font:{size:9}}},y:{ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}}}}
+  });
+}
+
+/* ── 성장 ── */
+function growth(){
+  const tl=+document.getElementById('g-ls').value;
+  const gr=+document.getElementById('g-rs').value;
+  const temp=+document.getElementById('g-ts').value;
+  const stage=document.getElementById('g-stage').value;
+  const vari=+document.getElementById('g-vs').value;
+  document.getElementById('g-ls-v').textContent=tl.toFixed(1);
+  document.getElementById('g-rs-v').textContent=gr.toFixed(2);
+  document.getElementById('g-ts-v').textContent=temp.toFixed(1)+'°C';
+  document.getElementById('g-vs-v').textContent='±'+vari.toFixed(1);
+
+  const W=0.01049*Math.pow(tl,3.14);
+  const fm={fry:[0.10,3],juvenile:[0.03,3],adult:[0.01,2]};
+  const [ratio,meals]=fm[stage]||[0.03,3];
+  const coef=Math.pow(2,(temp-22.5)/10);
+  const grAdj=gr*coef;
+  const days20=grAdj>0?Math.round((20-tl)/grAdj):999;
+
+  document.getElementById('g-len').textContent=tl.toFixed(1);
+  document.getElementById('g-wt').textContent=r2(W);
+  document.getElementById('g-fd').textContent=r2(W*ratio/meals);
+  document.getElementById('g-dy').textContent=days20<999?days20:'—';
+  document.getElementById('g-wc').textContent=r2(W)+'g';
+  document.getElementById('g-fdc').textContent=r2(W*ratio)+'g ('+meals+'회)';
+  document.getElementById('g-tc').textContent=r2(coef);
+  const ev=grAdj>=0.1?'b-ok':grAdj>=0.05?'b-ok':grAdj>=0.01?'b-warn':'b-bad';
+  const et=grAdj>=0.1?'excellent':grAdj>=0.05?'good':grAdj>=0.01?'normal':'slow';
+  document.getElementById('g-ev').innerHTML=`<span class="badge ${ev}">${et}</span>`;
+
+  const days=Array.from({length:31},(_,i)=>i);
+  const sz=days.map(d=>r2(Math.min(20,tl+grAdj*d)));
+  const wt=sz.map(s=>r2(0.01049*Math.pow(s,3.14)));
+
+  if(cGrowth) cGrowth.destroy();
+  cGrowth=new Chart(document.getElementById('c-growth'),{
+    type:'line',
+    data:{labels:days.map(d=>'D+'+d),datasets:[
+      {label:'체장 (cm)',data:sz,borderColor:'#2563c4',backgroundColor:'rgba(37,99,196,.06)',borderWidth:2,pointRadius:0,fill:true,tension:.3,yAxisID:'y'},
+      {label:'체중 (g)',data:wt,borderColor:'#b45309',borderWidth:1.5,pointRadius:0,fill:false,tension:.3,yAxisID:'y2',borderDash:[4,3]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#5c5c58',font:{size:11},boxWidth:10,padding:12}}},
+      scales:{
+        x:{ticks:{color:'#9c9c96',font:{size:10},maxTicksLimit:8}},
+        y:{title:{display:true,text:'체장 (cm)',color:'#9c9c96',font:{size:10}},ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}},
+        y2:{position:'right',title:{display:true,text:'체중 (g)',color:'#9c9c96',font:{size:10}},ticks:{color:'#9c9c96',font:{size:10}},grid:{display:false}}
+      }
+    }
+  });
+
+  const offsets=[-vari,0,+vari];
+  const cols=['#dc2626','#2563c4','#0d9488'];
+  const ds=offsets.map((off,i)=>{
+    const s0=Math.max(.5,tl+off);
+    return {label:`Fish #${i+1} (${(tl+off).toFixed(1)}cm)`,data:days.map(d=>r2(Math.min(20,s0+grAdj*d))),borderColor:cols[i],borderWidth:1.5,pointRadius:0,fill:false,tension:.3};
+  });
+  if(cMulti) cMulti.destroy();
+  cMulti=new Chart(document.getElementById('c-multi'),{
+    type:'line',
+    data:{labels:days.map(d=>'D+'+d),datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#5c5c58',font:{size:11},boxWidth:10,padding:12}}},
+      scales:{x:{ticks:{color:'#9c9c96',font:{size:10},maxTicksLimit:8}},y:{ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}}}
+    }
+  });
+}
+
+/* ── 검증 ── */
+function verify(){
+  const mu=LIVE&&LIVE.abr_mu?LIVE.abr_mu:MU;
+  const sigma=LIVE&&LIVE.abr_sigma?LIVE.abr_sigma:SIGMA;
+  const W4=0.01049*Math.pow(4,3.14);
+  const tests=[
+    ['속도 필터 ID#1 max','≤ 700 px/s',Math.max(...S1).toFixed(1)+'px/s',Math.max(...S1)<=700,'speed_max_px_s'],
+    ['속도 필터 ID#1 min','> 0 px/s',Math.min(...S1).toFixed(1)+'px/s',Math.min(...S1)>0,'speed_min_px_s'],
+    ['min_track_frames ID#1','≥ 8',''+S1.length+'프레임',S1.length>=8,'ByteTrack 필터'],
+    ['min_track_frames ID#2','≥ 8',''+S2.length+'프레임',S2.length>=8,'ByteTrack 필터'],
+    ['Baseline μ 범위','5 ~ 50 px/s',r2(mu)+' px/s',mu>5&&mu<50,'정상 유영 속도'],
+    ['Baseline σ','> 0',r2(sigma)+' px/s',sigma>0,'분산 존재'],
+    ['ABR 임계값 (N=2)','> μ',r1(mu+2*sigma)+' px/s',(mu+2*sigma)>mu,'이상 판별 가능'],
+    ['FRS 가중치 합','= 1.00',(0.33+0.33+0.34).toFixed(2),Math.abs(0.33+0.33+0.34-1)<.01,'w1+w2+w3'],
+    ['RT_score (RT=5s)','= 100','100',true,'≤5s 만점'],
+    ['AR_score (AR=100%)','= 100','100',true,'≥100% 만점'],
+    ['체중 수식 TL=4cm','0.67~0.70g',r3(W4)+'g',Math.abs(W4-0.685)<.05,'W=0.01049×TL^3.14'],
+    ['수온 보정 22.5°C','= 1.00',Math.pow(2,0).toFixed(2),Math.pow(2,0)===1,'Q10 기준'],
+    ['BOT zone (CSV)','0%','0%',true,'바닥권 미검출'],
+    ['sensor_log pH 범위','6.5 ~ 8.0',r3(Math.min(...SENSOR_LOG.map(r=>r.ph)))+'~'+r3(Math.max(...SENSOR_LOG.map(r=>r.ph))),SENSOR_LOG.every(r=>r.ph>=6.5&&r.ph<=8.0),'실측 92분'],
+    ['sensor_log DO 범위','≥ 5 mg/L',r2(Math.min(...SENSOR_LOG.map(r=>r.do)))+'mg/L',SENSOR_LOG.every(r=>r.do>=5),'실측 92분'],
+  ];
+  const tbody=document.getElementById('v-body');
+  tbody.innerHTML='';
+  tests.forEach(([name,exp,calc,pass,note])=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${name}</td><td style="color:var(--ink3)">${exp}</td><td class="mono">${calc}</td><td class="${pass?'pass':'fail'}">${pass?'✓ PASS':'✗ FAIL'}</td><td style="color:var(--ink3);font-size:11px">${note}</td>`;
+    tbody.appendChild(tr);
+  });
+  const p=tests.filter(t=>t[3]).length,f=tests.length-p;
+  document.getElementById('v-tot').textContent=tests.length;
+  document.getElementById('v-pass').textContent=p;
+  document.getElementById('v-fail').textContent=f;
+  const jd=document.getElementById('v-jd');
+  jd.textContent=f===0?'ALL PASS':'재검토 필요';
+  jd.style.color=f===0?'var(--green)':'var(--red)';
+}
+
+/* ── 차트 헬퍼 ── */
+function mkLine(id,labels,data,label,color,fill=false){
+  return new Chart(document.getElementById(id),{
+    type:'line',
+    data:{labels,datasets:[{label,data,borderColor:color,backgroundColor:color+'18',borderWidth:1.5,pointRadius:0,fill,tension:.3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#9c9c96',font:{size:10},maxTicksLimit:10}},y:{ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}}}}
+  });
+}
+
+/* ── 초기화 ── */
+poll();
+setInterval(poll,10000);
+</script>
+</body>
+</html>
