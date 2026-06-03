@@ -104,6 +104,12 @@ def load_config(path: str = "config.yaml") -> dict:
         "frs_during_sec": raw.get("analytics", {})
         .get("frs", {})
         .get("during_sec", 300.0),
+        # FRS 가중치 (config.yaml analytics.frs 기준)
+        "frs_w1": raw.get("analytics", {}).get("frs", {}).get("w1", 0.33),
+        "frs_w2": raw.get("analytics", {}).get("frs", {}).get("w2", 0.33),
+        "frs_w3": raw.get("analytics", {}).get("frs", {}).get("w3", 0.34),
+        # 성장 추적 — 0이면 스킵 (카메라 캘리브레이션 후 실측값 입력)
+        "px_to_cm_ratio": raw.get("camera", {}).get("px_to_cm_ratio", 0.0),
         # 급이 이벤트
         "feeding_events_csv": raw.get("storage", {}).get(
             "feeding_events_csv", "data/feeding_events.csv"
@@ -456,6 +462,9 @@ class FRSScheduler:
             from scripts.analytics.feeding_response import FeedingResponseAnalyzer
 
             analyzer = FeedingResponseAnalyzer(
+                w_response_time = self.cfg.get("frs_w1", 0.33),
+                w_activity      = self.cfg.get("frs_w2", 0.33),
+                w_surface       = self.cfg.get("frs_w3", 0.34),
                 before_sec=self.cfg["frs_before_sec"],
                 during_sec=self.cfg["frs_during_sec"],
                 csv_path=str(Path(self.cfg["output_dir"]) / "feeding_response.csv"),
@@ -685,6 +694,15 @@ def run(args):
     )
     frs_sched = FRSScheduler(cfg, writer, feeder)
 
+    # 성장 추적기 (px_to_cm_ratio=0 이면 기록 스킵 — 캘리브레이션 후 활성화)
+    from scripts.analytics.growth_tracker import GrowthTracker
+    growth_tracker = GrowthTracker(adult_size_cm=20.0)
+    _px_to_cm = cfg.get("px_to_cm_ratio", 0.0)
+    if _px_to_cm > 0:
+        print(f"  성장 추적: 활성화 (px_to_cm_ratio={_px_to_cm})")
+    else:
+        print(f"  성장 추적: 대기 중 (config.yaml camera.px_to_cm_ratio 실측 후 입력)")
+
     # ServerTx 초기화
     tx = ServerTx(mock=cfg.get("server_mock", True))
     if cfg.get("server_enabled", False):
@@ -843,6 +861,22 @@ def run(args):
                         frs_score=0,
                         track_filter=track_filter,
                     )
+                    # 성장 기록 (px_to_cm_ratio 캘리브레이션 완료 시 자동 활성화)
+                    if _px_to_cm > 0 and recent:
+                        from datetime import datetime as _dt
+                        for row in recent:
+                            if not row.get("is_representative"):
+                                continue
+                            fid = row.get("fish_id")
+                            si  = row.get("size_index", 0.0)
+                            # size_index = bbox_area / frame_area × 100
+                            # bbox_width 역산: sqrt(size_index/100 × 416²) 근사
+                            estimated_w_px = (si / 100.0) ** 0.5 * cfg["imgsz"]
+                            growth_tracker.record_size(
+                                fish_id   = int(fid),
+                                size_cm   = estimated_w_px * _px_to_cm,
+                                timestamp = _dt.fromtimestamp(row["timestamp"]),
+                            )
                     _last_behavior_tx = ts_now
 
                 # 24시간마다 활동 패턴 전송
