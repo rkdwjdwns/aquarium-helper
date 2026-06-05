@@ -144,7 +144,7 @@ turbidity_feedback:
 # 서버 전송 정책
 # ─────────────────────────────────────────────────────────────────────────
 server:
-  enabled: false                   # 실제 전송 시 true로 변경
+  enabled: true                   # 실제 전송 시 true로 변경
   mock: true                       # true=로그만 출력 / false=실제 전송
   send_fields:                     # 전송 허용 필드 (참고용)
     - timestamp
