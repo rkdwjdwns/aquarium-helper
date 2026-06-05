@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>어항 도우미</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { width: 100vw; height: 100vh; overflow: hidden; background: #F8FAFC; }
+        #splash {
+            position: fixed; inset: 0;
+            background: #2563EB;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 16px; z-index: 100;
+            transition: opacity 0.4s ease;
+        }
+        #splash.hide { opacity: 0; pointer-events: none; }
+        #splash-icon { font-size: 72px; }
+        #splash-title { color: white; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; }
+        #splash-sub { color: rgba(255,255,255,0.7); font-size: 13px; }
+        webview, iframe {
+            width: 100%; height: 100%;
+            border: none; display: block;
+        }
+    </style>
+</head>
+<body>
+
+    {# 스플래시 화면 #}
+    <div id="splash">
+        <div id="splash-icon">🐠</div>
+        <p id="splash-title">어항 도우미</p>
+        <p id="splash-sub">AI 자동 사육 시스템</p>
+    </div>
+
+    {# Django 웹앱 WebView #}
+    <iframe
+        id="app-frame"
+        src="https://aquarium-helper.onrender.com"
+        allow="camera; microphone; geolocation">
+    </iframe>
+
+    <script>
+        function hideSplash() {
+            const splash = document.getElementById('splash');
+            if (!splash) return;
+            setTimeout(() => {
+                splash.style.opacity = '0';
+                setTimeout(() => splash.remove(), 400);
+            }, 800);
+        }
+
+        // iframe 로드 이벤트
+        document.getElementById('app-frame').addEventListener('load', hideSplash);
+
+        // 로드 타임아웃 (10초 후 강제 제거)
+        setTimeout(hideSplash, 10000);
+    </script>
+</body>
+</html>
