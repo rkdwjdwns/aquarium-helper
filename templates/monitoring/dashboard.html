@@ -81,7 +81,7 @@
                 </span>
             </div>
 
-            {# ✅ 추가: 탁도 #}
+            {# 탁도 #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🌫️ 탁도</p>
                 <p id="val-turb" class="text-3xl font-black text-slate-800 mb-2">{{ latest.turbidity|default:"--" }}<span class="text-sm font-bold text-slate-400"> NTU</span></p>
@@ -93,7 +93,7 @@
                 </span>
             </div>
 
-            {# ✅ 추가: 수위 #}
+            {# 수위 #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">📏 수위</p>
                 <p id="val-level" class="text-3xl font-black text-slate-800 mb-2">{{ latest.water_level|default:"--" }}<span class="text-sm font-bold text-slate-400">%</span></p>
@@ -123,7 +123,7 @@
 
         </div>
 
-        {# ✅ 추가: 수질 트렌드 차트 #}
+        {# 수질 트렌드 차트 #}
         <div class="bg-slate-50/30 rounded-[2.5rem] p-5 sm:p-8 mb-10 border border-slate-100">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">📈 수질 트렌드 (최근 12회)</h3>
@@ -139,7 +139,7 @@
             </div>
         </div>
 
-        {# ✅ 추가: 성장 & 급이 차트 #}
+        {# 성장 & 급이 차트 #}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
             <div class="bg-slate-50/30 rounded-[2.5rem] p-6 border border-slate-100">
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">성장 추이</h3>
@@ -192,10 +192,10 @@
         </div>
         {% endif %}
 
-        {# 장치 제어 #}
+        {# 장치 제어 — 여과기·급이기 제거 → grid 4칸 #}
         <div class="mb-10">
             <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">⚙️ 장치 제어</h3>
-            <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button onclick="controlDevice('HEATER')"
                         class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
                         {% if heater_on %}bg-white border-red-400 shadow-xl shadow-red-50 text-red-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
@@ -210,26 +210,12 @@
                     <span class="font-black text-[10px]">냉각팬</span>
                     <span class="text-[9px] font-bold {% if cooling_on %}text-cyan-400{% else %}text-slate-300{% endif %}">{% if cooling_on %}ON{% else %}OFF{% endif %}</span>
                 </button>
-                <button onclick="controlDevice('FILTER')"
-                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
-                        {% if filter_on %}bg-white border-blue-400 shadow-xl shadow-blue-50 text-blue-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
-                    <span class="text-2xl">🌀</span>
-                    <span class="font-black text-[10px]">여과기</span>
-                    <span class="text-[9px] font-bold {% if filter_on %}text-blue-400{% else %}text-slate-300{% endif %}">{% if filter_on %}ON{% else %}OFF{% endif %}</span>
-                </button>
                 <button onclick="controlDevice('AIR_PUMP')"
                         class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
                         {% if air_pump_on %}bg-white border-sky-400 shadow-xl shadow-sky-50 text-sky-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
                     <span class="text-2xl">🫧</span>
                     <span class="font-black text-[10px]">에어펌프</span>
                     <span class="text-[9px] font-bold {% if air_pump_on %}text-sky-400{% else %}text-slate-300{% endif %}">{% if air_pump_on %}ON{% else %}OFF{% endif %}</span>
-                </button>
-                <button onclick="controlDevice('FEEDER')"
-                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
-                        {% if feeder_on %}bg-white border-amber-400 shadow-xl shadow-amber-50 text-amber-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
-                    <span class="text-2xl">🍽️</span>
-                    <span class="font-black text-[10px]">급이기</span>
-                    <span class="text-[9px] font-bold {% if feeder_on %}text-amber-400{% else %}text-slate-300{% endif %}">{% if feeder_on %}ON{% else %}OFF{% endif %}</span>
                 </button>
                 <button onclick="controlDevice('LIGHT')"
                         class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
@@ -288,7 +274,6 @@
 const TANK_ID   = {{ tank.id }};
 const CSRF      = '{{ csrf_token }}';
 
-// ── 장치 제어 ──────────────────────────────────
 function controlDevice(deviceType) {
     fetch(`/monitoring/toggle-device/${TANK_ID}/`, {
         method: 'POST',
@@ -299,7 +284,6 @@ function controlDevice(deviceType) {
     .then(d => { if (d.status === 'success') location.reload(); });
 }
 
-// ── 환수 완료 ──────────────────────────────────
 function completeWaterChange() {
     if (!confirm('환수를 완료하셨습니까?')) return;
     fetch(`/monitoring/water-change/${TANK_ID}/`, {
@@ -309,40 +293,34 @@ function completeWaterChange() {
     .then(d => { if (d.status === 'success') location.reload(); });
 }
 
-// ✅ AJAX 센서 업데이트 (깜빡임 없이 부분 업데이트)
 function updateSensorCards(d) {
     const s = d.sensor;
     if (!s) return;
 
-    // 수온
     if (s.temperature !== null) {
         document.getElementById('val-temp').textContent = s.temperature + '°C';
         const ok = s.temperature >= 21 && s.temperature <= 24;
         document.getElementById('badge-temp').textContent = ok ? '● 적정' : '● 주의';
         document.getElementById('badge-temp').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
     }
-    // pH
     if (s.ph !== null) {
         document.getElementById('val-ph').textContent = s.ph;
         const ok = s.ph >= 6.5 && s.ph <= 8.0;
         document.getElementById('badge-ph').textContent = ok ? '● 안정' : '● 확인 필요';
         document.getElementById('badge-ph').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-orange-500 bg-orange-50 animate-pulse'}`;
     }
-    // DO
     if (s.dissolved_oxygen !== null) {
         document.getElementById('val-do').innerHTML = s.dissolved_oxygen + '<span class="text-sm font-bold text-slate-400"> mg/L</span>';
         const ok = s.dissolved_oxygen >= 5;
         document.getElementById('badge-do').textContent = ok ? '● 정상' : '● 산소 부족';
         document.getElementById('badge-do').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
     }
-    // 탁도
     if (s.turbidity !== null) {
         document.getElementById('val-turb').innerHTML = s.turbidity + '<span class="text-sm font-bold text-slate-400"> NTU</span>';
         const ok = s.turbidity <= 50, warn = s.turbidity <= 100;
         document.getElementById('badge-turb').textContent = ok ? '● 맑음' : warn ? '● 탁함' : '● 위험';
         document.getElementById('badge-turb').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : warn ? 'text-orange-500 bg-orange-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
     }
-    // 수위
     if (s.water_level !== null) {
         document.getElementById('val-level').innerHTML = s.water_level + '<span class="text-sm font-bold text-slate-400">%</span>';
         const ok = s.water_level >= 80, warn = s.water_level >= 60;
@@ -350,11 +328,9 @@ function updateSensorCards(d) {
         document.getElementById('badge-level').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : warn ? 'text-orange-500 bg-orange-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
     }
 
-    // 업데이트 시각
     document.getElementById('last-updated').textContent = '마지막 업데이트: ' + new Date().toLocaleTimeString('ko-KR');
 }
 
-// ✅ AJAX 폴링 (5초마다 — location.reload() 대신)
 async function pollDashboard() {
     try {
         const res  = await fetch(`/monitoring/api/dashboard-data/${TANK_ID}/`);
@@ -368,8 +344,6 @@ async function pollDashboard() {
 
 setInterval(pollDashboard, 5000);
 
-
-// ✅ Chart.js 수질 트렌드 차트
 const chartColors = {
     temp: { border: '#ef4444', bg: 'rgba(239,68,68,0.08)', min: 18, max: 30, label: '수온 (°C)' },
     ph:   { border: '#3b82f6', bg: 'rgba(59,130,246,0.08)', min: 5,  max: 9,  label: 'pH' },
@@ -418,7 +392,6 @@ function setChart(metric) {
     currentMetric = metric;
     const c = chartColors[metric];
 
-    // 버튼 스타일 토글
     ['temp', 'ph', 'do', 'turb'].forEach(m => {
         const btn = document.getElementById('btn-' + m);
         if (m === metric) {
@@ -431,22 +404,20 @@ function setChart(metric) {
         }
     });
 
-    chart.data.labels               = chartHistory.labels || [];
-    chart.data.datasets[0].data     = chartHistory[metric] || [];
-    chart.data.datasets[0].label    = c.label;
-    chart.data.datasets[0].borderColor     = c.border;
-    chart.data.datasets[0].backgroundColor = c.bg;
+    chart.data.labels                           = chartHistory.labels || [];
+    chart.data.datasets[0].data                 = chartHistory[metric] || [];
+    chart.data.datasets[0].label               = c.label;
+    chart.data.datasets[0].borderColor         = c.border;
+    chart.data.datasets[0].backgroundColor     = c.bg;
     chart.data.datasets[0].pointBackgroundColor = c.border;
     chart.options.scales.y.min = c.min;
     chart.options.scales.y.max = c.max;
     chart.update();
 }
 
-// 초기 차트 데이터 (Django 템플릿에서 주입)
 const initHistory = {{ chart_history|safe|default:"{}" }};
 if (initHistory.labels) updateChart(initHistory);
 
-// ✅ 추가: 성장 차트
 const growthData = {{ growth_chart|safe|default:"{}" }};
 if (growthData.labels && growthData.labels.length > 0) {
     new Chart(document.getElementById('growthChart').getContext('2d'), {
@@ -478,7 +449,6 @@ if (growthData.labels && growthData.labels.length > 0) {
         '<p class="text-xs text-slate-300 font-bold text-center pt-14">성장 데이터 없음</p>';
 }
 
-// ✅ 추가: 급이량 차트
 const feedingData = {{ feeding_chart|safe|default:"{}" }};
 if (feedingData.labels) {
     new Chart(document.getElementById('feedingChart').getContext('2d'), {

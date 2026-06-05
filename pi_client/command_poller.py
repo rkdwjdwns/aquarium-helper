@@ -11,34 +11,28 @@ GET /api/commands/{tank_id}/
 import time
 import threading
 import requests
+import RPi.GPIO as GPIO
 from config import BASE_URL, HEADERS, TANK_ID
 
-# ── 릴레이 제어 (실제 GPIO 연결 시 주석 해제) ─────────────
-# import RPi.GPIO as GPIO
-#
-# RELAY_PINS = {
-#     "HEATER":   17,   # 2채널 CH1
-#     "COOLING":  18,   # 2채널 CH2
-#     "FILTER":   27,   # 4채널 CH3
-#     "AIR_PUMP": 22,   # 4채널 CH4
-#     "FEEDER":   23,
-#     "LIGHT":    24,
-# }
-#
-# GPIO.setmode(GPIO.BCM)
-# for pin in RELAY_PINS.values():
-#     GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)   # 릴레이는 LOW=ON이 일반적
-#
-# def set_relay(device_type: str, is_on: bool):
-#     pin = RELAY_PINS.get(device_type)
-#     if pin:
-#         GPIO.output(pin, GPIO.LOW if is_on else GPIO.HIGH)
+# ── 릴레이 핀 설정 ─────────────────────────────────────────
+RELAY_PINS = {
+    "HEATER":   17,   # 2채널 CH1
+    "COOLING":  18,   # 2채널 CH2
+    "FILTER":   27,   # 4채널 CH3
+    "AIR_PUMP": 22,   # 4채널 CH4
+    "FEEDER":   23,
+    "LIGHT":    24,
+}
+
+GPIO.setmode(GPIO.BCM)
+for pin in RELAY_PINS.values():
+    GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)   # 릴레이는 LOW=ON이 일반적
 
 
 def set_relay(device_type: str, is_on: bool):
-    """장치 ON/OFF 제어 — 실제 GPIO 연결 전 시뮬레이션용"""
-    state = "ON " if is_on else "OFF"
-    print(f"  [RELAY] {device_type:<10} → {state}")
+    pin = RELAY_PINS.get(device_type)
+    if pin:
+        GPIO.output(pin, GPIO.LOW if is_on else GPIO.HIGH)
 
 
 # 이전 상태 저장 (변경 시에만 릴레이 동작)
@@ -48,8 +42,8 @@ _prev_states: dict[str, bool] = {}
 def apply_commands(devices: list[dict]):
     """서버에서 받은 장치 목록을 릴레이에 적용합니다."""
     for device in devices:
-        dtype  = device.get("type")
-        is_on  = device.get("is_on", False)
+        dtype   = device.get("type")
+        is_on   = device.get("is_on", False)
         is_auto = device.get("is_auto", True)
 
         if not dtype:
@@ -122,3 +116,4 @@ if __name__ == "__main__":
             time.sleep(4)
     except KeyboardInterrupt:
         print("\n[POLLER] 종료")
+        GPIO.cleanup()
