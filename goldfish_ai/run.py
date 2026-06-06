@@ -20,11 +20,7 @@ run.py — Goldfish AI 통합 메인 루프
 
     [스트리밍]
     - MJPEG 스트리밍 서버 (port 8080) — 별도 Thread
-      엔드포인트:
-        /video_feed   → MJPEG 스트림 (로컬 직접 접속용)
-        /stream.mjpg  → MJPEG 스트림 (camera_stream.py 호환)
-        /snapshot.jpg → JPEG 스냅샷 (Cloudflare Tunnel + HTTPS 폴링용)
-        /health       → 헬스체크
+      → 프론트엔드: <img src="http://192.168.0.56:8080/video_feed">
 
 실행:
     python run.py                  # 기본
@@ -106,53 +102,28 @@ class _MJPEGHandler(BaseHTTPRequestHandler):
         pass  # 콘솔 로그 억제
 
     def do_GET(self):
-        path = self.path.split('?')[0]  # 쿼리 파라미터 제거
-
-        # ── MJPEG 스트림 (/video_feed, /stream.mjpg 둘 다 지원) ──────────
-        if path in ("/video_feed", "/stream.mjpg"):
-            self.send_response(200)
-            self.send_header("Content-Type",
-                             "multipart/x-mixed-replace; boundary=frame")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Cache-Control", "no-cache")
-            self.end_headers()
-            try:
-                while True:
-                    frame = get_stream_frame()
-                    if frame:
-                        self.wfile.write(
-                            b"--frame\r\n"
-                            b"Content-Type: image/jpeg\r\n\r\n"
-                            + frame + b"\r\n"
-                        )
-                    time.sleep(0.07)  # ~14fps
-            except Exception:
-                pass  # 클라이언트 연결 끊김
-
-        # ── 스냅샷 (/snapshot.jpg) — Cloudflare Tunnel HTTPS 폴링용 ──────
-        elif path == "/snapshot.jpg":
-            frame = get_stream_frame()
-            if frame:
-                self.send_response(200)
-                self.send_header("Content-Type", "image/jpeg")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.send_header("Cache-Control", "no-cache")
-                self.end_headers()
-                self.wfile.write(frame)
-            else:
-                self.send_response(503)
-                self.end_headers()
-
-        # ── 헬스체크 (/health) ────────────────────────────────────────────
-        elif path == "/health":
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(b"ok")
-
-        else:
+        if self.path != "/video_feed":
             self.send_error(404)
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type",
+                         "multipart/x-mixed-replace; boundary=frame")
+        self.send_header("Access-Control-Allow-Origin", "*")  # CORS 허용
+        self.end_headers()
+
+        try:
+            while True:
+                frame = get_stream_frame()
+                if frame:
+                    self.wfile.write(
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n\r\n"
+                        + frame + b"\r\n"
+                    )
+                time.sleep(0.07)  # ~14fps
+        except Exception:
+            pass  # 클라이언트 연결 끊김 시 조용히 종료
 
 
 def _start_stream_server():
@@ -164,11 +135,7 @@ def _start_stream_server():
         name="MJPEGStream",
     )
     t.start()
-    print(f"[Stream] MJPEG 스트리밍 시작 → port {STREAM_PORT}")
-    print(f"[Stream]   /video_feed   — MJPEG 스트림")
-    print(f"[Stream]   /stream.mjpg  — MJPEG 스트림 (호환)")
-    print(f"[Stream]   /snapshot.jpg — 스냅샷 (Cloudflare 터널용)")
-    print(f"[Stream]   /health       — 헬스체크")
+    print(f"[Stream] MJPEG 스트리밍 시작 → http://192.168.0.56:{STREAM_PORT}/video_feed")
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -226,11 +193,14 @@ def _decision_loop(sensor: SensorReader, engine: DecisionEngine, tx: ServerTx):
             result      = engine.decide(sensor_data, behavior)
 
             # ── 센서 데이터 서버 전송 (서버가 auto_actions 결정) ──────────
+            # command_poller.py 가 4초마다 GET /api/commands/ 로 결과를 받아
+            # set_relay() 를 호출함 → 릴레이 충돌 없음
             if sensor_data.valid:
                 append_sensor_log(sensor_data)
                 tx.send_sensor(sensor_data)
 
             # ── AI 행동 분석 기반 경고 → 서버 EventLog 전송 ──────────────
+            # 수면 집군 / 이상 행동 등 센서만으로 감지 불가한 이벤트를 기록
             if result.alerts:
                 for alert in result.alerts:
                     print(f"[Decision] ⚠️  {alert}")
@@ -349,7 +319,7 @@ def main():
 
     # ── MJPEG 스트리밍 서버 시작 (별도 Thread) ────────────────────────────
     # demo_pipeline.py가 매 프레임 _set_stream_frame()으로 공유 → 여기서 송출
-    # camera_stream.py 별도 실행 불필요 — Picamera2 충돌 방지
+    # 프론트엔드: <img src="http://192.168.0.56:8080/video_feed">
     _start_stream_server()
 
     # ── 주기 타이머 ──────────────────────────────────────────────────────
