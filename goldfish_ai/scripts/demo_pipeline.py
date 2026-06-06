@@ -13,6 +13,7 @@ demo_pipeline.py — Step 4: Demo Pipeline
   [6] config.yaml → 모든 설정값 중앙화
   [7] Baseline 자동 적재 — activity_baseline.csv 있으면 시작 시 로드
   [8] 급이 트리거 — 키보드 f 입력 시 FRS 분석 자동 예약
+  [9] MJPEG 스트리밍 — run.py의 스트리밍 서버에 프레임 공유
 
 사용법:
   python demo_pipeline.py                          # 카메라
@@ -61,6 +62,29 @@ from scripts.feeding_events import FeedingEventLogger
 from scripts.server_tx import ServerTx
 from scripts.behavior_bridge import get_bridge
 # from scripts.auto_capture import set_shared_frame  # 파인튜닝 캡처 비활성화
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# [9] MJPEG 스트리밍용 공유 프레임
+# run.py의 _MJPEGHandler가 get_stream_frame()으로 읽어서 브라우저에 송출
+# ─────────────────────────────────────────────────────────────────────────
+_stream_lock  = threading.Lock()
+_stream_frame: Optional[bytes] = None  # JPEG bytes
+
+
+def get_stream_frame() -> Optional[bytes]:
+    """run.py의 MJPEG 서버가 호출 — 최신 프레임 반환."""
+    with _stream_lock:
+        return _stream_frame
+
+
+def _set_stream_frame(frame) -> None:
+    """매 프레임 처리 후 호출 — JPEG 인코딩 후 공유 변수에 저장."""
+    global _stream_frame
+    ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+    if ok:
+        with _stream_lock:
+            _stream_frame = buf.tobytes()
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -519,6 +543,8 @@ def draw_overlay(
     fps_display: float,
     writer: MetricsWriter,
     last_feeding_ts: Optional[float],
+    repr_ids: set = None,           # 발표 모드: repr_ids 전달 시 해당 ID만 렌더링
+    presentation_mode: bool = False, # True → 노이즈 박스 완전 숨김
 ):
     h, w = frame.shape[:2]
 
@@ -535,6 +561,9 @@ def draw_overlay(
     if results[0].boxes is not None:
         ids_t = results[0].boxes.id
         if ids_t is not None:
+            # 발표 모드: repr_ids 확정된 경우 그 ID만, 아니면 valid_ids 기준 렌더링
+            _render_ids = repr_ids if (presentation_mode and repr_ids) else valid_ids
+
             for box_t, tid in zip(results[0].boxes.xyxy, ids_t):
                 x1, y1, x2, y2 = map(int, box_t.tolist())
                 fid = int(tid)
@@ -543,6 +572,9 @@ def draw_overlay(
                 color = ZONE_COLOR.get(zone, (200, 200, 200))
 
                 if fid not in valid_ids:
+                    # 발표 모드: 필터중 박스 완전 숨김 (회색 박스 미표시)
+                    if presentation_mode:
+                        continue
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (120, 120, 120), 1)
                     cv2.putText(
                         frame,
@@ -553,6 +585,10 @@ def draw_overlay(
                         (120, 120, 120),
                         1,
                     )
+                    continue
+
+                # 발표 모드 + repr_ids 확정: repr 아닌 valid ID도 숨김
+                if presentation_mode and repr_ids and fid not in repr_ids:
                     continue
 
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
@@ -884,6 +920,28 @@ def run(args):
                     tx.send_pattern_from_analyzer()
                     _last_pattern_tx = ts_now
 
+            # [9] 매 프레임 스트리밍용 공유 프레임 갱신
+            # --show 여부와 무관하게 항상 실행 → 프론트엔드가 언제든 접속 가능
+            # 발표 모드에서는 오버레이 적용된 깔끔한 프레임 사용
+            if getattr(args, "present", False):
+                stream_vis = draw_overlay(
+                    frame_resized.copy(),
+                    results,
+                    features,
+                    valid_ids,
+                    frame_h,
+                    cfg["zone_top_ratio"],
+                    cfg["zone_bottom_ratio"],
+                    fps_display,
+                    writer,
+                    last_feeding_ts,
+                    repr_ids=track_filter._repr_ids,
+                    presentation_mode=True,
+                )
+                _set_stream_frame(stream_vis)
+            else:
+                _set_stream_frame(frame_resized)
+
             # 진행 로그
             if frame_idx % 30 == 0:
                 print(
@@ -905,6 +963,8 @@ def run(args):
                     fps_display,
                     writer,
                     last_feeding_ts,
+                    repr_ids=track_filter._repr_ids,          # 대표 ID 전달
+                    presentation_mode=getattr(args, "present", False),  # --present 플래그
                 )
                 cv2.imshow("Goldfish AI", vis)
                 key = cv2.waitKey(1) & 0xFF
@@ -963,6 +1023,11 @@ def main():
     parser.add_argument("--broker", default=None)
     parser.add_argument("--topic", default=None)
     parser.add_argument("--mock-sensor", action="store_true")
+    parser.add_argument(
+        "--present",
+        action="store_true",
+        help="발표 모드: 노이즈 박스 완전 숨김 + repr_ids(3마리)만 렌더링",
+    )
     args = parser.parse_args()
     run(args)
 

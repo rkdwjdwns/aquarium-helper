@@ -18,6 +18,10 @@ run.py — Goldfish AI 통합 메인 루프
     - 성장 기록 전송 (growth_sender.py)
     - 활동 패턴 전송 (pattern_sender.py)
 
+    [스트리밍]
+    - MJPEG 스트리밍 서버 (port 8080) — 별도 Thread
+      → 프론트엔드: <img src="http://192.168.0.56:8080/video_feed">
+
 실행:
     python run.py                  # 기본
     python run.py --show           # 화면 표시 (f키: 급이, q키: 종료)
@@ -33,6 +37,10 @@ import sys
 import time
 import threading
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+import csv
+from datetime import datetime
 
 # ── 경로 설정 ─────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent
@@ -45,7 +53,7 @@ if PI_CLIENT.exists() and str(PI_CLIENT) not in sys.path:
     sys.path.insert(0, str(PI_CLIENT))
 
 # ── goldfish_ai imports ───────────────────────────────────────────────────
-from scripts.demo_pipeline   import run as run_pipeline, load_config
+from scripts.demo_pipeline   import run as run_pipeline, load_config, get_stream_frame
 from scripts.sensor_reader   import SensorReader, check_water_quality
 from scripts.behavior_bridge import get_bridge
 from scripts.decision        import DecisionEngine
@@ -66,9 +74,10 @@ except ImportError as e:
 # ─────────────────────────────────────────────────────────────────────────
 # 주기 설정 (초)
 # ─────────────────────────────────────────────────────────────────────────
-LIGHT_INTERVAL   = 60
-GROWTH_INTERVAL  = 3600
+LIGHT_INTERVAL    = 60
+GROWTH_INTERVAL   = 3600
 DECISION_INTERVAL = 10   # 제어 판단 주기
+STREAM_PORT       = 8080  # MJPEG 스트리밍 포트
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -83,6 +92,50 @@ def _on_exit(sig, frame):
 
 signal.signal(signal.SIGINT,  _on_exit)
 signal.signal(signal.SIGTERM, _on_exit)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# MJPEG 스트리밍 서버
+# ─────────────────────────────────────────────────────────────────────────
+class _MJPEGHandler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass  # 콘솔 로그 억제
+
+    def do_GET(self):
+        if self.path != "/video_feed":
+            self.send_error(404)
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type",
+                         "multipart/x-mixed-replace; boundary=frame")
+        self.send_header("Access-Control-Allow-Origin", "*")  # CORS 허용
+        self.end_headers()
+
+        try:
+            while True:
+                frame = get_stream_frame()
+                if frame:
+                    self.wfile.write(
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n\r\n"
+                        + frame + b"\r\n"
+                    )
+                time.sleep(0.07)  # ~14fps
+        except Exception:
+            pass  # 클라이언트 연결 끊김 시 조용히 종료
+
+
+def _start_stream_server():
+    """MJPEG 스트리밍 서버를 백그라운드 Thread로 시작."""
+    server = HTTPServer(("0.0.0.0", STREAM_PORT), _MJPEGHandler)
+    t = threading.Thread(
+        target=server.serve_forever,
+        daemon=True,
+        name="MJPEGStream",
+    )
+    t.start()
+    print(f"[Stream] MJPEG 스트리밍 시작 → http://192.168.0.56:{STREAM_PORT}/video_feed")
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -143,6 +196,7 @@ def _decision_loop(sensor: SensorReader, engine: DecisionEngine, tx: ServerTx):
             # command_poller.py 가 4초마다 GET /api/commands/ 로 결과를 받아
             # set_relay() 를 호출함 → 릴레이 충돌 없음
             if sensor_data.valid:
+                append_sensor_log(sensor_data)
                 tx.send_sensor(sensor_data)
 
             # ── AI 행동 분석 기반 경고 → 서버 EventLog 전송 ──────────────
@@ -166,6 +220,43 @@ def _decision_loop(sensor: SensorReader, engine: DecisionEngine, tx: ServerTx):
             print(f"[Decision] 오류: {e}")
 
         time.sleep(DECISION_INTERVAL)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 센서 전용 CSV 로거
+# ─────────────────────────────────────────────────────────────────────────
+SENSOR_LOG_PATH = Path("data/sensor_log.csv")
+
+def append_sensor_log(sensor_data):
+    """
+    실제 SensorReader에서 읽은 센서값을 data/sensor_log.csv에 누적 저장.
+    fish_metrics_*.csv와 다르게 물고기 감지 여부와 상관없이 저장됨.
+    """
+    SENSOR_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    file_exists = SENSOR_LOG_PATH.exists()
+
+    row = {
+        "timestamp":     datetime.now().isoformat(timespec="seconds"),
+        "temperature_c": getattr(sensor_data, "temperature_c", ""),
+        "ph":            getattr(sensor_data, "ph", ""),
+        "do_mg_l":       getattr(sensor_data, "do_mg_l", ""),
+        "tds_ppm":       getattr(sensor_data, "turbidity_ntu", ""),
+        "level":         getattr(sensor_data, "level", ""),
+        "sensor_valid":  getattr(sensor_data, "valid", ""),
+    }
+
+    with open(SENSOR_LOG_PATH, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "timestamp", "temperature_c", "ph",
+                "do_mg_l", "tds_ppm", "level", "sensor_valid",
+            ],
+        )
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -226,6 +317,11 @@ def main():
     )
     decision_thread.start()
 
+    # ── MJPEG 스트리밍 서버 시작 (별도 Thread) ────────────────────────────
+    # demo_pipeline.py가 매 프레임 _set_stream_frame()으로 공유 → 여기서 송출
+    # 프론트엔드: <img src="http://192.168.0.56:8080/video_feed">
+    _start_stream_server()
+
     # ── 주기 타이머 ──────────────────────────────────────────────────────
     last_light_time  = 0.0
     last_growth_time = 0.0
@@ -261,6 +357,9 @@ def main():
     # demo_pipeline.run()이 메인 루프를 담당
     # 종료 시 (q키 또는 Ctrl+C) 반환됨
     try:
+        # run.py에서 이미 실제 센서를 읽고 있으므로,
+        # demo_pipeline.py에서는 /dev/ttyACM0를 다시 열지 않게 함
+        args.mock_sensor = True
         run_pipeline(args)
     except SystemExit:
         pass
