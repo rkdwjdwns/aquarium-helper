@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
 <div class="py-6">
 
@@ -20,7 +21,7 @@
         <div class="relative bg-slate-900 rounded-[2.5rem] overflow-hidden mb-8" style="aspect-ratio: 16/9;" id="stream-container">
 
             <video id="stream-video"
-                   src="/media/demo.mp4"
+                   src="{% static 'demo.mp4' %}"
                    autoplay loop muted playsinline
                    class="w-full h-full object-contain"
                    oncanplay="onVideoReady()">
