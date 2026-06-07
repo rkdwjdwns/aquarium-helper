@@ -1,5 +1,6 @@
+# apps/accounts/apps.py
 from django.apps import AppConfig
 
-class AccountsConfig(AppConfig):  # 이름을 ReportsConfig에서 AccountsConfig로 수정
+class AccountsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'accounts'  # name도 accounts로 수정
+    name = 'apps.accounts'  # 👈 기존 'accounts'에서 'apps.accounts'로 수정

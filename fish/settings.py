@@ -38,13 +38,13 @@ INSTALLED_APPS = [
     'rest_framework',
     'whitenoise.runserver_nostatic', # 개발 환경에서도 whitenoise 테스트 가능하게 추가
     
-    # 로컬 앱 (apps 디렉토리 내)
-    'accounts.apps.AccountsConfig',
-    'core.apps.CoreConfig',
-    'monitoring.apps.MonitoringConfig',
-    'reports.apps.ReportsConfig',
-    'ai.apps.AiConfig',
-    'chatbot.apps.ChatbotConfig',
+    # ✅ 로컬 앱 (중복 모델 충돌 방지를 위해 apps. 경로를 명시적으로 통일합니다)
+    'apps.accounts.apps.AccountsConfig',
+    'apps.core.apps.CoreConfig',
+    'apps.monitoring.apps.MonitoringConfig',
+    'apps.reports.apps.ReportsConfig',
+    'apps.ai.apps.AiConfig',
+    'apps.chatbot.apps.ChatbotConfig',
 ]
 
 # 미들웨어 (WhiteNoise는 Security 바로 아래 위치가 최적)
