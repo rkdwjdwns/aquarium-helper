@@ -48,7 +48,7 @@
             {# 수온 #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🌡️ Temp</p>
-                <p id="val-temp" class="text-3xl font-black text-slate-800 mb-2">{{ latest.temperature|default:"--" }}°C</p>
+                <p id="val-temp" class="text-3xl font-black text-slate-800 mb-2">{{ latest.temperature|floatformat:2|default:"--" }}°C</p>
                 <span id="badge-temp" class="text-[10px] font-bold px-3 py-1 rounded-full
                     {% if latest.temperature %}
                         {% if latest.temperature >= 21 and latest.temperature <= 24 %}text-emerald-500 bg-emerald-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
@@ -60,7 +60,7 @@
             {# pH #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">💧 pH</p>
-                <p id="val-ph" class="text-3xl font-black text-slate-800 mb-2">{{ latest.ph|default:"--" }}</p>
+                <p id="val-ph" class="text-3xl font-black text-slate-800 mb-2">{{ latest.ph|floatformat:2|default:"--" }}</p>
                 <span id="badge-ph" class="text-[10px] font-bold px-3 py-1 rounded-full
                     {% if latest.ph %}
                         {% if latest.ph >= 6.5 and latest.ph <= 8.0 %}text-emerald-500 bg-emerald-50{% else %}text-orange-500 bg-orange-50 animate-pulse{% endif %}
@@ -72,7 +72,7 @@
             {# DO 용존산소 #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🫧 DO</p>
-                <p id="val-do" class="text-3xl font-black text-slate-800 mb-2">{{ latest.dissolved_oxygen|default:"--" }}<span class="text-sm font-bold text-slate-400"> mg/L</span></p>
+                <p id="val-do" class="text-3xl font-black text-slate-800 mb-2">{{ latest.dissolved_oxygen|floatformat:2|default:"--" }}<span class="text-sm font-bold text-slate-400"> mg/L</span></p>
                 <span id="badge-do" class="text-[10px] font-bold px-3 py-1 rounded-full
                     {% if latest.dissolved_oxygen %}
                         {% if latest.dissolved_oxygen >= 5 %}text-emerald-500 bg-emerald-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
@@ -84,7 +84,7 @@
             {# 탁도 #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🌫️ 탁도</p>
-                <p id="val-turb" class="text-3xl font-black text-slate-800 mb-2">{{ latest.turbidity|default:"--" }}<span class="text-sm font-bold text-slate-400"> NTU</span></p>
+                <p id="val-turb" class="text-3xl font-black text-slate-800 mb-2">{{ latest.turbidity|floatformat:2|default:"--" }}<span class="text-sm font-bold text-slate-400"> NTU</span></p>
                 <span id="badge-turb" class="text-[10px] font-bold px-3 py-1 rounded-full
                     {% if latest.turbidity %}
                         {% if latest.turbidity <= 50 %}text-emerald-500 bg-emerald-50{% elif latest.turbidity <= 100 %}text-orange-500 bg-orange-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
@@ -96,7 +96,7 @@
             {# 수위 #}
             <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
                 <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">📏 수위</p>
-                <p id="val-level" class="text-3xl font-black text-slate-800 mb-2">{{ latest.water_level|default:"--" }}<span class="text-sm font-bold text-slate-400">%</span></p>
+                <p id="val-level" class="text-3xl font-black text-slate-800 mb-2">{{ latest.water_level|floatformat:2|default:"--" }}<span class="text-sm font-bold text-slate-400">%</span></p>
                 <span id="badge-level" class="text-[10px] font-bold px-3 py-1 rounded-full
                     {% if latest.water_level %}
                         {% if latest.water_level >= 80 %}text-emerald-500 bg-emerald-50{% elif latest.water_level >= 60 %}text-orange-500 bg-orange-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
@@ -192,7 +192,7 @@
         </div>
         {% endif %}
 
-        {# 장치 제어 — 여과기·급이기 제거 → grid 4칸 #}
+        {# 장치 제어 #}
         <div class="mb-10">
             <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">⚙️ 장치 제어</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -267,12 +267,17 @@
     {% endif %}
 </div>
 
-{# Chart.js CDN #}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <script>
-const TANK_ID   = {{ tank.id }};
-const CSRF      = '{{ csrf_token }}';
+const TANK_ID = {{ tank.id }};
+const CSRF    = '{{ csrf_token }}';
+
+/* 소수점 2자리 포맷 헬퍼 */
+function fmt(v) {
+    const n = parseFloat(v);
+    return isNaN(n) ? '--' : n.toFixed(2);
+}
 
 function controlDevice(deviceType) {
     fetch(`/monitoring/toggle-device/${TANK_ID}/`, {
@@ -298,31 +303,31 @@ function updateSensorCards(d) {
     if (!s) return;
 
     if (s.temperature !== null) {
-        document.getElementById('val-temp').textContent = s.temperature + '°C';
+        document.getElementById('val-temp').textContent = fmt(s.temperature) + '°C';
         const ok = s.temperature >= 21 && s.temperature <= 24;
         document.getElementById('badge-temp').textContent = ok ? '● 적정' : '● 주의';
         document.getElementById('badge-temp').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
     }
     if (s.ph !== null) {
-        document.getElementById('val-ph').textContent = s.ph;
+        document.getElementById('val-ph').textContent = fmt(s.ph);
         const ok = s.ph >= 6.5 && s.ph <= 8.0;
         document.getElementById('badge-ph').textContent = ok ? '● 안정' : '● 확인 필요';
         document.getElementById('badge-ph').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-orange-500 bg-orange-50 animate-pulse'}`;
     }
     if (s.dissolved_oxygen !== null) {
-        document.getElementById('val-do').innerHTML = s.dissolved_oxygen + '<span class="text-sm font-bold text-slate-400"> mg/L</span>';
+        document.getElementById('val-do').innerHTML = fmt(s.dissolved_oxygen) + '<span class="text-sm font-bold text-slate-400"> mg/L</span>';
         const ok = s.dissolved_oxygen >= 5;
         document.getElementById('badge-do').textContent = ok ? '● 정상' : '● 산소 부족';
         document.getElementById('badge-do').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
     }
     if (s.turbidity !== null) {
-        document.getElementById('val-turb').innerHTML = s.turbidity + '<span class="text-sm font-bold text-slate-400"> NTU</span>';
+        document.getElementById('val-turb').innerHTML = fmt(s.turbidity) + '<span class="text-sm font-bold text-slate-400"> NTU</span>';
         const ok = s.turbidity <= 50, warn = s.turbidity <= 100;
         document.getElementById('badge-turb').textContent = ok ? '● 맑음' : warn ? '● 탁함' : '● 위험';
         document.getElementById('badge-turb').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : warn ? 'text-orange-500 bg-orange-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
     }
     if (s.water_level !== null) {
-        document.getElementById('val-level').innerHTML = s.water_level + '<span class="text-sm font-bold text-slate-400">%</span>';
+        document.getElementById('val-level').innerHTML = fmt(s.water_level) + '<span class="text-sm font-bold text-slate-400">%</span>';
         const ok = s.water_level >= 80, warn = s.water_level >= 60;
         document.getElementById('badge-level').textContent = ok ? '● 정상' : warn ? '● 낮음' : '● 부족';
         document.getElementById('badge-level').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : warn ? 'text-orange-500 bg-orange-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
@@ -359,20 +364,14 @@ const chart = new Chart(ctx, {
     data: {
         labels: [],
         datasets: [{
-            label: '수온 (°C)',
-            data: [],
-            borderColor: '#ef4444',
-            backgroundColor: 'rgba(239,68,68,0.08)',
-            borderWidth: 2.5,
-            pointRadius: 4,
-            pointBackgroundColor: '#ef4444',
-            tension: 0.4,
-            fill: true,
+            label: '수온 (°C)', data: [],
+            borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)',
+            borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#ef4444',
+            tension: 0.4, fill: true,
         }]
     },
     options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
             x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' } },
@@ -391,7 +390,6 @@ function updateChart(history) {
 function setChart(metric) {
     currentMetric = metric;
     const c = chartColors[metric];
-
     ['temp', 'ph', 'do', 'turb'].forEach(m => {
         const btn = document.getElementById('btn-' + m);
         if (m === metric) {
@@ -403,7 +401,6 @@ function setChart(metric) {
             btn.className = 'chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400';
         }
     });
-
     chart.data.labels                           = chartHistory.labels || [];
     chart.data.datasets[0].data                 = chartHistory[metric] || [];
     chart.data.datasets[0].label               = c.label;
@@ -424,25 +421,10 @@ if (growthData.labels && growthData.labels.length > 0) {
         type: 'line',
         data: {
             labels: growthData.labels,
-            datasets: [{
-                label: '체장 (cm)',
-                data: growthData.length,
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16,185,129,0.08)',
-                borderWidth: 2.5,
-                pointRadius: 4,
-                pointBackgroundColor: '#10b981',
-                tension: 0.4, fill: true,
-            }]
+            datasets: [{ label: '체장 (cm)', data: growthData.length, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#10b981', tension: 0.4, fill: true }]
         },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8' } },
-                y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, color: '#94a3b8' } }
-            }
-        }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8' } }, y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, color: '#94a3b8' } } } }
     });
 } else {
     document.getElementById('growthChart').parentElement.innerHTML =
@@ -455,23 +437,10 @@ if (feedingData.labels) {
         type: 'bar',
         data: {
             labels: feedingData.labels,
-            datasets: [{
-                label: '급이량 (g)',
-                data: feedingData.amounts,
-                backgroundColor: 'rgba(245,158,11,0.2)',
-                borderColor: '#f59e0b',
-                borderWidth: 2,
-                borderRadius: 6,
-            }]
+            datasets: [{ label: '급이량 (g)', data: feedingData.amounts, backgroundColor: 'rgba(245,158,11,0.2)', borderColor: '#f59e0b', borderWidth: 2, borderRadius: 6 }]
         },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8' } },
-                y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, color: '#94a3b8' } }
-            }
-        }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8' } }, y: { grid: { color: 'rgba(0,0,0,0.04)' } } } }
     });
 }
 </script>

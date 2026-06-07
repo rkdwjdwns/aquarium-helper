@@ -80,13 +80,8 @@
             </div>
         </div>
 
-        {# 기능 버튼 #}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <button onclick="takeSnapshot()"
-                    class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
-                <span class="text-2xl">📸</span>
-                <span class="text-[11px] font-black text-slate-500">스냅샷</span>
-            </button>
+        {# 기능 버튼 — 스냅샷 제거 → 3칸 #}
+        <div class="grid grid-cols-3 gap-4 mb-8">
             <button onclick="toggleZoneOverlay()" id="zone-btn"
                     class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
                 <span class="text-2xl">🔲</span>
@@ -146,11 +141,9 @@
 </div>
 
 <script>
-// ── Django에서 Pi IP 주입 ──────────────────────
 const PI_IP   = '{{ tank.pi_ip|default:"" }}';
 const PI_PORT = '{{ tank.pi_stream_port|default:"8080" }}';
 
-// cloudflare URL이면 https + snapshot 방식, 로컬 IP면 http + mjpeg 방식
 function buildStreamUrl(ip, port) {
     if (!ip) return '';
     if (ip.includes('trycloudflare.com') || ip.includes('cloudflare')) {
@@ -169,28 +162,24 @@ let frameCount    = 0;
 let lastFpsTime   = Date.now();
 let snapshotTimer = null;
 
-// ── 스냅샷 폴링 (cloudflare 모드) ────────────
 function startSnapshotPolling() {
     const img = document.getElementById('stream-img');
-
     function loadSnapshot() {
         const tmpImg = new Image();
         tmpImg.onload = () => {
             img.src = tmpImg.src;
             onStreamLoad();
-            snapshotTimer = setTimeout(loadSnapshot, 500);  // 0.5초마다 갱신
+            snapshotTimer = setTimeout(loadSnapshot, 500);
         };
         tmpImg.onerror = () => {
             onStreamError();
-            snapshotTimer = setTimeout(loadSnapshot, 2000); // 오류 시 2초 후 재시도
+            snapshotTimer = setTimeout(loadSnapshot, 2000);
         };
         tmpImg.src = STREAM_URL + '?t=' + Date.now();
     }
-
     loadSnapshot();
 }
 
-// ── 페이지 로드 시 자동 연결 ─────────────────
 window.addEventListener('load', () => {
     if (STREAM_URL) {
         connectStream(STREAM_URL);
@@ -201,18 +190,11 @@ window.addEventListener('load', () => {
 
 function connectStream(url) {
     const img = document.getElementById('stream-img');
-
-    // 기존 스냅샷 타이머 정리
-    if (snapshotTimer) {
-        clearTimeout(snapshotTimer);
-        snapshotTimer = null;
-    }
-
+    if (snapshotTimer) { clearTimeout(snapshotTimer); snapshotTimer = null; }
     isStreaming = false;
     setOverlay('loading');
     document.getElementById('stream-badge').textContent = '연결 중...';
     document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500';
-
     if (STREAM_MODE === 'snapshot') {
         startSnapshotPolling();
     } else {
@@ -221,14 +203,9 @@ function connectStream(url) {
 }
 
 function refreshStream() {
-    if (STREAM_URL) {
-        connectStream(STREAM_URL);
-    } else {
-        setOverlay('no_pi');
-    }
+    if (STREAM_URL) { connectStream(STREAM_URL); } else { setOverlay('no_pi'); }
 }
 
-// ── 스트림 이벤트 ──────────────────────────────
 function onStreamLoad() {
     if (!isStreaming) {
         isStreaming = true;
@@ -253,53 +230,31 @@ function setOverlay(state) {
     const icon    = document.getElementById('overlay-icon');
     const msg     = document.getElementById('overlay-msg');
     const sub     = document.getElementById('overlay-sub');
-
     overlay.classList.remove('hidden');
     if (state === 'loading') {
-        icon.textContent = '⏳';
-        msg.textContent  = '카메라 연결 중...';
-        sub.textContent  = '';
+        icon.textContent = '⏳'; msg.textContent = '카메라 연결 중...'; sub.textContent = '';
     } else if (state === 'error') {
-        icon.textContent = '❌';
-        msg.textContent  = '카메라 연결에 실패했습니다.';
-        sub.textContent  = '카메라 장치의 전원과 네트워크를 확인해주세요.';
+        icon.textContent = '❌'; msg.textContent = '카메라 연결에 실패했습니다.';
+        sub.textContent = '카메라 장치의 전원과 네트워크를 확인해주세요.';
     } else if (state === 'no_pi') {
-        icon.textContent = '📷';
-        msg.textContent  = '카메라가 연결되지 않았습니다.';
-        sub.textContent  = '카메라 장치의 전원을 확인해주세요.';
+        icon.textContent = '📷'; msg.textContent = '카메라가 연결되지 않았습니다.';
+        sub.textContent = '카메라 장치의 전원을 확인해주세요.';
     }
 }
 
-// ── FPS 카운터 ─────────────────────────────────
 setInterval(() => {
     const now     = Date.now();
     const elapsed = (now - lastFpsTime) / 1000;
-    document.getElementById('fps-label').textContent  = Math.round(frameCount / elapsed) + ' fps';
+    document.getElementById('fps-label').textContent   = Math.round(frameCount / elapsed) + ' fps';
     document.getElementById('stream-time').textContent = new Date().toLocaleTimeString('ko-KR');
     frameCount  = 0;
     lastFpsTime = now;
 }, 1000);
 
-// ── 스냅샷 ────────────────────────────────────
-function takeSnapshot() {
-    const img = document.getElementById('stream-img');
-    if (!isStreaming) { alert('스트림이 연결되어 있지 않습니다.'); return; }
-    const canvas = document.createElement('canvas');
-    canvas.width  = img.naturalWidth  || 640;
-    canvas.height = img.naturalHeight || 480;
-    canvas.getContext('2d').drawImage(img, 0, 0);
-    const a    = document.createElement('a');
-    a.href     = canvas.toDataURL('image/jpeg', 0.95);
-    a.download = `aquarium_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.jpg`;
-    a.click();
-}
-
-// ── 구역 오버레이 ──────────────────────────────
 function toggleZoneOverlay() {
     zoneVisible = !zoneVisible;
     const btn = document.getElementById('zone-btn');
     let canvas = document.getElementById('zone-canvas');
-
     if (zoneVisible) {
         if (!canvas) {
             canvas = document.createElement('canvas');
@@ -318,8 +273,7 @@ function toggleZoneOverlay() {
 function drawZones(canvas) {
     const w = canvas.parentElement.offsetWidth;
     const h = canvas.parentElement.offsetHeight;
-    canvas.width  = w;
-    canvas.height = h;
+    canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, w, h);
     [
@@ -327,27 +281,18 @@ function drawZones(canvas) {
         { label: 'MID', y: h/3,   h: h/3, color: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.5)' },
         { label: 'BOT', y: h*2/3, h: h/3, color: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.5)' },
     ].forEach(z => {
-        ctx.fillStyle = z.color;
-        ctx.fillRect(0, z.y, w, z.h);
-        ctx.strokeStyle = z.border;
-        ctx.lineWidth   = 1.5;
-        ctx.setLineDash([6, 4]);
+        ctx.fillStyle = z.color; ctx.fillRect(0, z.y, w, z.h);
+        ctx.strokeStyle = z.border; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
         ctx.strokeRect(2, z.y + 2, w - 4, z.h - 4);
-        ctx.font      = 'bold 13px sans-serif';
-        ctx.fillStyle = z.border;
-        ctx.setLineDash([]);
-        ctx.fillText(z.label, 14, z.y + 22);
+        ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = z.border;
+        ctx.setLineDash([]); ctx.fillText(z.label, 14, z.y + 22);
     });
 }
 
-// ── 전체화면 ───────────────────────────────────
 function toggleFullscreen() {
     const el = document.getElementById('stream-container');
-    if (!document.fullscreenElement) {
-        el.requestFullscreen?.();
-    } else {
-        document.exitFullscreen?.();
-    }
+    if (!document.fullscreenElement) { el.requestFullscreen?.(); }
+    else { document.exitFullscreen?.(); }
 }
 </script>
 {% endblock %}
