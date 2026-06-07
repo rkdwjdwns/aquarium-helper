@@ -507,12 +507,13 @@ async function fetchActivity() {
 
 // ── 성장 추정 ─────────────────────────────────
 async function fetchGrowth() {
-    const d     = await safeFetch(`/monitoring/api/growth/?tank_id=${TANK_ID}`);
-    const avg   = parseFloat(val(d?.avg_length_cm ?? d?.current_size_cm, DEMO.growth.avg_length_cm));
-    const rate  = parseFloat(val(d?.avg_growth_cm_per_day ?? d?.growth_per_day, DEMO.growth.avg_growth_cm_per_day));
-    const stage = val(d?.stage_label ?? d?.estimated_stage, DEMO.growth.stage_label);
-    const calib = val(d?.calibration_label, DEMO.growth.calibration_label);
-    const fish  = (d?.fish?.length ? d.fish : DEMO.growth.fish);
+    await safeFetch(`/monitoring/api/growth/?tank_id=${TANK_ID}`);
+    // px_to_cm_ratio 미보정 → 실데이터 무시, 항상 DEMO 사용
+    const avg   = DEMO.growth.avg_length_cm;
+    const rate  = DEMO.growth.avg_growth_cm_per_day;
+    const stage = DEMO.growth.stage_label;
+    const calib = DEMO.growth.calibration_label;
+    const fish  = DEMO.growth.fish;
 
     document.getElementById('growth-avg').textContent         = isNaN(avg)?'--':avg.toFixed(2);
     document.getElementById('growth-avg-rate').textContent    = '+'+fmt2(rate)+' cm/day';
