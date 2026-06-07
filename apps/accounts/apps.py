@@ -3,4 +3,6 @@ from django.apps import AppConfig
 
 class AccountsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.accounts'  # 👈 기존 'accounts'에서 'apps.accounts'로 수정
+    
+    # ✅ 중복 모델 충돌(Conflicting models)을 막기 위해 'apps.' 경로를 명시합니다.
+    name = 'apps.accounts'

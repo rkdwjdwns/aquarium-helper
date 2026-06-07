@@ -6,7 +6,12 @@ from . import views
 app_name = 'core'
 
 urlpatterns = [
+    # 홈 화면
     path('', views.index, name='home'),
+    
+    # 챗봇 API 엔드포인트
     path('chatbot/ask/', views.chat_api, name='chat_api'),
+    
+    # 오프라인 페이지 (PWA 대응용)
     path('offline/', TemplateView.as_view(template_name='offline.html'), name='offline'),
 ]
