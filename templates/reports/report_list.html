@@ -50,20 +50,8 @@
         </div>
     </div>
 
-    {# ── 탭: 센서 데이터 / AI 행동 분석 ── #}
-    <div class="flex gap-2 px-4 mb-8">
-        <button onclick="showTab('sensor')" id="tab-sensor"
-                class="px-6 py-2.5 rounded-xl text-xs font-black transition bg-blue-600 text-white shadow-lg">
-            💧 센서 데이터
-        </button>
-        <button onclick="showTab('behavior')" id="tab-behavior"
-                class="px-6 py-2.5 rounded-xl text-xs font-black transition bg-white text-gray-400 border border-gray-100">
-            🤖 AI 행동 분석
-        </button>
-    </div>
-
-    {# ── 센서 데이터 탭 ── #}
-    <div id="panel-sensor" class="px-4">
+    {# ── 센서 데이터 패널 (탭 없이 바로 표시) ── #}
+    <div class="px-4">
         {% if report_data %}
         <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
             <div class="overflow-x-auto">
@@ -164,92 +152,5 @@
         {% endif %}
     </div>
 
-    {# ── AI 행동 분석 탭 ── #}
-    <div id="panel-behavior" class="px-4 hidden">
-        {% if behaviors %}
-        <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-gray-50/80 border-b border-gray-100">
-                        <tr>
-                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">시간</th>
-                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">🐟 개체수</th>
-                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">⚡ 활동량</th>
-                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">📍 주 구역</th>
-                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">🍽️ 급이점수</th>
-                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">상태</th>
-                            <th class="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">이상</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        {% for b in behaviors %}
-                        <tr class="hover:bg-blue-50/30 transition-colors {% if b.is_anomaly %}bg-red-50/30{% endif %}">
-                            <td class="px-6 py-4 text-xs text-gray-400 font-mono whitespace-nowrap">{{ b.created_at|date:"Y-m-d H:i" }}</td>
-                            <td class="px-6 py-4 font-black text-sm text-slate-700">{{ b.fish_count }}마리</td>
-                            <td class="px-6 py-4 font-black text-sm text-slate-700">{{ b.activity_level|floatformat:1 }}</td>
-                            <td class="px-6 py-4">
-                                <span class="px-3 py-1 rounded-lg text-[10px] font-black
-                                    {% if b.dominant_zone == 'TOP' %}bg-sky-100 text-sky-600
-                                    {% elif b.dominant_zone == 'MID' %}bg-blue-100 text-blue-600
-                                    {% else %}bg-slate-100 text-slate-600{% endif %}">
-                                    {{ b.get_dominant_zone_display }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-2">
-                                    <div class="w-16 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div class="h-full rounded-full
-                                            {% if b.feeding_score >= 70 %}bg-emerald-400
-                                            {% elif b.feeding_score >= 40 %}bg-orange-400
-                                            {% else %}bg-red-400{% endif %}"
-                                             style="width: {{ b.feeding_score }}%"></div>
-                                    </div>
-                                    <span class="text-xs font-black text-gray-600">{{ b.feeding_score }}</span>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span class="px-3 py-1 rounded-lg text-[10px] font-black
-                                    {% if b.status == 'EXCELLENT' %}bg-emerald-100 text-emerald-600
-                                    {% elif b.status == 'GOOD' %}bg-blue-100 text-blue-600
-                                    {% elif b.status == 'WARNING' %}bg-orange-100 text-orange-600
-                                    {% elif b.status == 'POOR' %}bg-red-100 text-red-600
-                                    {% else %}bg-gray-100 text-gray-600{% endif %}">
-                                    {{ b.get_status_display }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4">
-                                {% if b.is_anomaly %}
-                                    <span class="text-red-500 font-black text-sm" title="{{ b.note }}">⚠️ 감지</span>
-                                {% else %}
-                                    <span class="text-emerald-500 font-black text-sm">✓ 정상</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% else %}
-        <div class="py-32 text-center bg-white rounded-[3.5rem] border-4 border-dashed border-slate-100">
-            <div class="text-6xl mb-6">🤖</div>
-            <p class="text-slate-400 font-black text-xl">AI 행동 분석 데이터가 아직 없습니다.</p>
-            <p class="text-slate-300 font-bold mt-2">Raspberry Pi가 연동되면 자동으로 분석 데이터가 쌓입니다.</p>
-        </div>
-        {% endif %}
-    </div>
-
 </div>
-
-<script>
-function showTab(tab) {
-    // 패널 전환
-    document.getElementById('panel-sensor').classList.toggle('hidden', tab !== 'sensor');
-    document.getElementById('panel-behavior').classList.toggle('hidden', tab !== 'behavior');
-
-    // 탭 버튼 스타일 전환
-    document.getElementById('tab-sensor').className   = `px-6 py-2.5 rounded-xl text-xs font-black transition ${tab === 'sensor'   ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`;
-    document.getElementById('tab-behavior').className = `px-6 py-2.5 rounded-xl text-xs font-black transition ${tab === 'behavior' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`;
-}
-</script>
 {% endblock %}
