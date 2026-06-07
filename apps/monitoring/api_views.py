@@ -5,7 +5,7 @@ Raspberry Pi ↔ Render 서버 간 REST API
 - Pi → 서버 : 센서/행동/급이/성장/패턴 데이터 전송
 - 서버 → Pi : 장치 제어 명령 응답 (polling 방식)
 - Pi → 서버 : IP 자동 등록 (카메라 스트림 자동 연결)
-- 프론트 → 서버 : FRS/ABR/패턴/성장 최신 데이터 조회 (GET)
+- 프론트 → 서버 : 행동/FRS/ABR/패턴/성장 최신 데이터 조회 (GET)
 
 인증: 헤더 X-API-KEY (Render 환경변수 PI_API_KEY)
 수질 기준: 코멧 금붕어 치어 기준 (설계 문서 v2.0)
@@ -47,6 +47,14 @@ WATER_STANDARDS = {
     'turbidity_max':  50.0,
     'turbidity_ok':   20.0,
     'turbidity_warn': 100.0,
+}
+
+STATUS_KO = {
+    'EXCELLENT': '매우 좋음',
+    'GOOD':      '좋음',
+    'NORMAL':    '정상',
+    'WARNING':   '주의',
+    'POOR':      '나쁨',
 }
 
 
@@ -311,6 +319,38 @@ def receive_fish_behavior(request):
 
 
 # ──────────────────────────────────────────────
+# [2-1] AI 행동 분석 최신값 조회
+#       GET /monitoring/api/behavior/latest/?tank_id=1  (프론트용)
+#
+# run.py가 30초마다 POST /api/behavior/ 로 전송한 값을 반환.
+# 실제 제공값: activity_level, dominant_zone, status (run.py 실시간 데이터)
+# 현재 미제공: abr_score (0.0 고정), feeding_score (0 고정 — v4 FRS 제거)
+# ──────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def get_behavior_latest(request):
+    tank_id = request.GET.get('tank_id', 1)
+    try:
+        b = FishBehavior.objects.filter(tank_id=tank_id).latest('created_at')
+        return JsonResponse({
+            'fish_count':     b.fish_count,
+            'activity_level': round(float(b.activity_level), 2),
+            'dominant_zone':  b.dominant_zone,
+            'zone_top_ratio': round(float(b.zone_top_ratio), 3),
+            'zone_mid_ratio': round(float(b.zone_mid_ratio), 3),
+            'zone_bot_ratio': round(float(b.zone_bot_ratio), 3),
+            'size_index':     round(float(b.size_index), 3),
+            'status':         b.status,
+            'status_ko':      STATUS_KO.get(b.status, b.status),
+            'is_anomaly':     b.is_anomaly,
+            'note':           b.note or '',
+            'timestamp':      b.created_at.isoformat(),
+        })
+    except FishBehavior.DoesNotExist:
+        return JsonResponse({'error': 'no data'}, status=404)
+
+
+# ──────────────────────────────────────────────
 # [3] 급이 이벤트  POST /monitoring/api/feeding/
 # ──────────────────────────────────────────────
 
@@ -389,7 +429,6 @@ GROWTH_STAGE_KO = {'FRY': '치어', 'JUVENILE': '유어', 'YOUNG': '유어', 'AD
 @require_http_methods(['GET', 'POST'])
 def receive_growth_record(request):
 
-    # ── GET: 프론트에서 최신 성장 기록 조회 ────────────────────────
     if request.method == 'GET':
         tank_id = request.GET.get('tank_id', 1)
         try:
@@ -405,7 +444,6 @@ def receive_growth_record(request):
         except GrowthRecord.DoesNotExist:
             return JsonResponse({'error': 'no data'}, status=404)
 
-    # ── POST: Pi에서 성장 기록 수신 (API Key 인증) ──────────────────
     if not _check_api_key(request):
         return _error("인증 실패: 유효하지 않은 API Key입니다.", status=401)
 
@@ -454,13 +492,11 @@ def receive_growth_record(request):
 @require_http_methods(['GET', 'POST'])
 def receive_activity_pattern(request):
 
-    # ── GET: 프론트에서 최신 활동 패턴 조회 ────────────────────────
     if request.method == 'GET':
         tank_id = request.GET.get('tank_id', 1)
         try:
             p = ActivityPattern.objects.filter(tank_id=tank_id).latest('created_at')
 
-            # hourly_activity: dict {'0':v, '1':v, ...} 또는 list [v,v,...] 형태 정규화
             raw = p.hourly_activity or {}
             if isinstance(raw, dict):
                 hourly = [float(raw.get(str(i), 0)) for i in range(24)]
@@ -485,7 +521,6 @@ def receive_activity_pattern(request):
         except ActivityPattern.DoesNotExist:
             return JsonResponse({'error': 'no data'}, status=404)
 
-    # ── POST: Pi에서 활동 패턴 수신 (API Key 인증) ──────────────────
     if not _check_api_key(request):
         return _error("인증 실패: 유효하지 않은 API Key입니다.", status=401)
 
@@ -597,10 +632,6 @@ def register_pi(request):
 @api_key_required
 @require_http_methods(['POST'])
 def register_camera_url(request):
-    """
-    Cloudflare Tunnel URL을 서버에 등록합니다.
-    pi_ip에 hostname만 저장 (e.g. xxxx.trycloudflare.com)
-    """
     data = _parse_body(request)
     if not data:
         return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
@@ -613,7 +644,6 @@ def register_camera_url(request):
     if not camera_url:
         return _error("camera_url 필드가 필요합니다.")
 
-    # hostname만 추출 (e.g. xxxx.trycloudflare.com)
     parsed   = urlparse(camera_url)
     hostname = parsed.netloc or camera_url
 
@@ -687,7 +717,7 @@ def get_frs(request):
         elif score >= 40: status = '주의'
         else:             status = '위험'
 
-        ar_ratio = float(r.ar_ratio or 1.0)
+        ar_ratio          = float(r.ar_ratio or 1.0)
         activity_increase = round((ar_ratio - 1.0) * 100, 1)
 
         return JsonResponse({
@@ -720,10 +750,10 @@ def get_abr(request):
         anomaly_count = FishBehavior.objects.filter(tank_id=tank_id, is_anomaly=True).count()
 
         return JsonResponse({
-            'abr_rate':     abr_rate,
-            'status':       status,
+            'abr_rate':      abr_rate,
+            'status':        status,
             'anomaly_count': anomaly_count,
-            'timestamp':    b.created_at.isoformat(),
+            'timestamp':     b.created_at.isoformat(),
         })
     except FishBehavior.DoesNotExist:
         return JsonResponse({'error': 'no data'}, status=404)

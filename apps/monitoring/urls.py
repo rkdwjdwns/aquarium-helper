@@ -38,21 +38,22 @@ urlpatterns = [
     path('reports/download/<int:tank_id>/',      views.download_report,    name='download_report'),
 
     # ── [7. Raspberry Pi REST API — Pi → 서버 전송] ────────────────
-    path('api/sensor/',                          api_views.receive_sensor_data,      name='api_sensor'),
-    path('api/behavior/',                        api_views.receive_fish_behavior,    name='api_behavior'),
-    path('api/feeding/',                         api_views.receive_feeding_event,    name='api_feeding'),
-    path('api/growth/',                          api_views.receive_growth_record,    name='api_growth'),   # GET(프론트) + POST(Pi)
-    path('api/pattern/',                         api_views.receive_activity_pattern, name='api_pattern'),  # GET(프론트) + POST(Pi)
-    path('api/commands/<int:tank_id>/',          api_views.get_pending_commands,     name='api_commands'),
-    path('api/health/',                          api_views.health_check,             name='api_health'),
-    path('api/register-pi/',                     api_views.register_pi,              name='api_register_pi'),
-    path('api/register-camera-url/',             api_views.register_camera_url,      name='api_register_camera_url'),
-    path('api/event-log/',                       api_views.create_event_log,         name='api_event_log'),
+    path('api/sensor/',              api_views.receive_sensor_data,      name='api_sensor'),
+    path('api/behavior/',            api_views.receive_fish_behavior,    name='api_behavior'),
+    path('api/feeding/',             api_views.receive_feeding_event,    name='api_feeding'),
+    path('api/growth/',              api_views.receive_growth_record,    name='api_growth'),    # GET(프론트) + POST(Pi)
+    path('api/pattern/',             api_views.receive_activity_pattern, name='api_pattern'),   # GET(프론트) + POST(Pi)
+    path('api/commands/<int:tank_id>/', api_views.get_pending_commands,  name='api_commands'),
+    path('api/health/',              api_views.health_check,             name='api_health'),
+    path('api/register-pi/',         api_views.register_pi,              name='api_register_pi'),
+    path('api/register-camera-url/', api_views.register_camera_url,      name='api_register_camera_url'),
+    path('api/event-log/',           api_views.create_event_log,         name='api_event_log'),
 
     # ── [8. 프론트 전용 GET API] ───────────────────────────────────
-    path('api/frs/',                             api_views.get_frs,                  name='api_frs'),
-    path('api/abr/',                             api_views.get_abr,                  name='api_abr'),
+    path('api/behavior/latest/',     api_views.get_behavior_latest,      name='api_behavior_latest'),  # ← 신규: run.py 실시간 행동 분석값
+    path('api/frs/',                 api_views.get_frs,                  name='api_frs'),
+    path('api/abr/',                 api_views.get_abr,                  name='api_abr'),
 
     # ── [9. 대시보드 AJAX 폴링] ────────────────────────────────────
-    path('api/dashboard-data/<int:tank_id>/',    views.dashboard_data,               name='dashboard_data'),
+    path('api/dashboard-data/<int:tank_id>/', views.dashboard_data,      name='dashboard_data'),
 ]
