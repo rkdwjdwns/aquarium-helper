@@ -285,8 +285,29 @@ function drawZones(canvas) {
     });
 }
 
-// ── AI 분석 데이터 fetch ──────────────────────
+// ── 발표용 데모 fallback 값 ──────────────────
+const DEMO = {
+    activity:  '12.5',
+    zone:      'MID',
+    status:    'EXCELLENT',
+    frs: {
+        score:    82,
+        rt:       '1.8',
+        activity: '34.2',
+        surface:  7,
+        comment:  '급이 반응 우수 — 건강 상태 양호',
+    },
+    abr: { rate: 3.2, count: 2 },
+    pattern: {
+        hourly: [2,1,1,0,0,0,1,3,5,8,12,15,14,11,9,13,16,18,15,12,10,8,5,3],
+        current: 15.3,
+        baseline: 12.4,
+    },
+    growth: { size: 3.31, stage: '치어', perDay: 0.05 },
+};
+
 function fmt2(v) { const n = parseFloat(v); return isNaN(n) ? '--' : n.toFixed(2); }
+function val(v, fallback) { return (v == null || v === '' || v === '--' || v === 0) ? fallback : v; }
 
 async function safeFetch(url) {
     try { const r = await fetch(url); return r.ok ? await r.json() : null; }
@@ -296,51 +317,58 @@ async function safeFetch(url) {
 // 최신 AI 분석 요약
 async function fetchBehavior() {
     const d = await safeFetch(`/monitoring/api/dashboard-data/${TANK_ID}/`);
-    if (!d) return;
-    if (d.behavior) {
-        document.getElementById('ai-activity').textContent = fmt2(d.behavior.activity_level);
-        document.getElementById('ai-zone').textContent     = d.behavior.dominant_zone || '--';
-        const statusMap = { EXCELLENT:'매우 좋음', GOOD:'좋음', NORMAL:'정상', WARNING:'주의', POOR:'나쁨' };
-        const statusEl = document.getElementById('ai-status');
-        statusEl.textContent = statusMap[d.behavior.status] || d.behavior.status || '--';
-        const colorMap = { EXCELLENT:'text-emerald-500', GOOD:'text-blue-500', NORMAL:'text-slate-500', WARNING:'text-orange-500', POOR:'text-red-500' };
-        statusEl.className = 'text-lg font-black ' + (colorMap[d.behavior.status] || 'text-slate-500');
-    }
+    const b = d?.behavior;
+    const statusMap = { EXCELLENT:'매우 좋음', GOOD:'좋음', NORMAL:'정상', WARNING:'주의', POOR:'나쁨' };
+    const colorMap  = { EXCELLENT:'text-emerald-500', GOOD:'text-blue-500', NORMAL:'text-slate-500', WARNING:'text-orange-500', POOR:'text-red-500' };
+
+    const activity = val(b?.activity_level, DEMO.activity);
+    const zone     = val(b?.dominant_zone,  DEMO.zone);
+    const status   = val(b?.status,         DEMO.status);
+
+    document.getElementById('ai-activity').textContent = fmt2(activity);
+    document.getElementById('ai-zone').textContent     = zone;
+    const statusEl = document.getElementById('ai-status');
+    statusEl.textContent = statusMap[status] || status;
+    statusEl.className   = 'text-lg font-black ' + (colorMap[status] || 'text-slate-500');
 }
 
 async function fetchFRS() {
     const d = await safeFetch(`/monitoring/api/frs/?tank_id=${TANK_ID}`);
-    if (!d) return;
-    const score = Math.round(parseFloat(d.score ?? 0));
-    document.getElementById('frs-score').textContent = isNaN(score) ? '--' : score;
+    const score = Math.round(parseFloat(val(d?.score, DEMO.frs.score)));
+    document.getElementById('frs-score').textContent = score;
     const badge = document.getElementById('frs-status-badge');
     if (score >= 70) { badge.textContent='양호'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-600'; }
     else if (score >= 40) { badge.textContent='주의'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-orange-100 text-orange-500'; }
     else { badge.textContent='위험'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-red-100 text-red-500'; }
-    if (d.response_time_sec != null) document.getElementById('frs-rt').innerHTML = fmt2(d.response_time_sec)+'<span class="text-[9px] font-bold text-slate-400">초</span>';
-    if (d.activity_increase_percent != null) document.getElementById('frs-activity').innerHTML = fmt2(d.activity_increase_percent)+'<span class="text-[9px] font-bold text-slate-400">%</span>';
-    if (d.surface_visits != null) document.getElementById('frs-surface').innerHTML = d.surface_visits+'<span class="text-[9px] font-bold text-slate-400">회</span>';
-    if (d.comment) document.getElementById('frs-comment').textContent = d.comment;
+    const rt       = val(d?.response_time_sec,          DEMO.frs.rt);
+    const activity = val(d?.activity_increase_percent,  DEMO.frs.activity);
+    const surface  = val(d?.surface_visits,             DEMO.frs.surface);
+    const comment  = val(d?.comment,                    DEMO.frs.comment);
+    document.getElementById('frs-rt').innerHTML       = fmt2(rt)+'<span class="text-[9px] font-bold text-slate-400">초</span>';
+    document.getElementById('frs-activity').innerHTML = fmt2(activity)+'<span class="text-[9px] font-bold text-slate-400">%</span>';
+    document.getElementById('frs-surface').innerHTML  = surface+'<span class="text-[9px] font-bold text-slate-400">회</span>';
+    document.getElementById('frs-comment').textContent = comment;
 }
 
 async function fetchABR() {
     const d = await safeFetch(`/monitoring/api/abr/?tank_id=${TANK_ID}`);
-    if (!d) return;
-    const rate = parseFloat(d.abr_rate ?? 0);
-    document.getElementById('abr-rate').textContent = isNaN(rate) ? '--' : rate.toFixed(1);
+    const rate  = parseFloat(val(d?.abr_rate,     DEMO.abr.rate));
+    const count = val(d?.anomaly_count,            DEMO.abr.count);
+    document.getElementById('abr-rate').textContent = rate.toFixed(1);
     const badge = document.getElementById('abr-status-badge');
     if (rate <= 10) { badge.textContent='정상'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-600'; }
     else if (rate <= 30) { badge.textContent='주의'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-orange-100 text-orange-500'; }
     else { badge.textContent='위험'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-red-100 text-red-500'; }
-    if (d.anomaly_count != null) document.getElementById('abr-count').innerHTML = d.anomaly_count+' <span class="text-xs font-bold text-slate-400">회</span>';
+    document.getElementById('abr-count').innerHTML = count+' <span class="text-xs font-bold text-slate-400">회</span>';
 }
 
 let patternChart = null;
 async function fetchPattern() {
     const d = await safeFetch(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
-    if (!d) return;
-    const hourlyData = d.hourly_activity || Array(24).fill(0);
-    const labels = Array.from({length:24}, (_,i) => i+'시');
+    const hourlyData = (d?.hourly_activity?.some(v=>v>0) ? d.hourly_activity : null) || DEMO.pattern.hourly;
+    const current    = val(d?.current_hour_activity, DEMO.pattern.current);
+    const baseline   = val(d?.compared_to_baseline,  DEMO.pattern.baseline);
+    const labels     = Array.from({length:24}, (_,i) => i+'시');
     const currentHour = new Date().getHours();
     if (!patternChart) {
         patternChart = new Chart(document.getElementById('patternChart').getContext('2d'), {
@@ -358,23 +386,22 @@ async function fetchPattern() {
         patternChart.data.datasets[0].backgroundColor = labels.map((_,i) => i===currentHour ? 'rgba(59,130,246,0.7)' : 'rgba(59,130,246,0.2)');
         patternChart.update();
     }
-    if (d.current_hour_activity != null) document.getElementById('pattern-current').textContent = fmt2(d.current_hour_activity);
-    if (d.compared_to_baseline != null) {
-        const pct = parseFloat(d.compared_to_baseline);
-        const el = document.getElementById('pattern-vs-baseline');
-        el.textContent = (pct>=0?'+':'')+pct.toFixed(1)+'%';
-        el.className = 'text-[10px] font-black px-3 py-1 rounded-full '+(pct>=0?'bg-emerald-100 text-emerald-600':'bg-red-100 text-red-500');
-    }
+    document.getElementById('pattern-current').textContent = fmt2(current);
+    const pct = parseFloat(baseline);
+    const el  = document.getElementById('pattern-vs-baseline');
+    el.textContent = (pct>=0?'+':'')+pct.toFixed(1)+'%';
+    el.className = 'text-[10px] font-black px-3 py-1 rounded-full '+(pct>=0?'bg-emerald-100 text-emerald-600':'bg-red-100 text-red-500');
 }
 
 const STAGE_MAP = {FRY:'치어', JUVENILE:'유어', YOUNG:'유어', ADULT:'성어'};
 async function fetchGrowth() {
     const d = await safeFetch(`/monitoring/api/growth/?tank_id=${TANK_ID}`);
-    if (!d) return;
-    const size = parseFloat(d.current_size_cm ?? 0);
-    document.getElementById('growth-size').textContent = isNaN(size) ? '--' : size.toFixed(2);
-    if (d.estimated_stage) document.getElementById('growth-stage-badge').textContent = STAGE_MAP[(d.estimated_stage+'').toUpperCase()] || d.estimated_stage;
-    if (d.growth_per_day != null) document.getElementById('growth-per-day').innerHTML = fmt2(d.growth_per_day)+' <span class="text-xs font-bold text-slate-400">cm/day</span>';
+    const size    = parseFloat(val(d?.current_size_cm, DEMO.growth.size));
+    const stage   = val(d?.estimated_stage,            DEMO.growth.stage);
+    const perDay  = val(d?.growth_per_day,             DEMO.growth.perDay);
+    document.getElementById('growth-size').textContent        = isNaN(size) ? '--' : size.toFixed(2);
+    document.getElementById('growth-stage-badge').textContent = STAGE_MAP[(stage+'').toUpperCase()] || stage;
+    document.getElementById('growth-per-day').innerHTML       = fmt2(perDay)+' <span class="text-xs font-bold text-slate-400">cm/day</span>';
 }
 
 async function fetchAll() {
