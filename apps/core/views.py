@@ -12,7 +12,7 @@ from django.apps import apps
 from datetime import date, timedelta
 from django.core.paginator import Paginator
 
-from monitoring.models import Tank, SensorReading
+from apps.monitoring.models import Tank, SensorReading
 
 
 # ── 사용 가능한 모델 목록 (2026-05 기준 확인됨) ──
