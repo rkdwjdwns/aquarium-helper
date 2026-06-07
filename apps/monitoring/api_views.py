@@ -485,7 +485,7 @@ def get_pending_commands(request, tank_id):
 
 
 # ──────────────────────────────────────────────
-# ✅ [7] Pi IP 자동 등록  POST /monitoring/api/register-pi/
+# [7] Pi IP 자동 등록  POST /monitoring/api/register-pi/
 # ──────────────────────────────────────────────
 
 @csrf_exempt
@@ -495,13 +495,6 @@ def register_pi(request):
     """
     Pi 시작 시 자신의 IP를 서버에 등록합니다.
     카메라 페이지가 이 IP를 읽어 자동으로 스트림에 연결합니다.
-
-    요청 바디:
-    {
-        "tank_id": 1,
-        "pi_ip": "192.168.0.42",
-        "pi_stream_port": 8080   (선택, 기본값 8080)
-    }
     """
     data = _parse_body(request)
     if not data:
@@ -538,17 +531,62 @@ def register_pi(request):
 
 
 # ──────────────────────────────────────────────
-# [7-1] 카메라 URL 등록  POST /monitoring/api/register-camera-url/
+# ✅ [7-1] 카메라 URL 직접 등록  POST /monitoring/api/register-camera-url/
 # ──────────────────────────────────────────────
 
-# [8] 이벤트 로그 수신  POST /monitoring/api/event-log/
-@require_POST
+@csrf_exempt
 @api_key_required
+@require_http_methods(['POST'])
+def register_camera_url(request):
+    """
+    ngrok 등 외부 터널링을 사용할 때 전체 URL을 직접 서버에 등록합니다.
+    """
+    data = _parse_body(request)
+    if not data:
+        return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
+
+    tank, err = _get_tank(data.get('tank_id'))
+    if err:
+        return err
+
+    camera_url = data.get('camera_url', '').strip()
+    if not camera_url:
+        return _error("camera_url 필드가 필요합니다.")
+
+    # Tank 모델에 camera_url 필드가 있다면 해당 필드를 업데이트합니다.
+    # 만약 없다면, 기존 pi_ip 방식 등을 활용해 임시로 저장할 수 있습니다.
+    if hasattr(tank, 'camera_url'):
+        tank.camera_url = camera_url
+        tank.save(update_fields=['camera_url'])
+    else:
+        # 모델에 별도 필드가 없는 경우 pi_ip에 URL을 통째로 저장
+        tank.pi_ip = camera_url
+        tank.save(update_fields=['pi_ip'])
+
+    logger.info(f"[카메라 URL 등록] tank={tank.id} url={camera_url}")
+
+    EventLog.objects.create(
+        tank=tank, level='INFO',
+        message=f"[카메라 연결] 외부 스트림 URL 등록 완료 ({camera_url})"
+    )
+
+    return _ok({
+        'tank_id': tank.id,
+        'camera_url': camera_url
+    })
+
+
+# ──────────────────────────────────────────────
+# [8] 이벤트 로그 수신  POST /monitoring/api/event-log/
+# ──────────────────────────────────────────────
+
+@csrf_exempt
+@api_key_required
+@require_http_methods(['POST'])  # 기존 @require_POST 대신 통일성 있게 수정
 def create_event_log(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return _error("JSON 파싱 오류")
+    data = _parse_body(request)
+    if not data:
+        return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
 
     tank_id = data.get('tank_id') or 1
     level   = data.get('level', 'INFO').upper()
@@ -560,10 +598,9 @@ def create_event_log(request):
     if level not in ('INFO', 'WARNING', 'DANGER'):
         level = 'INFO'
 
-    try:
-        tank = Tank.objects.get(id=tank_id)
-    except Tank.DoesNotExist:
-        return _error(f"tank_id={tank_id} 없음", status=404)
+    tank, err = _get_tank(tank_id)
+    if err:
+        return err
 
     log = EventLog.objects.create(
         tank    = tank,
@@ -571,12 +608,13 @@ def create_event_log(request):
         message = message,
     )
 
-    return JsonResponse({
-        'status':  'ok',
+    return _ok({
         'log_id':  log.id,
         'level':   level,
         'message': message,
     })
+
+
 # ──────────────────────────────────────────────
 # [9] 헬스체크  GET /monitoring/api/health/
 # ──────────────────────────────────────────────
@@ -585,4 +623,3 @@ def create_event_log(request):
 @require_http_methods(['GET'])
 def health_check(request):
     return _ok({'message': 'server is running', 'time': timezone.now().isoformat()})
-
