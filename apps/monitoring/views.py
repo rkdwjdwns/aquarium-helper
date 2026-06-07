@@ -14,6 +14,7 @@ from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 from datetime import date, timedelta
+from collections import defaultdict
 
 from .models import Tank, EventLog, DeviceControl, SensorReading, FishBehavior
 
@@ -39,20 +40,56 @@ def index(request):
                 d_day = (next_change - date.today()).days
             except: pass
         tank_data.append({'tank': tank, 'latest': latest, 'status': status, 'd_day': d_day})
-    return render(request, 'core/index.html', {'tank_data': tank_data, 'page_obj': page_obj, 'has_tanks': all_tanks.exists()})
+    return render(request, 'core/index.html', {
+        'tank_data': tank_data, 'page_obj': page_obj, 'has_tanks': all_tanks.exists()
+    })
 
 
 def _get_chart_history(tank):
     readings = list(SensorReading.objects.filter(tank=tank).order_by('-created_at')[:12])
     readings.reverse()
-    return json.dumps({"labels": [r.created_at.strftime("%H:%M") for r in readings], "temp": [r.temperature for r in readings], "ph": [r.ph for r in readings], "do": [r.dissolved_oxygen for r in readings], "turb": [r.turbidity for r in readings]}, ensure_ascii=False)
+    return json.dumps({
+        "labels": [r.created_at.strftime("%H:%M") for r in readings],
+        "temp":   [r.temperature        for r in readings],
+        "ph":     [r.ph                 for r in readings],
+        "do":     [r.dissolved_oxygen   for r in readings],
+        "turb":   [r.turbidity          for r in readings],
+    }, ensure_ascii=False)
 
 
 def _get_growth_chart(tank):
+    """물고기별(fish_id) 성장 추이 — 최대 3개 라인"""
     from .models import GrowthRecord
-    records = list(GrowthRecord.objects.filter(tank=tank).order_by('-created_at')[:14])
-    records.reverse()
-    return json.dumps({"labels": [r.created_at.strftime("%m/%d") for r in records], "length": [r.estimated_length for r in records], "weight": [r.estimated_weight for r in records]}, ensure_ascii=False)
+
+    records = list(
+        GrowthRecord.objects.filter(tank=tank)
+        .order_by('created_at')
+        .values('fish_id', 'estimated_length', 'created_at')
+    )[-42:]  # 최근 42개 (3마리 × 14일치)
+
+    if not records:
+        return json.dumps({})
+
+    # 날짜 문자열 → {fish_id: length} 매핑
+    date_fish = defaultdict(dict)
+    for r in records:
+        date_str = r['created_at'].strftime("%m/%d")
+        fid      = r['fish_id']
+        date_fish[date_str][fid] = round(float(r['estimated_length'] or 0), 2)
+
+    labels   = sorted(date_fish.keys())
+    fish_ids = sorted({r['fish_id'] for r in records})
+    colors   = ['#3b82f6', '#10b981', '#f59e0b']  # 파랑, 초록, 노랑
+
+    datasets = []
+    for i, fid in enumerate(fish_ids):
+        datasets.append({
+            'label': f'금붕어 {fid}호',
+            'data':  [date_fish[d].get(fid) for d in labels],  # 없는 날짜는 None
+            'color': colors[i % len(colors)],
+        })
+
+    return json.dumps({'labels': labels, 'datasets': datasets}, ensure_ascii=False)
 
 
 def _get_feeding_chart(tank):
@@ -62,8 +99,10 @@ def _get_feeding_chart(tank):
     today = timezone.now().date()
     labels, amounts = [], []
     for i in range(6, -1, -1):
-        day = today - dt.timedelta(days=i)
-        total = FeedingEvent.objects.filter(tank=tank, created_at__date=day).aggregate(total=Sum('amount_g'))['total'] or 0.0
+        day   = today - dt.timedelta(days=i)
+        total = FeedingEvent.objects.filter(
+            tank=tank, created_at__date=day
+        ).aggregate(total=Sum('amount_g'))['total'] or 0.0
         labels.append(day.strftime("%m/%d"))
         amounts.append(round(total, 3))
     return json.dumps({"labels": labels, "amounts": amounts}, ensure_ascii=False)
@@ -77,22 +116,25 @@ def dashboard(request, tank_id=None):
         tank = Tank.objects.filter(user=request.user).first()
     if not tank:
         return render(request, 'monitoring/dashboard.html', {'tank': None})
+
     latest          = tank.readings.order_by('-created_at').first()
     latest_behavior = tank.behaviors.order_by('-created_at').first() if hasattr(tank, 'behaviors') else None
     devices         = {d.type: d for d in DeviceControl.objects.filter(tank=tank)}
     logs            = EventLog.objects.filter(tank=tank).order_by('-created_at')[:3]
     user_tanks      = Tank.objects.filter(user=request.user).order_by('-id')
+
     d_day = 7
     if tank.last_water_change:
         try:
             next_change = tank.last_water_change + timedelta(days=int(tank.water_change_period or 7))
             d_day = (next_change - date.today()).days
         except: pass
+
     return render(request, 'monitoring/dashboard.html', {
         'tank': tank, 'latest': latest, 'latest_behavior': latest_behavior,
         'devices': devices, 'logs': logs, 'd_day': d_day,
         'is_water_changed_today': (tank.last_water_change == date.today()),
-        'user_tanks': user_tanks,
+        'user_tanks':    user_tanks,
         'chart_history': _get_chart_history(tank),
         'growth_chart':  _get_growth_chart(tank),
         'feeding_chart': _get_feeding_chart(tank),
@@ -113,8 +155,20 @@ def dashboard_data(request, tank_id):
     readings.reverse()
     sensor = None
     if latest:
-        sensor = {"temperature": latest.temperature, "ph": latest.ph, "dissolved_oxygen": latest.dissolved_oxygen, "turbidity": latest.turbidity, "water_level": latest.water_level}
-    history = {"labels": [r.created_at.strftime("%H:%M") for r in readings], "temp": [r.temperature for r in readings], "ph": [r.ph for r in readings], "do": [r.dissolved_oxygen for r in readings], "turb": [r.turbidity for r in readings]}
+        sensor = {
+            "temperature":       latest.temperature,
+            "ph":                latest.ph,
+            "dissolved_oxygen":  latest.dissolved_oxygen,
+            "turbidity":         latest.turbidity,
+            "water_level":       latest.water_level,
+        }
+    history = {
+        "labels": [r.created_at.strftime("%H:%M") for r in readings],
+        "temp":   [r.temperature      for r in readings],
+        "ph":     [r.ph               for r in readings],
+        "do":     [r.dissolved_oxygen for r in readings],
+        "turb":   [r.turbidity        for r in readings],
+    }
     return JsonResponse({"sensor": sensor, "history": history})
 
 
@@ -137,7 +191,7 @@ def tank_settings(request, tank_id):
             tank.filter_off_ntu   = float(request.POST.get('filter_off_ntu',  20.0))
             tank.airpump_on_do    = float(request.POST.get('airpump_on_do',    4.0))
             tank.airpump_off_do   = float(request.POST.get('airpump_off_do',   6.0))
-            tank.feeding_times    = request.POST.get('feeding_times', '08:00,12:00,18:00')
+            tank.feeding_times    = request.POST.get('feeding_times', '08:00,18:00')
             tank.feeding_amount_g = float(request.POST.get('feeding_amount_g', 0.1))
             tank.feeding_auto     = request.POST.get('feeding_auto') == 'on'
             tank.light_on_hour    = int(request.POST.get('light_on_hour',  8))
@@ -152,8 +206,6 @@ def tank_settings(request, tank_id):
 
 
 def tank_settings_api(request, tank_id):
-    """설정값 JSON 반환 (Pi용) — API KEY 인증"""
-    import os
     server_key = os.getenv('PI_API_KEY', '')
     client_key = request.headers.get('X-API-KEY', '')
     if server_key and client_key != server_key:
@@ -181,7 +233,13 @@ def add_tank(request):
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                tank = Tank.objects.create(user=request.user, name=request.POST.get('name', '새 어항'), target_temp=float(request.POST.get('target_temp') or 26.0), water_change_period=int(request.POST.get('water_change_period') or 7), last_water_change=date.today())
+                tank = Tank.objects.create(
+                    user=request.user,
+                    name=request.POST.get('name', '새 어항'),
+                    target_temp=float(request.POST.get('target_temp') or 26.0),
+                    water_change_period=int(request.POST.get('water_change_period') or 7),
+                    last_water_change=date.today(),
+                )
             messages.success(request, f"'{tank.name}' 등록 완료.")
             return redirect('monitoring:tank_list')
         except Exception as e:
@@ -230,7 +288,9 @@ def logs_view(request):
     if level:   logs = logs.filter(level=level)
     paginator = Paginator(logs, 20)
     page_obj  = paginator.get_page(request.GET.get('page'))
-    return render(request, 'monitoring/logs.html', {'page_obj': page_obj, 'user_tanks': user_tanks, 'tank_id': tank_id, 'level': level})
+    return render(request, 'monitoring/logs.html', {
+        'page_obj': page_obj, 'user_tanks': user_tanks, 'tank_id': tank_id, 'level': level
+    })
 
 
 @login_required
@@ -246,7 +306,10 @@ def toggle_device(request, tank_id):
     device, _ = DeviceControl.objects.get_or_create(tank=tank, type=request.POST.get('device_type'))
     device.is_on = not device.is_on
     device.save()
-    EventLog.objects.create(tank=tank, level='INFO', message=f"[수동제어] {device.get_type_display()} {'ON' if device.is_on else 'OFF'}")
+    EventLog.objects.create(
+        tank=tank, level='INFO',
+        message=f"[수동제어] {device.get_type_display()} {'ON' if device.is_on else 'OFF'}"
+    )
     return JsonResponse({'status': 'success', 'is_on': device.is_on})
 
 
@@ -275,13 +338,18 @@ def ai_report_list(request):
     behaviors   = []
     reports     = []
     if selected_tank:
-        report_data = selected_tank.readings.all().order_by(order_by)
+        # ✅ OOM 방지: 최근 200개만
+        report_data = selected_tank.readings.all().order_by(order_by)[:200]
         behaviors   = selected_tank.behaviors.all().order_by(order_by)[:10] if hasattr(selected_tank, 'behaviors') else []
         try:
             ReportModel = apps.get_model('reports', 'Report')
             reports     = ReportModel.objects.filter(tank=selected_tank).order_by('-created_at')
         except: pass
-    return render(request, 'reports/report_list.html', {'tanks': tanks, 'selected_tank': selected_tank, 'report_data': report_data, 'behaviors': behaviors, 'reports': reports, 'sort': sort_order, 'has_tanks': has_tanks})
+    return render(request, 'reports/report_list.html', {
+        'tanks': tanks, 'selected_tank': selected_tank,
+        'report_data': report_data, 'behaviors': behaviors,
+        'reports': reports, 'sort': sort_order, 'has_tanks': has_tanks,
+    })
 
 
 @login_required
@@ -299,9 +367,9 @@ def download_report(request, tank_id):
     tank   = get_object_or_404(Tank, id=tank_id, user=request.user)
     period = request.GET.get('period', 'daily')
     today  = timezone.now()
-    if period == 'weekly':   start_date = today - timedelta(days=7)
+    if period == 'weekly':    start_date = today - timedelta(days=7)
     elif period == 'monthly': start_date = today - timedelta(days=30)
-    else:                    start_date = today - timedelta(days=1)
+    else:                     start_date = today - timedelta(days=1)
     readings = tank.readings.filter(created_at__gte=start_date).order_by('-created_at')
     content  = f"[{tank.name}] {period.upper()} 분석 기록\n기준일: {today.strftime('%Y-%m-%d')}\n" + "=" * 40 + "\n"
     if readings.exists():
@@ -375,7 +443,11 @@ def chat_api(request):
             img = PIL.Image.open(image_file)
             img.thumbnail((512, 512))
             prompt_parts.append(img)
-        response = model.generate_content(prompt_parts, generation_config=genai.types.GenerationConfig(max_output_tokens=1024, temperature=0.4), request_options={"timeout": 20})
+        response = model.generate_content(
+            prompt_parts,
+            generation_config=genai.types.GenerationConfig(max_output_tokens=1024, temperature=0.4),
+            request_options={"timeout": 20},
+        )
         raw   = response.text if response and response.text else ""
         reply = _clean_reply(raw)
         try:
