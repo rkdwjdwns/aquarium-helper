@@ -14,6 +14,7 @@ Raspberry Pi ↔ Render 서버 간 REST API
 import json
 import os
 import logging
+from collections import defaultdict
 from datetime import datetime
 from urllib.parse import urlparse
 
@@ -757,3 +758,78 @@ def get_abr(request):
         })
     except FishBehavior.DoesNotExist:
         return JsonResponse({'error': 'no data'}, status=404)
+
+
+# ──────────────────────────────────────────────
+# [12] 성장 차트 데이터  (뷰 헬퍼 + GET 엔드포인트)
+#      GET /monitoring/api/growth/chart/?tank_id=1  (프론트용)
+#
+# 최근 42개 레코드 (fish_id × 14일치) 기준
+# 날짜별·fish_id별 최신 체장(estimated_length) 반환
+# ──────────────────────────────────────────────
+
+def _get_growth_chart(tank) -> str:
+    """
+    Tank 객체를 받아 Chart.js 호환 JSON 문자열을 반환합니다.
+    데이터가 없으면 '{}'를 반환합니다.
+
+    반환 구조:
+    {
+        "labels":   ["MM/DD", ...],          # 날짜 레이블 (오름차순)
+        "datasets": [
+            {
+                "label": "금붕어 1호",
+                "data":  [1.2, 1.3, None, ...],  # 해당 날짜 데이터 없으면 None
+                "color": "#3b82f6"
+            },
+            ...
+        ]
+    }
+    """
+    # 최근 42개 (3마리 × 14일치 기준)
+    records = list(
+        GrowthRecord.objects.filter(tank=tank)
+        .order_by('created_at')
+        .values('fish_id', 'estimated_length', 'created_at')
+    )[-42:]
+
+    if not records:
+        return json.dumps({})
+
+    # 날짜별·fish_id별 최신 체장 값 집계
+    date_fish: dict = defaultdict(dict)
+    for r in records:
+        date_str = r['created_at'].strftime("%m/%d")
+        fid      = r['fish_id']
+        date_fish[date_str][fid] = round(float(r['estimated_length']), 2)
+
+    labels   = sorted(date_fish.keys())
+    fish_ids = sorted({r['fish_id'] for r in records})
+    colors   = ['#3b82f6', '#10b981', '#f59e0b']  # 파랑·초록·노랑
+
+    datasets = []
+    for i, fid in enumerate(fish_ids):
+        datasets.append({
+            'label': f'금붕어 {fid}호',
+            'data':  [date_fish[d].get(fid) for d in labels],  # 없으면 None
+            'color': colors[i % len(colors)],
+        })
+
+    return json.dumps({'labels': labels, 'datasets': datasets}, ensure_ascii=False)
+
+
+@require_http_methods(['GET'])
+def get_growth_chart(request):
+    """GET /monitoring/api/growth/chart/?tank_id=1"""
+    tank_id = request.GET.get('tank_id', 1)
+    tank, err = _get_tank(tank_id)
+    if err:
+        return err
+
+    chart_json = _get_growth_chart(tank)
+    chart_data = json.loads(chart_json)
+
+    if not chart_data:
+        return JsonResponse({'error': 'no data'}, status=404)
+
+    return JsonResponse(chart_data)
