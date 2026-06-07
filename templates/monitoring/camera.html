@@ -16,20 +16,25 @@
             </div>
         </div>
 
-        {# 카메라 스트림 #}
+        {# 임시 MP4 영상 스트림 #}
         <div class="relative bg-slate-900 rounded-[2.5rem] overflow-hidden mb-8" style="aspect-ratio: 16/9;" id="stream-container">
 
-            <img id="stream-img"
-                 src=""
-                 alt="카메라 스트림"
-                 class="w-full h-full object-contain"
-                 onerror="onStreamError()"
-                 onload="onStreamLoad()">
+            <video id="stream-video"
+                   class="w-full h-full object-contain"
+                   autoplay
+                   muted
+                   loop
+                   playsinline
+                   onloadeddata="onStreamLoad()"
+                   onerror="onStreamError()">
+                <source src="/media/demo.mp4" type="video/mp4">
+                브라우저가 video 태그를 지원하지 않습니다.
+            </video>
 
             {# 오버레이 #}
             <div id="stream-overlay" class="absolute inset-0 flex flex-col items-center justify-center gap-4">
                 <div id="overlay-icon" class="text-6xl">📷</div>
-                <p id="overlay-msg" class="text-white font-black text-lg">카메라 연결 중...</p>
+                <p id="overlay-msg" class="text-white font-black text-lg">데모 영상 로딩 중...</p>
                 <p id="overlay-sub" class="text-slate-400 text-sm font-bold"></p>
             </div>
 
@@ -38,9 +43,9 @@
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                        <span class="text-white text-[11px] font-black">LIVE</span>
+                        <span class="text-white text-[11px] font-black">DEMO</span>
                     </div>
-                    <span id="fps-label" class="text-white text-[11px] font-bold bg-black/40 px-3 py-1 rounded-full">-- fps</span>
+                    <span id="fps-label" class="text-white text-[11px] font-bold bg-black/40 px-3 py-1 rounded-full">MP4</span>
                 </div>
             </div>
         </div>
@@ -49,7 +54,7 @@
         <div class="bg-slate-50 rounded-[2rem] p-6 mb-8">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    {% if tank.pi_ip %}
+                    {% if tank and tank.pi_ip %}
                     <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
                     <div>
                         <p class="text-sm font-black text-slate-700">카메라 연결됨</p>
@@ -60,17 +65,17 @@
                         {% endif %}
                     </div>
                     {% else %}
-                    <span class="w-3 h-3 rounded-full bg-slate-300"></span>
+                    <span class="w-3 h-3 rounded-full bg-blue-400"></span>
                     <div>
-                        <p class="text-sm font-black text-slate-500">카메라 연결 안됨</p>
-                        <p class="text-[10px] text-slate-400 font-bold">카메라 장치의 전원을 확인해주세요.</p>
+                        <p class="text-sm font-black text-slate-700">임시 데모 영상 재생 중</p>
+                        <p class="text-[10px] text-slate-400 font-bold">실제 카메라 연결 전까지 MP4를 반복 재생합니다.</p>
                     </div>
                     {% endif %}
                 </div>
                 <div class="flex gap-2">
                     <button onclick="refreshStream()"
                             class="text-[11px] font-black text-blue-500 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors">
-                        재연결
+                        재시작
                     </button>
                     <button onclick="toggleFullscreen()"
                             class="text-[11px] font-black text-slate-500 bg-slate-100 px-4 py-2 rounded-xl hover:bg-slate-200 transition-colors">
@@ -80,7 +85,7 @@
             </div>
         </div>
 
-        {# 기능 버튼 — 스냅샷 제거 → 3칸 #}
+        {# 기능 버튼 #}
         <div class="grid grid-cols-3 gap-4 mb-8">
             <button onclick="toggleZoneOverlay()" id="zone-btn"
                     class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
@@ -95,7 +100,7 @@
             <button onclick="refreshStream()"
                     class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
                 <span class="text-2xl">🔄</span>
-                <span class="text-[11px] font-black text-slate-500">재연결</span>
+                <span class="text-[11px] font-black text-slate-500">재시작</span>
             </button>
         </div>
 
@@ -141,127 +146,111 @@
 </div>
 
 <script>
-const PI_IP   = '{{ tank.pi_ip|default:"" }}';
-const PI_PORT = '{{ tank.pi_stream_port|default:"8080" }}';
+const DEMO_VIDEO_URL = '/media/demo.mp4';
 
-function buildStreamUrl(ip, port) {
-    if (!ip) return '';
-    if (ip.includes('trycloudflare.com') || ip.includes('cloudflare')) {
-        return { url: `https://${ip}/snapshot.jpg`, mode: 'snapshot' };
-    }
-    return { url: `http://${ip}:${port}/stream.mjpg`, mode: 'mjpeg' };
-}
-
-const STREAM_INFO = buildStreamUrl(PI_IP, PI_PORT);
-const STREAM_URL  = STREAM_INFO ? STREAM_INFO.url : '';
-const STREAM_MODE = STREAM_INFO ? STREAM_INFO.mode : 'mjpeg';
-
-let isStreaming   = false;
-let zoneVisible   = false;
-let frameCount    = 0;
-let lastFpsTime   = Date.now();
-let snapshotTimer = null;
-
-function startSnapshotPolling() {
-    const img = document.getElementById('stream-img');
-    function loadSnapshot() {
-        const tmpImg = new Image();
-        tmpImg.onload = () => {
-            img.src = tmpImg.src;
-            onStreamLoad();
-            snapshotTimer = setTimeout(loadSnapshot, 500);
-        };
-        tmpImg.onerror = () => {
-            onStreamError();
-            snapshotTimer = setTimeout(loadSnapshot, 2000);
-        };
-        tmpImg.src = STREAM_URL + '?t=' + Date.now();
-    }
-    loadSnapshot();
-}
+let isStreaming = false;
+let zoneVisible = false;
 
 window.addEventListener('load', () => {
-    if (STREAM_URL) {
-        connectStream(STREAM_URL);
-    } else {
-        setOverlay('no_pi');
-    }
+    connectDemoVideo();
 });
 
-function connectStream(url) {
-    const img = document.getElementById('stream-img');
-    if (snapshotTimer) { clearTimeout(snapshotTimer); snapshotTimer = null; }
-    isStreaming = false;
+function connectDemoVideo() {
+    const video = document.getElementById('stream-video');
+
     setOverlay('loading');
+
     document.getElementById('stream-badge').textContent = '연결 중...';
-    document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500';
-    if (STREAM_MODE === 'snapshot') {
-        startSnapshotPolling();
-    } else {
-        img.src = url + '?t=' + Date.now();
-    }
+    document.getElementById('stream-badge').className =
+        'px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500';
+
+    video.src = DEMO_VIDEO_URL + '?t=' + Date.now();
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+
+    video.play()
+        .then(() => {
+            onStreamLoad();
+        })
+        .catch(() => {
+            onStreamError();
+        });
 }
 
 function refreshStream() {
-    if (STREAM_URL) { connectStream(STREAM_URL); } else { setOverlay('no_pi'); }
+    const video = document.getElementById('stream-video');
+    video.pause();
+    video.currentTime = 0;
+    connectDemoVideo();
 }
 
 function onStreamLoad() {
     if (!isStreaming) {
         isStreaming = true;
+
         document.getElementById('stream-overlay').classList.add('hidden');
         document.getElementById('stream-info').classList.remove('hidden');
-        document.getElementById('stream-badge').textContent = '스트리밍 중';
-        document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-emerald-500 text-white shadow-lg';
+
+        document.getElementById('stream-badge').textContent = '데모 재생 중';
+        document.getElementById('stream-badge').className =
+            'px-6 py-2 rounded-full text-sm font-black bg-emerald-500 text-white shadow-lg';
+
+        document.getElementById('fps-label').textContent = 'MP4';
     }
-    frameCount++;
 }
 
 function onStreamError() {
     isStreaming = false;
+
     setOverlay('error');
-    document.getElementById('stream-badge').textContent = '연결 실패';
-    document.getElementById('stream-badge').className   = 'px-6 py-2 rounded-full text-sm font-black bg-red-100 text-red-500';
+
+    document.getElementById('stream-badge').textContent = '재생 실패';
+    document.getElementById('stream-badge').className =
+        'px-6 py-2 rounded-full text-sm font-black bg-red-100 text-red-500';
+
     document.getElementById('stream-info').classList.add('hidden');
 }
 
 function setOverlay(state) {
     const overlay = document.getElementById('stream-overlay');
-    const icon    = document.getElementById('overlay-icon');
-    const msg     = document.getElementById('overlay-msg');
-    const sub     = document.getElementById('overlay-sub');
+    const icon = document.getElementById('overlay-icon');
+    const msg = document.getElementById('overlay-msg');
+    const sub = document.getElementById('overlay-sub');
+
     overlay.classList.remove('hidden');
+
     if (state === 'loading') {
-        icon.textContent = '⏳'; msg.textContent = '카메라 연결 중...'; sub.textContent = '';
+        icon.textContent = '⏳';
+        msg.textContent = '데모 영상 로딩 중...';
+        sub.textContent = '';
     } else if (state === 'error') {
-        icon.textContent = '❌'; msg.textContent = '카메라 연결에 실패했습니다.';
-        sub.textContent = '카메라 장치의 전원과 네트워크를 확인해주세요.';
-    } else if (state === 'no_pi') {
-        icon.textContent = '📷'; msg.textContent = '카메라가 연결되지 않았습니다.';
-        sub.textContent = '카메라 장치의 전원을 확인해주세요.';
+        icon.textContent = '❌';
+        msg.textContent = '데모 영상을 불러오지 못했습니다.';
+        sub.textContent = '/media/demo.mp4 파일이 있는지 확인해주세요.';
     }
 }
 
 setInterval(() => {
-    const now     = Date.now();
-    const elapsed = (now - lastFpsTime) / 1000;
-    document.getElementById('fps-label').textContent   = Math.round(frameCount / elapsed) + ' fps';
-    document.getElementById('stream-time').textContent = new Date().toLocaleTimeString('ko-KR');
-    frameCount  = 0;
-    lastFpsTime = now;
+    document.getElementById('stream-time').textContent =
+        new Date().toLocaleTimeString('ko-KR');
 }, 1000);
 
 function toggleZoneOverlay() {
     zoneVisible = !zoneVisible;
+
     const btn = document.getElementById('zone-btn');
     let canvas = document.getElementById('zone-canvas');
+
     if (zoneVisible) {
         if (!canvas) {
             canvas = document.createElement('canvas');
             canvas.id = 'zone-canvas';
-            canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0.6;';
+            canvas.style.cssText =
+                'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0.6;';
             document.getElementById('stream-container').appendChild(canvas);
         }
+
         drawZones(canvas);
         btn.classList.add('bg-blue-100');
     } else {
@@ -273,26 +262,59 @@ function toggleZoneOverlay() {
 function drawZones(canvas) {
     const w = canvas.parentElement.offsetWidth;
     const h = canvas.parentElement.offsetHeight;
-    canvas.width = w; canvas.height = h;
+
+    canvas.width = w;
+    canvas.height = h;
+
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, w, h);
+
     [
-        { label: 'TOP', y: 0,     h: h/3, color: 'rgba(239,68,68,0.15)',  border: 'rgba(239,68,68,0.6)' },
-        { label: 'MID', y: h/3,   h: h/3, color: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.5)' },
-        { label: 'BOT', y: h*2/3, h: h/3, color: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.5)' },
+        {
+            label: 'TOP',
+            y: 0,
+            h: h / 3,
+            color: 'rgba(239,68,68,0.15)',
+            border: 'rgba(239,68,68,0.6)'
+        },
+        {
+            label: 'MID',
+            y: h / 3,
+            h: h / 3,
+            color: 'rgba(59,130,246,0.1)',
+            border: 'rgba(59,130,246,0.5)'
+        },
+        {
+            label: 'BOT',
+            y: h * 2 / 3,
+            h: h / 3,
+            color: 'rgba(16,185,129,0.1)',
+            border: 'rgba(16,185,129,0.5)'
+        },
     ].forEach(z => {
-        ctx.fillStyle = z.color; ctx.fillRect(0, z.y, w, z.h);
-        ctx.strokeStyle = z.border; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+        ctx.fillStyle = z.color;
+        ctx.fillRect(0, z.y, w, z.h);
+
+        ctx.strokeStyle = z.border;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
         ctx.strokeRect(2, z.y + 2, w - 4, z.h - 4);
-        ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = z.border;
-        ctx.setLineDash([]); ctx.fillText(z.label, 14, z.y + 22);
+
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillStyle = z.border;
+        ctx.setLineDash([]);
+        ctx.fillText(z.label, 14, z.y + 22);
     });
 }
 
 function toggleFullscreen() {
     const el = document.getElementById('stream-container');
-    if (!document.fullscreenElement) { el.requestFullscreen?.(); }
-    else { document.exitFullscreen?.(); }
+
+    if (!document.fullscreenElement) {
+        el.requestFullscreen?.();
+    } else {
+        document.exitFullscreen?.();
+    }
 }
 </script>
 {% endblock %}

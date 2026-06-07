@@ -12,3 +12,8 @@ package-lock.json
 package.json
 goldfish_ai/models/*.pt
 data/
+# 미디어 및 대용량 동영상 파일 제외
+/media/
+*.MOV
+*.mp4
+*.avi
