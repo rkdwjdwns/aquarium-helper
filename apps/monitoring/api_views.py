@@ -541,56 +541,7 @@ def register_pi(request):
 # [7-1] 카메라 URL 등록  POST /monitoring/api/register-camera-url/
 # ──────────────────────────────────────────────
 
-@csrf_exempt
-@api_key_required
-@require_http_methods(['POST'])
-def register_camera_url(request):
-    """
-    cloudflared 터널 URL을 서버에 등록합니다.
-    {
-        "tank_id": 1,
-        "camera_url": "https://xxxx.trycloudflare.com"
-    }
-    """
-    data = _parse_body(request)
-    if not data:
-        return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
-
-    tank, err = _get_tank(data.get('tank_id'))
-    if err:
-        return err
-
-    camera_url = data.get('camera_url', '').strip()
-    if not camera_url:
-        return _error("camera_url 필드가 필요합니다.")
-
-    # pi_ip에 cloudflare 호스트명 저장
-    from urllib.parse import urlparse
-    parsed = urlparse(camera_url)
-    tank.pi_ip          = parsed.netloc   # e.g. xxxx.trycloudflare.com
-    tank.pi_stream_port = 443
-    tank.pi_last_seen   = timezone.now()
-    tank.save(update_fields=['pi_ip', 'pi_stream_port', 'pi_last_seen'])
-
-    logger.info(f"[카메라 URL 등록] tank={tank.id} url={camera_url}")
-
-    return _ok({
-        'tank_id':    tank.id,
-        'camera_url': camera_url,
-        'stream_url': f"{camera_url}/stream.mjpg",
-    })
-
-
-# ──────────────────────────────────────────────
-# [8] 헬스체크  GET /monitoring/api/health/
-# ──────────────────────────────────────────────
-
-@csrf_exempt
-@require_http_methods(['GET'])
-def health_check(request):
-    return _ok({'message': 'server is running', 'time': timezone.now().isoformat()})
-
-# [9] 이벤트 로그 수신  POST /monitoring/api/event-log/
+# [8] 이벤트 로그 수신  POST /monitoring/api/event-log/
 @require_POST
 @api_key_required
 def create_event_log(request):
@@ -626,3 +577,12 @@ def create_event_log(request):
         'level':   level,
         'message': message,
     })
+# ──────────────────────────────────────────────
+# [9] 헬스체크  GET /monitoring/api/health/
+# ──────────────────────────────────────────────
+
+@csrf_exempt
+@require_http_methods(['GET'])
+def health_check(request):
+    return _ok({'message': 'server is running', 'time': timezone.now().isoformat()})
+
