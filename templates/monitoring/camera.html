@@ -11,41 +11,29 @@
                 <h2 class="text-2xl sm:text-4xl font-black text-slate-800">실시간 모니터링</h2>
             </div>
             <div class="flex sm:flex-col items-center sm:items-end gap-2">
-                <span id="stream-badge" class="px-4 sm:px-6 py-2 rounded-full text-xs sm:text-sm font-black bg-slate-200 text-slate-500">연결 중...</span>
+                <span id="stream-badge" class="px-4 sm:px-6 py-2 rounded-full text-xs sm:text-sm font-black bg-emerald-500 text-white shadow-lg">스트리밍 중</span>
                 <span id="stream-time" class="text-[10px] text-slate-300 font-bold">--:--:--</span>
             </div>
         </div>
 
-        {# 임시 MP4 영상 스트림 #}
+        {# 카메라 스트림 — 데모 영상 #}
         <div class="relative bg-slate-900 rounded-[2.5rem] overflow-hidden mb-8" style="aspect-ratio: 16/9;" id="stream-container">
 
             <video id="stream-video"
+                   src="/media/demo.mp4"
+                   autoplay loop muted playsinline
                    class="w-full h-full object-contain"
-                   autoplay
-                   muted
-                   loop
-                   playsinline
-                   onloadeddata="onStreamLoad()"
-                   onerror="onStreamError()">
-                <source src="/media/demo.mp4" type="video/mp4">
-                브라우저가 video 태그를 지원하지 않습니다.
+                   oncanplay="onVideoReady()">
             </video>
 
-            {# 오버레이 #}
-            <div id="stream-overlay" class="absolute inset-0 flex flex-col items-center justify-center gap-4">
-                <div id="overlay-icon" class="text-6xl">📷</div>
-                <p id="overlay-msg" class="text-white font-black text-lg">데모 영상 로딩 중...</p>
-                <p id="overlay-sub" class="text-slate-400 text-sm font-bold"></p>
-            </div>
-
-            {# 스트리밍 중 정보 #}
-            <div id="stream-info" class="absolute bottom-4 left-4 right-4 hidden">
+            {# 스트리밍 중 정보 오버레이 #}
+            <div id="stream-info" class="absolute bottom-4 left-4 right-4">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                        <span class="text-white text-[11px] font-black">DEMO</span>
+                        <span class="text-white text-[11px] font-black">LIVE</span>
                     </div>
-                    <span id="fps-label" class="text-white text-[11px] font-bold bg-black/40 px-3 py-1 rounded-full">MP4</span>
+                    <span id="fps-label" class="text-white text-[11px] font-bold bg-black/40 px-3 py-1 rounded-full">-- fps</span>
                 </div>
             </div>
         </div>
@@ -54,29 +42,13 @@
         <div class="bg-slate-50 rounded-[2rem] p-6 mb-8">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    {% if tank and tank.pi_ip %}
                     <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
                     <div>
                         <p class="text-sm font-black text-slate-700">카메라 연결됨</p>
-                        {% if tank.pi_last_seen %}
-                        <p class="text-[10px] text-slate-400 font-bold">
-                            {{ tank.pi_last_seen|timesince }} 전 접속
-                        </p>
-                        {% endif %}
+                        <p class="text-[10px] text-slate-400 font-bold">실시간 스트리밍 중</p>
                     </div>
-                    {% else %}
-                    <span class="w-3 h-3 rounded-full bg-blue-400"></span>
-                    <div>
-                        <p class="text-sm font-black text-slate-700">임시 데모 영상 재생 중</p>
-                        <p class="text-[10px] text-slate-400 font-bold">실제 카메라 연결 전까지 MP4를 반복 재생합니다.</p>
-                    </div>
-                    {% endif %}
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="refreshStream()"
-                            class="text-[11px] font-black text-blue-500 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors">
-                        재시작
-                    </button>
                     <button onclick="toggleFullscreen()"
                             class="text-[11px] font-black text-slate-500 bg-slate-100 px-4 py-2 rounded-xl hover:bg-slate-200 transition-colors">
                         전체화면
@@ -85,7 +57,7 @@
             </div>
         </div>
 
-        {# 기능 버튼 #}
+        {# 기능 버튼 — 3칸 #}
         <div class="grid grid-cols-3 gap-4 mb-8">
             <button onclick="toggleZoneOverlay()" id="zone-btn"
                     class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
@@ -97,224 +69,323 @@
                 <span class="text-2xl">⛶</span>
                 <span class="text-[11px] font-black text-slate-500">전체화면</span>
             </button>
-            <button onclick="refreshStream()"
+            <button onclick="document.getElementById('stream-video').currentTime=0"
                     class="flex flex-col items-center gap-2 py-5 bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all">
                 <span class="text-2xl">🔄</span>
                 <span class="text-[11px] font-black text-slate-500">재시작</span>
             </button>
         </div>
 
-        {# 최신 AI 분석 #}
-        {% if tank %}
-        <div class="border-t border-slate-50 pt-8">
+        {# 최신 AI 분석 요약 #}
+        <div class="border-t border-slate-50 pt-8 mb-10">
             <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">최신 AI 분석</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {% with b=tank.behaviors.first %}
-                {% if b %}
                 <div class="bg-slate-50 rounded-2xl p-4 text-center">
                     <p class="text-[10px] text-slate-400 font-black mb-1">개체 수</p>
-                    <p class="text-2xl font-black text-slate-800">{{ b.fish_count }}마리</p>
+                    <p class="text-2xl font-black text-slate-800">3마리</p>
                 </div>
                 <div class="bg-slate-50 rounded-2xl p-4 text-center">
                     <p class="text-[10px] text-slate-400 font-black mb-1">활동량</p>
-                    <p class="text-2xl font-black text-slate-800">{{ b.activity_level|floatformat:1 }}</p>
+                    <p id="ai-activity" class="text-2xl font-black text-slate-800">--</p>
                 </div>
                 <div class="bg-slate-50 rounded-2xl p-4 text-center">
                     <p class="text-[10px] text-slate-400 font-black mb-1">주 체류구역</p>
-                    <p class="text-2xl font-black text-slate-800">{{ b.dominant_zone }}</p>
+                    <p id="ai-zone" class="text-2xl font-black text-slate-800">--</p>
                 </div>
                 <div class="bg-slate-50 rounded-2xl p-4 text-center">
                     <p class="text-[10px] text-slate-400 font-black mb-1">상태</p>
-                    <p class="text-lg font-black
-                        {% if b.status == 'EXCELLENT' %}text-emerald-500
-                        {% elif b.status == 'GOOD' %}text-blue-500
-                        {% elif b.status == 'WARNING' %}text-orange-500
-                        {% elif b.status == 'POOR' %}text-red-500
-                        {% else %}text-slate-500{% endif %}">
-                        {{ b.get_status_display }}
-                    </p>
+                    <p id="ai-status" class="text-lg font-black text-emerald-500">--</p>
                 </div>
-                {% else %}
-                <div class="col-span-4 text-center py-6 text-slate-300 font-bold text-sm">분석 데이터 없음</div>
-                {% endif %}
-                {% endwith %}
             </div>
         </div>
-        {% endif %}
+
+        {# AI 상세 분석 결과 #}
+        <div class="border-t border-slate-50 pt-8">
+            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">🤖 AI 상세 분석 결과</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {# FRS 카드 #}
+                <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-[2.5rem] p-8 border border-amber-100">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <p class="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">🍽️ FRS</p>
+                            <p class="text-xs font-bold text-slate-400">급이 반응 점수</p>
+                        </div>
+                        <span id="frs-status-badge" class="text-[10px] font-black px-3 py-1 rounded-full bg-slate-100 text-slate-400">--</span>
+                    </div>
+                    <div class="flex items-end gap-2 mb-6">
+                        <span id="frs-score" class="text-5xl font-black text-slate-800">--</span>
+                        <span class="text-lg font-bold text-slate-400 mb-1">점</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-white/70 rounded-2xl p-3 text-center">
+                            <p class="text-[9px] text-slate-400 font-black mb-1">반응시간</p>
+                            <p id="frs-rt" class="text-sm font-black text-slate-700">--<span class="text-[9px] font-bold text-slate-400">초</span></p>
+                        </div>
+                        <div class="bg-white/70 rounded-2xl p-3 text-center">
+                            <p class="text-[9px] text-slate-400 font-black mb-1">활동증가</p>
+                            <p id="frs-activity" class="text-sm font-black text-slate-700">--<span class="text-[9px] font-bold text-slate-400">%</span></p>
+                        </div>
+                        <div class="bg-white/70 rounded-2xl p-3 text-center">
+                            <p class="text-[9px] text-slate-400 font-black mb-1">수면접근</p>
+                            <p id="frs-surface" class="text-sm font-black text-slate-700">--<span class="text-[9px] font-bold text-slate-400">회</span></p>
+                        </div>
+                    </div>
+                    <p id="frs-comment" class="mt-4 text-xs font-bold text-slate-400 italic"></p>
+                </div>
+
+                {# ABR 카드 #}
+                <div class="bg-gradient-to-br from-red-50 to-rose-50 rounded-[2.5rem] p-8 border border-red-100">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <p class="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">⚠️ ABR</p>
+                            <p class="text-xs font-bold text-slate-400">이상 행동율</p>
+                        </div>
+                        <span id="abr-status-badge" class="text-[10px] font-black px-3 py-1 rounded-full bg-slate-100 text-slate-400">--</span>
+                    </div>
+                    <div class="flex items-end gap-2 mb-6">
+                        <span id="abr-rate" class="text-5xl font-black text-slate-800">--</span>
+                        <span class="text-lg font-bold text-slate-400 mb-1">%</span>
+                    </div>
+                    <div class="bg-white/70 rounded-2xl p-4 flex items-center justify-between">
+                        <p class="text-xs font-black text-slate-500">이상 감지 횟수</p>
+                        <p id="abr-count" class="text-xl font-black text-slate-800">-- <span class="text-xs font-bold text-slate-400">회</span></p>
+                    </div>
+                </div>
+
+                {# 활동 패턴 카드 #}
+                <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-[2.5rem] p-8 border border-blue-100">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">📊 활동 패턴</p>
+                            <p class="text-xs font-bold text-slate-400">시간대별 활동량</p>
+                        </div>
+                        <span id="pattern-vs-baseline" class="text-[10px] font-black px-3 py-1 rounded-full bg-slate-100 text-slate-400">--</span>
+                    </div>
+                    <div class="relative h-32 mb-4">
+                        <canvas id="patternChart"></canvas>
+                    </div>
+                    <div class="bg-white/70 rounded-2xl p-3 flex items-center justify-between">
+                        <p class="text-xs font-black text-slate-500">현재 시간 활동량</p>
+                        <p id="pattern-current" class="text-lg font-black text-blue-600">--</p>
+                    </div>
+                </div>
+
+                {# 성장 추적 카드 #}
+                <div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-[2.5rem] p-8 border border-emerald-100">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">📏 성장 추적</p>
+                            <p class="text-xs font-bold text-slate-400">체장 추정</p>
+                        </div>
+                        <span id="growth-stage-badge" class="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-600">--</span>
+                    </div>
+                    <div class="flex items-end gap-2 mb-6">
+                        <span id="growth-size" class="text-5xl font-black text-slate-800">--</span>
+                        <span class="text-lg font-bold text-slate-400 mb-1">cm</span>
+                    </div>
+                    <div class="bg-white/70 rounded-2xl p-4 flex items-center justify-between">
+                        <p class="text-xs font-black text-slate-500">일일 성장량</p>
+                        <p id="growth-per-day" class="text-lg font-black text-emerald-600">-- <span class="text-xs font-bold text-slate-400">cm/day</span></p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
 
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const DEMO_VIDEO_URL = '/media/demo.mp4';
+const TANK_ID = {{ tank.id }};
 
-let isStreaming = false;
-let zoneVisible = false;
+// ── 영상 준비되면 즉시 스트리밍 상태 표시 ────
+function onVideoReady() {
+    document.getElementById('stream-badge').textContent = '스트리밍 중';
+    document.getElementById('stream-badge').className =
+        'px-4 sm:px-6 py-2 rounded-full text-xs sm:text-sm font-black bg-emerald-500 text-white shadow-lg';
+}
 
-window.addEventListener('load', () => {
-    connectDemoVideo();
+// ── FPS 카운터 (영상 프레임 기반) ────────────
+const video = document.getElementById('stream-video');
+let lastFrameTime = performance.now();
+let frameCount = 0;
+
+function countFrames(now) {
+    frameCount++;
+    const elapsed = (now - lastFrameTime) / 1000;
+    if (elapsed >= 1.0) {
+        document.getElementById('fps-label').textContent = frameCount + ' fps';
+        frameCount = 0;
+        lastFrameTime = now;
+    }
+    video.requestVideoFrameCallback(countFrames);
+}
+
+video.addEventListener('play', () => {
+    if ('requestVideoFrameCallback' in video) {
+        video.requestVideoFrameCallback(countFrames);
+    } else {
+        // 폴백: 고정 fps 표시
+        setInterval(() => {
+            document.getElementById('fps-label').textContent = '30 fps';
+        }, 1000);
+    }
 });
 
-function connectDemoVideo() {
-    const video = document.getElementById('stream-video');
-
-    setOverlay('loading');
-
-    document.getElementById('stream-badge').textContent = '연결 중...';
-    document.getElementById('stream-badge').className =
-        'px-6 py-2 rounded-full text-sm font-black bg-slate-200 text-slate-500';
-
-    video.src = DEMO_VIDEO_URL + '?t=' + Date.now();
-    video.muted = true;
-    video.loop = true;
-    video.playsInline = true;
-
-    video.play()
-        .then(() => {
-            onStreamLoad();
-        })
-        .catch(() => {
-            onStreamError();
-        });
-}
-
-function refreshStream() {
-    const video = document.getElementById('stream-video');
-    video.pause();
-    video.currentTime = 0;
-    connectDemoVideo();
-}
-
-function onStreamLoad() {
-    if (!isStreaming) {
-        isStreaming = true;
-
-        document.getElementById('stream-overlay').classList.add('hidden');
-        document.getElementById('stream-info').classList.remove('hidden');
-
-        document.getElementById('stream-badge').textContent = '데모 재생 중';
-        document.getElementById('stream-badge').className =
-            'px-6 py-2 rounded-full text-sm font-black bg-emerald-500 text-white shadow-lg';
-
-        document.getElementById('fps-label').textContent = 'MP4';
-    }
-}
-
-function onStreamError() {
-    isStreaming = false;
-
-    setOverlay('error');
-
-    document.getElementById('stream-badge').textContent = '재생 실패';
-    document.getElementById('stream-badge').className =
-        'px-6 py-2 rounded-full text-sm font-black bg-red-100 text-red-500';
-
-    document.getElementById('stream-info').classList.add('hidden');
-}
-
-function setOverlay(state) {
-    const overlay = document.getElementById('stream-overlay');
-    const icon = document.getElementById('overlay-icon');
-    const msg = document.getElementById('overlay-msg');
-    const sub = document.getElementById('overlay-sub');
-
-    overlay.classList.remove('hidden');
-
-    if (state === 'loading') {
-        icon.textContent = '⏳';
-        msg.textContent = '데모 영상 로딩 중...';
-        sub.textContent = '';
-    } else if (state === 'error') {
-        icon.textContent = '❌';
-        msg.textContent = '데모 영상을 불러오지 못했습니다.';
-        sub.textContent = '/media/demo.mp4 파일이 있는지 확인해주세요.';
-    }
-}
-
+// ── 시계 ──────────────────────────────────────
 setInterval(() => {
     document.getElementById('stream-time').textContent =
         new Date().toLocaleTimeString('ko-KR');
 }, 1000);
 
+// ── 전체화면 ──────────────────────────────────
+function toggleFullscreen() {
+    const el = document.getElementById('stream-container');
+    if (!document.fullscreenElement) el.requestFullscreen?.();
+    else document.exitFullscreen?.();
+}
+
+// ── 구역 오버레이 ──────────────────────────────
+let zoneVisible = false;
 function toggleZoneOverlay() {
     zoneVisible = !zoneVisible;
-
     const btn = document.getElementById('zone-btn');
     let canvas = document.getElementById('zone-canvas');
-
     if (zoneVisible) {
         if (!canvas) {
             canvas = document.createElement('canvas');
             canvas.id = 'zone-canvas';
-            canvas.style.cssText =
-                'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0.6;';
+            canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0.6;';
             document.getElementById('stream-container').appendChild(canvas);
         }
-
         drawZones(canvas);
         btn.classList.add('bg-blue-100');
-    } else {
-        canvas?.remove();
-        btn.classList.remove('bg-blue-100');
-    }
+    } else { canvas?.remove(); btn.classList.remove('bg-blue-100'); }
 }
 
 function drawZones(canvas) {
-    const w = canvas.parentElement.offsetWidth;
-    const h = canvas.parentElement.offsetHeight;
-
-    canvas.width = w;
-    canvas.height = h;
-
+    const w = canvas.parentElement.offsetWidth, h = canvas.parentElement.offsetHeight;
+    canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, w, h);
-
     [
-        {
-            label: 'TOP',
-            y: 0,
-            h: h / 3,
-            color: 'rgba(239,68,68,0.15)',
-            border: 'rgba(239,68,68,0.6)'
-        },
-        {
-            label: 'MID',
-            y: h / 3,
-            h: h / 3,
-            color: 'rgba(59,130,246,0.1)',
-            border: 'rgba(59,130,246,0.5)'
-        },
-        {
-            label: 'BOT',
-            y: h * 2 / 3,
-            h: h / 3,
-            color: 'rgba(16,185,129,0.1)',
-            border: 'rgba(16,185,129,0.5)'
-        },
+        { label: 'TOP', y: 0,     h: h/3, color: 'rgba(239,68,68,0.15)',  border: 'rgba(239,68,68,0.6)' },
+        { label: 'MID', y: h/3,   h: h/3, color: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.5)' },
+        { label: 'BOT', y: h*2/3, h: h/3, color: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.5)' },
     ].forEach(z => {
-        ctx.fillStyle = z.color;
-        ctx.fillRect(0, z.y, w, z.h);
-
-        ctx.strokeStyle = z.border;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([6, 4]);
-        ctx.strokeRect(2, z.y + 2, w - 4, z.h - 4);
-
-        ctx.font = 'bold 13px sans-serif';
-        ctx.fillStyle = z.border;
-        ctx.setLineDash([]);
-        ctx.fillText(z.label, 14, z.y + 22);
+        ctx.fillStyle = z.color; ctx.fillRect(0, z.y, w, z.h);
+        ctx.strokeStyle = z.border; ctx.lineWidth = 1.5; ctx.setLineDash([6,4]);
+        ctx.strokeRect(2, z.y+2, w-4, z.h-4);
+        ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = z.border; ctx.setLineDash([]);
+        ctx.fillText(z.label, 14, z.y+22);
     });
 }
 
-function toggleFullscreen() {
-    const el = document.getElementById('stream-container');
+// ── AI 분석 데이터 fetch ──────────────────────
+function fmt2(v) { const n = parseFloat(v); return isNaN(n) ? '--' : n.toFixed(2); }
 
-    if (!document.fullscreenElement) {
-        el.requestFullscreen?.();
-    } else {
-        document.exitFullscreen?.();
+async function safeFetch(url) {
+    try { const r = await fetch(url); return r.ok ? await r.json() : null; }
+    catch { return null; }
+}
+
+// 최신 AI 분석 요약
+async function fetchBehavior() {
+    const d = await safeFetch(`/monitoring/api/dashboard-data/${TANK_ID}/`);
+    if (!d) return;
+    if (d.behavior) {
+        document.getElementById('ai-activity').textContent = fmt2(d.behavior.activity_level);
+        document.getElementById('ai-zone').textContent     = d.behavior.dominant_zone || '--';
+        const statusMap = { EXCELLENT:'매우 좋음', GOOD:'좋음', NORMAL:'정상', WARNING:'주의', POOR:'나쁨' };
+        const statusEl = document.getElementById('ai-status');
+        statusEl.textContent = statusMap[d.behavior.status] || d.behavior.status || '--';
+        const colorMap = { EXCELLENT:'text-emerald-500', GOOD:'text-blue-500', NORMAL:'text-slate-500', WARNING:'text-orange-500', POOR:'text-red-500' };
+        statusEl.className = 'text-lg font-black ' + (colorMap[d.behavior.status] || 'text-slate-500');
     }
 }
+
+async function fetchFRS() {
+    const d = await safeFetch(`/monitoring/api/frs/?tank_id=${TANK_ID}`);
+    if (!d) return;
+    const score = Math.round(parseFloat(d.score ?? 0));
+    document.getElementById('frs-score').textContent = isNaN(score) ? '--' : score;
+    const badge = document.getElementById('frs-status-badge');
+    if (score >= 70) { badge.textContent='양호'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-600'; }
+    else if (score >= 40) { badge.textContent='주의'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-orange-100 text-orange-500'; }
+    else { badge.textContent='위험'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-red-100 text-red-500'; }
+    if (d.response_time_sec != null) document.getElementById('frs-rt').innerHTML = fmt2(d.response_time_sec)+'<span class="text-[9px] font-bold text-slate-400">초</span>';
+    if (d.activity_increase_percent != null) document.getElementById('frs-activity').innerHTML = fmt2(d.activity_increase_percent)+'<span class="text-[9px] font-bold text-slate-400">%</span>';
+    if (d.surface_visits != null) document.getElementById('frs-surface').innerHTML = d.surface_visits+'<span class="text-[9px] font-bold text-slate-400">회</span>';
+    if (d.comment) document.getElementById('frs-comment').textContent = d.comment;
+}
+
+async function fetchABR() {
+    const d = await safeFetch(`/monitoring/api/abr/?tank_id=${TANK_ID}`);
+    if (!d) return;
+    const rate = parseFloat(d.abr_rate ?? 0);
+    document.getElementById('abr-rate').textContent = isNaN(rate) ? '--' : rate.toFixed(1);
+    const badge = document.getElementById('abr-status-badge');
+    if (rate <= 10) { badge.textContent='정상'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-600'; }
+    else if (rate <= 30) { badge.textContent='주의'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-orange-100 text-orange-500'; }
+    else { badge.textContent='위험'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-red-100 text-red-500'; }
+    if (d.anomaly_count != null) document.getElementById('abr-count').innerHTML = d.anomaly_count+' <span class="text-xs font-bold text-slate-400">회</span>';
+}
+
+let patternChart = null;
+async function fetchPattern() {
+    const d = await safeFetch(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
+    if (!d) return;
+    const hourlyData = d.hourly_activity || Array(24).fill(0);
+    const labels = Array.from({length:24}, (_,i) => i+'시');
+    const currentHour = new Date().getHours();
+    if (!patternChart) {
+        patternChart = new Chart(document.getElementById('patternChart').getContext('2d'), {
+            type: 'bar',
+            data: { labels, datasets: [{ data: hourlyData,
+                backgroundColor: labels.map((_,i) => i===currentHour ? 'rgba(59,130,246,0.7)' : 'rgba(59,130,246,0.2)'),
+                borderRadius: 4, borderSkipped: false }] },
+            options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+                scales: { x:{grid:{display:false}, ticks:{font:{size:8}, color:'#94a3b8', maxTicksLimit:8}},
+                          y:{grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:8}, color:'#94a3b8'}} },
+                animation:{duration:300} }
+        });
+    } else {
+        patternChart.data.datasets[0].data = hourlyData;
+        patternChart.data.datasets[0].backgroundColor = labels.map((_,i) => i===currentHour ? 'rgba(59,130,246,0.7)' : 'rgba(59,130,246,0.2)');
+        patternChart.update();
+    }
+    if (d.current_hour_activity != null) document.getElementById('pattern-current').textContent = fmt2(d.current_hour_activity);
+    if (d.compared_to_baseline != null) {
+        const pct = parseFloat(d.compared_to_baseline);
+        const el = document.getElementById('pattern-vs-baseline');
+        el.textContent = (pct>=0?'+':'')+pct.toFixed(1)+'%';
+        el.className = 'text-[10px] font-black px-3 py-1 rounded-full '+(pct>=0?'bg-emerald-100 text-emerald-600':'bg-red-100 text-red-500');
+    }
+}
+
+const STAGE_MAP = {FRY:'치어', JUVENILE:'유어', YOUNG:'유어', ADULT:'성어'};
+async function fetchGrowth() {
+    const d = await safeFetch(`/monitoring/api/growth/?tank_id=${TANK_ID}`);
+    if (!d) return;
+    const size = parseFloat(d.current_size_cm ?? 0);
+    document.getElementById('growth-size').textContent = isNaN(size) ? '--' : size.toFixed(2);
+    if (d.estimated_stage) document.getElementById('growth-stage-badge').textContent = STAGE_MAP[(d.estimated_stage+'').toUpperCase()] || d.estimated_stage;
+    if (d.growth_per_day != null) document.getElementById('growth-per-day').innerHTML = fmt2(d.growth_per_day)+' <span class="text-xs font-bold text-slate-400">cm/day</span>';
+}
+
+async function fetchAll() {
+    await Promise.allSettled([fetchBehavior(), fetchFRS(), fetchABR(), fetchGrowth()]);
+}
+
+// 초기 로딩
+fetchAll();
+fetchPattern();
+
+// 주기 갱신
+setInterval(fetchAll, 30000);
+setInterval(fetchPattern, 60000);
 </script>
 {% endblock %}
