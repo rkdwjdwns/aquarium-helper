@@ -313,7 +313,7 @@ function toggleFullscreen() {
 
 // ── 발표용 데모 fallback ──────────────────────
 const DEMO = {
-    behavior: { activity: 14.66, zone: 'TOP', status: 'NORMAL' },
+    behavior: { activity: 15.30, zone: 'TOP', status: 'NORMAL' },
     frs: {
         score: 82, status_label: '급이 반응 강함',
         latest_feeding_time: '08:00', pre_sec: 60, post_sec: 180,
@@ -332,7 +332,7 @@ const DEMO = {
     },
     activity: {
         tank_activity: 15.3, baseline_delta_percent: 12.4,
-        main_zone: 'MID', status_label: '정상',
+        main_zone: 'TOP', status_label: '정상',
         series: [
             {time:'23:00',value:13.2},{time:'23:05',value:14.1},
             {time:'23:10',value:15.3},{time:'23:15',value:14.8},
@@ -365,9 +365,9 @@ async function safeFetch(url) {
 // ── 최신 AI 요약 ──────────────────────────────
 async function fetchBehavior() {
     const d = await safeFetch(`/monitoring/api/behavior/latest/?tank_id=${TANK_ID}`);
-    const activity = val(d?.activity_level, DEMO.behavior.activity);
-    const zone     = val(d?.dominant_zone,  DEMO.behavior.zone);
-    const status   = 'NORMAL'; // ← API 값 무시, 항상 '정상'으로 고정
+    const activity = 15.30;          // API 값 무시, 강제 고정
+    const zone     = val(d?.dominant_zone, DEMO.behavior.zone);
+    const status   = 'NORMAL';       // API 값 무시, 항상 '정상'으로 고정
     const STATUS_KO = {EXCELLENT:'매우 좋음',GOOD:'좋음',NORMAL:'정상',WARNING:'주의',POOR:'나쁨'};
     const COLOR_MAP = {EXCELLENT:'text-emerald-500',GOOD:'text-blue-500',NORMAL:'text-slate-500',WARNING:'text-orange-500',POOR:'text-red-500'};
     document.getElementById('ai-activity').textContent = fmt2(activity);
@@ -391,7 +391,7 @@ async function fetchFRS() {
     const avg    = val(d?.recent_avg_score, DEMO.frs.recent_avg_score);
     const advice = val(d?.advice_label, DEMO.frs.advice_label);
 
-    document.getElementById('frs-score').textContent       = score;
+    document.getElementById('frs-score').textContent        = score;
     document.getElementById('frs-status-label').textContent = label;
     document.getElementById('frs-time').textContent         = time;
     document.getElementById('frs-interval').textContent     = `전 ${pre}초 / 후 ${post}초`;
@@ -399,7 +399,7 @@ async function fetchFRS() {
     document.getElementById('frs-activity').innerHTML = '+'+fmt2(act)+'<span class="text-[9px] text-slate-400">%</span>';
     document.getElementById('frs-surface').innerHTML  = fmt2(surf)+'<span class="text-[9px] text-slate-400">%</span>';
     document.getElementById('frs-avg').textContent    = fmt2(avg)+'점';
-    document.getElementById('frs-advice').textContent  = advice;
+    document.getElementById('frs-advice').textContent = advice;
 
     const badge = document.getElementById('frs-status-badge');
     if (score>=80) { badge.textContent='좋음'; badge.className='text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-600'; }
@@ -455,10 +455,9 @@ async function fetchActivity() {
     const delta    = (rawDelta != null && rawDelta > -50 && rawDelta <= 100)
         ? parseFloat(rawDelta) : DEMO.activity.baseline_delta_percent;
 
-    const zone   = val(d?.main_zone, DEMO.activity.main_zone);
+    const zone   = 'TOP';  // API 값 무시, 강제 고정
     const series = (d?.series?.length ? d.series : DEMO.activity.series);
     const fish   = DEMO.activity.fish;
-    const status = val(d?.status_label, DEMO.activity.status_label);
 
     document.getElementById('activity-value').textContent = fmt2(tank);
     document.getElementById('activity-zone').textContent  = zone;

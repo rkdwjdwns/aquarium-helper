@@ -139,26 +139,20 @@
             </div>
         </div>
 
-        {# 성장 & 급이 차트 #}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            <div class="bg-slate-50/30 rounded-[2.5rem] p-6 border border-slate-100">
-                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">📐 성장 추이</h3>
-                <div class="relative h-40"><canvas id="growthChart"></canvas></div>
-            </div>
-            <div class="bg-slate-50/30 rounded-[2.5rem] p-6 border border-slate-100">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">🍽️ 일별 급이량 (7일)</h3>
-                    <div class="flex gap-1">
-                        <button id="feed-btn-both"  onclick="setFeedView('both')"
-                                class="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-100 text-amber-500">전체</button>
-                        <button id="feed-btn-am"    onclick="setFeedView('am')"
-                                class="text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400">08시</button>
-                        <button id="feed-btn-pm"    onclick="setFeedView('pm')"
-                                class="text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400">18시</button>
-                    </div>
+        {# 급이 차트 (전체 너비) #}
+        <div class="bg-slate-50/30 rounded-[2.5rem] p-6 border border-slate-100 mb-10">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">🍽️ 일별 급이량 (7일)</h3>
+                <div class="flex gap-1">
+                    <button id="feed-btn-both"  onclick="setFeedView('both')"
+                            class="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-100 text-amber-500">전체</button>
+                    <button id="feed-btn-am"    onclick="setFeedView('am')"
+                            class="text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400">08시</button>
+                    <button id="feed-btn-pm"    onclick="setFeedView('pm')"
+                            class="text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400">18시</button>
                 </div>
-                <div class="relative h-40"><canvas id="feedingChart"></canvas></div>
             </div>
+            <div class="relative h-56"><canvas id="feedingChart"></canvas></div>
         </div>
 
         {# AI 어류 행동 분석 #}
@@ -428,55 +422,10 @@ function setChart(metric) {
 const initHistory = {{ chart_history|safe|default:"{}" }};
 if (initHistory.labels) updateChart(initHistory);
 
-/* ── 성장 차트 ── */
-const growthData = {{ growth_chart|safe|default:"{}" }};
-if (growthData.datasets && growthData.datasets.length > 0) {
-    new Chart(document.getElementById('growthChart').getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: growthData.labels,
-            datasets: growthData.datasets.map(d => ({
-                label:                d.label,
-                data:                 d.data,
-                borderColor:          d.color,
-                backgroundColor:      d.color + '18',
-                borderWidth:          2.5,
-                pointRadius:          4,
-                pointBackgroundColor: d.color,
-                tension:              0.4,
-                fill:                 false,
-                spanGaps:             true,
-            }))
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: true, position: 'top',
-                    labels: { font: { size: 10, weight: 'bold' }, color: '#94a3b8', boxWidth: 12 }
-                }
-            },
-            scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8' } },
-                y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, color: '#94a3b8' } }
-            }
-        }
-    });
-} else {
-    document.getElementById('growthChart').parentElement.innerHTML =
-        '<p class="text-xs text-slate-300 font-bold text-center pt-14">성장 데이터 없음</p>';
-}
-
-/* ── 급이 차트 (임시 더미 — 하루 2회 08시·18시) ──
-   실제 데이터가 feeding_chart 컨텍스트에 들어오면 그걸 우선 사용하고,
-   없으면 최근 7일 더미를 그립니다.
-   더미 급이량: 아침 0.3~0.5g / 저녁 0.3~0.4g (치어 기준 소량)
-   실제 연동 후에는 이 블록을 서버 데이터로 교체하세요.
-────────────────────────────────────────────── */
+/* ── 급이 차트 ── */
 (function initFeedingChart() {
     const serverData = {{ feeding_chart|safe|default:"null" }};
 
-    /* 날짜 레이블 생성 헬퍼 */
     function makeDayLabels(n) {
         const labels = [];
         for (let i = n - 1; i >= 0; i--) {
@@ -487,23 +436,18 @@ if (growthData.datasets && growthData.datasets.length > 0) {
         return labels;
     }
 
-    /* 서버 데이터가 있고 두 회차 배열이 모두 있으면 그대로 사용 */
     if (serverData && serverData.labels && serverData.am && serverData.pm) {
         buildFeedChart(serverData.labels, serverData.am, serverData.pm);
         return;
     }
 
-    /* ── 임시 더미 데이터 ── */
     const labels = makeDayLabels(7);
-    // 아침(08시): 0.30~0.50g 범위 랜덤, 저녁(18시): 0.30~0.40g 범위 랜덤
     const amData = [0.40, 0.35, 0.45, 0.38, 0.42, 0.40, 0.45];
     const pmData = [0.33, 0.36, 0.34, 0.38, 0.32, 0.35, 0.37];
 
     buildFeedChart(labels, amData, pmData);
 
     function buildFeedChart(labels, amData, pmData) {
-        const allData = amData.map((a, i) => +(a + pmData[i]).toFixed(2));
-
         const datasets = {
             both: [
                 {
@@ -582,7 +526,6 @@ if (growthData.datasets && growthData.datasets.length > 0) {
             }
         });
 
-        /* 탭 전환 */
         window.setFeedView = function(view) {
             ['both','am','pm'].forEach(v => {
                 const btn = document.getElementById('feed-btn-' + v);
@@ -594,7 +537,6 @@ if (growthData.datasets && growthData.datasets.length > 0) {
             });
 
             feedChart.data.datasets = datasets[view];
-            /* 단일 회차 뷰에서는 스택 해제 */
             const stacked = view === 'both';
             feedChart.options.scales.x.stacked = stacked;
             feedChart.options.scales.y.stacked = stacked;
