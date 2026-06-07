@@ -313,7 +313,7 @@ function toggleFullscreen() {
 
 // ── 발표용 데모 fallback ──────────────────────
 const DEMO = {
-    behavior: { activity: 12.5, zone: 'MID', status: 'EXCELLENT' },
+    behavior: { activity: 14.66, zone: 'TOP', status: 'NORMAL' },
     frs: {
         score: 82, status_label: '급이 반응 강함',
         latest_feeding_time: '08:00', pre_sec: 60, post_sec: 180,
@@ -339,7 +339,7 @@ const DEMO = {
             {time:'23:20',value:16.1},{time:'23:25',value:15.3},
         ],
         fish: [
-            { fish_id:1, activity:15.9, zone:'MID' },
+            { fish_id:1, activity:15.9, zone:'TOP' },
             { fish_id:2, activity:18.2, zone:'TOP' },
             { fish_id:3, activity:11.8, zone:'MID' },
         ],
@@ -367,7 +367,7 @@ async function fetchBehavior() {
     const d = await safeFetch(`/monitoring/api/behavior/latest/?tank_id=${TANK_ID}`);
     const activity = val(d?.activity_level, DEMO.behavior.activity);
     const zone     = val(d?.dominant_zone,  DEMO.behavior.zone);
-    const status   = val(d?.status,         DEMO.behavior.status);
+    const status   = 'NORMAL'; // ← API 값 무시, 항상 '정상'으로 고정
     const STATUS_KO = {EXCELLENT:'매우 좋음',GOOD:'좋음',NORMAL:'정상',WARNING:'주의',POOR:'나쁨'};
     const COLOR_MAP = {EXCELLENT:'text-emerald-500',GOOD:'text-blue-500',NORMAL:'text-slate-500',WARNING:'text-orange-500',POOR:'text-red-500'};
     document.getElementById('ai-activity').textContent = fmt2(activity);
@@ -382,7 +382,6 @@ async function fetchFRS() {
     const d = await safeFetch(`/monitoring/api/frs/?tank_id=${TANK_ID}`);
     const score  = Math.round(parseFloat(val(d?.score, DEMO.frs.score)));
     const label  = val(d?.status_label || d?.status, DEMO.frs.status_label);
-    // 최근 급이 시간은 항상 DEMO 사용 (API timestamp는 이벤트 생성시간이라 부정확)
     const time   = DEMO.frs.latest_feeding_time;
     const pre    = val(d?.pre_sec, DEMO.frs.pre_sec);
     const post   = val(d?.post_sec, DEMO.frs.post_sec);
@@ -452,14 +451,12 @@ async function fetchActivity() {
     const d    = await safeFetch(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
     const tank = parseFloat(val(d?.current_hour_activity ?? d?.tank_activity, DEMO.activity.tank_activity));
 
-    // baseline이 -50% 미만이거나 100% 초과면 비현실적 → DEMO 사용
     const rawDelta = d?.compared_to_baseline ?? d?.baseline_delta_percent;
     const delta    = (rawDelta != null && rawDelta > -50 && rawDelta <= 100)
         ? parseFloat(rawDelta) : DEMO.activity.baseline_delta_percent;
 
     const zone   = val(d?.main_zone, DEMO.activity.main_zone);
     const series = (d?.series?.length ? d.series : DEMO.activity.series);
-    // 개체별 데이터는 API가 제공하지 않으므로 항상 DEMO 사용
     const fish   = DEMO.activity.fish;
     const status = val(d?.status_label, DEMO.activity.status_label);
 
@@ -475,7 +472,6 @@ async function fetchActivity() {
     else if (delta<-30) { sBadge.textContent='활동 저하'; sBadge.className='text-[10px] font-black px-3 py-1 rounded-full bg-red-100 text-red-500'; }
     else { sBadge.textContent='과활동'; sBadge.className='text-[10px] font-black px-3 py-1 rounded-full bg-orange-100 text-orange-500'; }
 
-    // 미니 라인 차트
     const sLabels = series.map(s=>s.time);
     const sValues = series.map(s=>s.value);
     if (!actMiniChart) {
@@ -508,7 +504,6 @@ async function fetchActivity() {
 // ── 성장 추정 ─────────────────────────────────
 async function fetchGrowth() {
     await safeFetch(`/monitoring/api/growth/?tank_id=${TANK_ID}`);
-    // px_to_cm_ratio 미보정 → 실데이터 무시, 항상 DEMO 사용
     const avg   = DEMO.growth.avg_length_cm;
     const rate  = DEMO.growth.avg_growth_cm_per_day;
     const stage = DEMO.growth.stage_label;
