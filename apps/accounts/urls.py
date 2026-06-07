@@ -1,6 +1,7 @@
 from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
 from . import views
+from apps.monitoring import api_views
 
 app_name = 'accounts'
 
@@ -27,4 +28,6 @@ urlpatterns = [
              template_name='accounts/password_change_done.html'
          ), 
          name='password_change_done'),
+
+    path('api/event-log/', api_views.create_event_log, name='api_event_log'),
 ]
