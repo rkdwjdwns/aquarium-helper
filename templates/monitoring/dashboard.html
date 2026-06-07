@@ -142,11 +142,21 @@
         {# 성장 & 급이 차트 #}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
             <div class="bg-slate-50/30 rounded-[2.5rem] p-6 border border-slate-100">
-                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">성장 추이</h3>
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">📐 성장 추이</h3>
                 <div class="relative h-40"><canvas id="growthChart"></canvas></div>
             </div>
             <div class="bg-slate-50/30 rounded-[2.5rem] p-6 border border-slate-100">
-                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">일별 급이량 (7일)</h3>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">🍽️ 일별 급이량 (7일)</h3>
+                    <div class="flex gap-1">
+                        <button id="feed-btn-both"  onclick="setFeedView('both')"
+                                class="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-100 text-amber-500">전체</button>
+                        <button id="feed-btn-am"    onclick="setFeedView('am')"
+                                class="text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400">08시</button>
+                        <button id="feed-btn-pm"    onclick="setFeedView('pm')"
+                                class="text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400">18시</button>
+                    </div>
+                </div>
                 <div class="relative h-40"><canvas id="feedingChart"></canvas></div>
             </div>
         </div>
@@ -273,12 +283,13 @@
 const TANK_ID = {{ tank.id }};
 const CSRF    = '{{ csrf_token }}';
 
-/* 소수점 2자리 포맷 헬퍼 */
+/* ── 헬퍼 ── */
 function fmt(v) {
     const n = parseFloat(v);
     return isNaN(n) ? '--' : n.toFixed(2);
 }
 
+/* ── 장치 제어 / 환수 ── */
 function controlDevice(deviceType) {
     fetch(`/monitoring/toggle-device/${TANK_ID}/`, {
         method: 'POST',
@@ -298,6 +309,7 @@ function completeWaterChange() {
     .then(d => { if (d.status === 'success') location.reload(); });
 }
 
+/* ── 센서 카드 실시간 업데이트 ── */
 function updateSensorCards(d) {
     const s = d.sensor;
     if (!s) return;
@@ -349,6 +361,7 @@ async function pollDashboard() {
 
 setInterval(pollDashboard, 5000);
 
+/* ── 수질 트렌드 차트 ── */
 const chartColors = {
     temp: { border: '#ef4444', bg: 'rgba(239,68,68,0.08)', min: 18, max: 30, label: '수온 (°C)' },
     ph:   { border: '#3b82f6', bg: 'rgba(59,130,246,0.08)', min: 5,  max: 9,  label: 'pH' },
@@ -401,12 +414,12 @@ function setChart(metric) {
             btn.className = 'chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400';
         }
     });
-    chart.data.labels                           = chartHistory.labels || [];
-    chart.data.datasets[0].data                 = chartHistory[metric] || [];
-    chart.data.datasets[0].label               = c.label;
-    chart.data.datasets[0].borderColor         = c.border;
-    chart.data.datasets[0].backgroundColor     = c.bg;
-    chart.data.datasets[0].pointBackgroundColor = c.border;
+    chart.data.labels                            = chartHistory.labels || [];
+    chart.data.datasets[0].data                  = chartHistory[metric] || [];
+    chart.data.datasets[0].label                 = c.label;
+    chart.data.datasets[0].borderColor           = c.border;
+    chart.data.datasets[0].backgroundColor       = c.bg;
+    chart.data.datasets[0].pointBackgroundColor   = c.border;
     chart.options.scales.y.min = c.min;
     chart.options.scales.y.max = c.max;
     chart.update();
@@ -415,6 +428,7 @@ function setChart(metric) {
 const initHistory = {{ chart_history|safe|default:"{}" }};
 if (initHistory.labels) updateChart(initHistory);
 
+/* ── 성장 차트 ── */
 const growthData = {{ growth_chart|safe|default:"{}" }};
 if (growthData.datasets && growthData.datasets.length > 0) {
     new Chart(document.getElementById('growthChart').getContext('2d'), {
@@ -431,7 +445,7 @@ if (growthData.datasets && growthData.datasets.length > 0) {
                 pointBackgroundColor: d.color,
                 tension:              0.4,
                 fill:                 false,
-                spanGaps:             true,   // null 구간 연결
+                spanGaps:             true,
             }))
         },
         options: {
@@ -453,17 +467,140 @@ if (growthData.datasets && growthData.datasets.length > 0) {
         '<p class="text-xs text-slate-300 font-bold text-center pt-14">성장 데이터 없음</p>';
 }
 
-const feedingData = {{ feeding_chart|safe|default:"{}" }};
-if (feedingData.labels) {
-    new Chart(document.getElementById('feedingChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: feedingData.labels,
-            datasets: [{ label: '급이량 (g)', data: feedingData.amounts, backgroundColor: 'rgba(245,158,11,0.2)', borderColor: '#f59e0b', borderWidth: 2, borderRadius: 6 }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-            scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8' } }, y: { grid: { color: 'rgba(0,0,0,0.04)' } } } }
-    });
-}
+/* ── 급이 차트 (임시 더미 — 하루 2회 08시·18시) ──
+   실제 데이터가 feeding_chart 컨텍스트에 들어오면 그걸 우선 사용하고,
+   없으면 최근 7일 더미를 그립니다.
+   더미 급이량: 아침 0.3~0.5g / 저녁 0.3~0.4g (치어 기준 소량)
+   실제 연동 후에는 이 블록을 서버 데이터로 교체하세요.
+────────────────────────────────────────────── */
+(function initFeedingChart() {
+    const serverData = {{ feeding_chart|safe|default:"null" }};
+
+    /* 날짜 레이블 생성 헬퍼 */
+    function makeDayLabels(n) {
+        const labels = [];
+        for (let i = n - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            labels.push((d.getMonth() + 1) + '/' + String(d.getDate()).padStart(2, '0'));
+        }
+        return labels;
+    }
+
+    /* 서버 데이터가 있고 두 회차 배열이 모두 있으면 그대로 사용 */
+    if (serverData && serverData.labels && serverData.am && serverData.pm) {
+        buildFeedChart(serverData.labels, serverData.am, serverData.pm);
+        return;
+    }
+
+    /* ── 임시 더미 데이터 ── */
+    const labels = makeDayLabels(7);
+    // 아침(08시): 0.30~0.50g 범위 랜덤, 저녁(18시): 0.30~0.40g 범위 랜덤
+    const amData = [0.40, 0.35, 0.45, 0.38, 0.42, 0.40, 0.45];
+    const pmData = [0.33, 0.36, 0.34, 0.38, 0.32, 0.35, 0.37];
+
+    buildFeedChart(labels, amData, pmData);
+
+    function buildFeedChart(labels, amData, pmData) {
+        const allData = amData.map((a, i) => +(a + pmData[i]).toFixed(2));
+
+        const datasets = {
+            both: [
+                {
+                    label: '08시 급이 (g)',
+                    data: amData,
+                    backgroundColor: 'rgba(251,191,36,0.75)',
+                    borderColor: '#f59e0b',
+                    borderWidth: 1.5,
+                    borderRadius: 5,
+                    stack: 'feed',
+                },
+                {
+                    label: '18시 급이 (g)',
+                    data: pmData,
+                    backgroundColor: 'rgba(249,115,22,0.65)',
+                    borderColor: '#ea580c',
+                    borderWidth: 1.5,
+                    borderRadius: 5,
+                    stack: 'feed',
+                }
+            ],
+            am: [{
+                label: '08시 급이 (g)',
+                data: amData,
+                backgroundColor: 'rgba(251,191,36,0.75)',
+                borderColor: '#f59e0b',
+                borderWidth: 1.5,
+                borderRadius: 5,
+            }],
+            pm: [{
+                label: '18시 급이 (g)',
+                data: pmData,
+                backgroundColor: 'rgba(249,115,22,0.65)',
+                borderColor: '#ea580c',
+                borderWidth: 1.5,
+                borderRadius: 5,
+            }],
+        };
+
+        const feedChart = new Chart(document.getElementById('feedingChart').getContext('2d'), {
+            type: 'bar',
+            data: { labels, datasets: datasets.both },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true, position: 'top',
+                        labels: { font: { size: 9, weight: 'bold' }, color: '#94a3b8', boxWidth: 10 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            footer: (items) => {
+                                const total = items.reduce((s, i) => s + i.parsed.y, 0);
+                                return `합계: ${total.toFixed(2)}g`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: { font: { size: 10 }, color: '#94a3b8' }
+                    },
+                    y: {
+                        stacked: true,
+                        grid: { color: 'rgba(0,0,0,0.04)' },
+                        ticks: {
+                            font: { size: 10 }, color: '#94a3b8',
+                            callback: v => v.toFixed(1) + 'g'
+                        },
+                        suggestedMax: 1.0,
+                    }
+                }
+            }
+        });
+
+        /* 탭 전환 */
+        window.setFeedView = function(view) {
+            ['both','am','pm'].forEach(v => {
+                const btn = document.getElementById('feed-btn-' + v);
+                if (v === view) {
+                    btn.className = 'text-[9px] font-black px-2 py-1 rounded-lg bg-amber-100 text-amber-500';
+                } else {
+                    btn.className = 'text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400';
+                }
+            });
+
+            feedChart.data.datasets = datasets[view];
+            /* 단일 회차 뷰에서는 스택 해제 */
+            const stacked = view === 'both';
+            feedChart.options.scales.x.stacked = stacked;
+            feedChart.options.scales.y.stacked = stacked;
+            feedChart.update();
+        };
+    }
+})();
 </script>
 {% endblock %}
