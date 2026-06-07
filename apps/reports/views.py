@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.http import HttpResponse
 
 # 모델 임포트: monitoring 앱의 모델을 참조합니다.
-from monitoring.models import Tank, SensorReading
+from apps.monitoring.models import Tank, SensorReading
 from .models import Report
 
 @login_required
