@@ -5,6 +5,7 @@ Raspberry Pi ↔ Render 서버 간 REST API
 - Pi → 서버 : 센서/행동/급이/성장/패턴 데이터 전송
 - 서버 → Pi : 장치 제어 명령 응답 (polling 방식)
 - Pi → 서버 : IP 자동 등록 (카메라 스트림 자동 연결)
+- 프론트 → 서버 : FRS/ABR/패턴/성장 최신 데이터 조회 (GET)
 
 인증: 헤더 X-API-KEY (Render 환경변수 PI_API_KEY)
 수질 기준: 코멧 금붕어 치어 기준 (설계 문서 v2.0)
@@ -13,6 +14,8 @@ Raspberry Pi ↔ Render 서버 간 REST API
 import json
 import os
 import logging
+from datetime import datetime
+from urllib.parse import urlparse
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -95,6 +98,14 @@ def _get_tank(tank_id) -> tuple:
         return None, _error(f"tank_id={tank_id} 에 해당하는 어항이 없습니다.", status=404)
 
 
+def _check_api_key(request) -> bool:
+    """POST 뷰 내부에서 직접 API Key 체크 시 사용."""
+    server_key = os.getenv('PI_API_KEY', '')
+    if not server_key:
+        return True
+    return request.headers.get('X-API-KEY', '') == server_key
+
+
 # ──────────────────────────────────────────────
 # 수질 점수 계산 (금붕어 기준)
 # ──────────────────────────────────────────────
@@ -155,7 +166,6 @@ def _auto_control(tank: Tank, reading: SensorReading) -> list:
     turb = reading.turbidity
     ph   = reading.ph
 
-    # ✅ Tank 설정값 우선 사용, 없으면 기본값(WATER_STANDARDS) 사용
     heater_on   = getattr(tank, 'heater_on_temp',   WATER_STANDARDS['temp_min'])
     heater_off  = getattr(tank, 'heater_off_temp',  WATER_STANDARDS['temp_optimal'])
     cooling_on  = getattr(tank, 'cooling_on_temp',  WATER_STANDARDS['temp_max'])
@@ -168,31 +178,26 @@ def _auto_control(tank: Tank, reading: SensorReading) -> list:
     ph_max      = getattr(tank, 'ph_max',           WATER_STANDARDS['ph_max'])
     turb_warn   = getattr(tank, 'turbidity_max',    WATER_STANDARDS['turbidity_max']) * 2
 
-    # 히터
     if temp < heater_on:
         _set_device('HEATER', True,  f"수온 {temp}°C → {heater_on}°C 미달")
     elif temp > heater_off:
         _set_device('HEATER', False, f"수온 {temp}°C → {heater_off}°C 도달")
 
-    # 냉각팬
     if temp > cooling_on:
         _set_device('COOLING', True,  f"수온 {temp}°C → {cooling_on}°C 초과")
     elif temp <= cooling_off:
         _set_device('COOLING', False, f"수온 {temp}°C → 정상 범위")
 
-    # 여과기
     if turb > filter_on:
         _set_device('FILTER', True,  f"탁도 {turb} NTU → {filter_on} 초과")
     elif turb <= filter_off:
         _set_device('FILTER', False, f"탁도 {turb} NTU → 정상")
 
-    # 에어펌프
     if do_v < airpump_on:
         _set_device('AIR_PUMP', True,  f"DO {do_v} mg/L → {airpump_on} 위험")
     elif do_v >= airpump_off:
         _set_device('AIR_PUMP', False, f"DO {do_v} mg/L → 정상")
 
-    # 경보 로그
     if ph < ph_min or ph > ph_max:
         EventLog.objects.create(tank=tank, level='DANGER', message=f"pH 이상: {ph}")
     if turb > turb_warn:
@@ -375,12 +380,35 @@ def receive_feeding_event(request):
 
 # ──────────────────────────────────────────────
 # [4] 성장 기록  POST /monitoring/api/growth/
+#               GET  /monitoring/api/growth/?tank_id=1  (프론트용)
 # ──────────────────────────────────────────────
 
+GROWTH_STAGE_KO = {'FRY': '치어', 'JUVENILE': '유어', 'YOUNG': '유어', 'ADULT': '성어'}
+
 @csrf_exempt
-@api_key_required
-@require_http_methods(['POST'])
+@require_http_methods(['GET', 'POST'])
 def receive_growth_record(request):
+
+    # ── GET: 프론트에서 최신 성장 기록 조회 ────────────────────────
+    if request.method == 'GET':
+        tank_id = request.GET.get('tank_id', 1)
+        try:
+            g = GrowthRecord.objects.filter(tank_id=tank_id).latest('created_at')
+            stage_raw = (g.growth_stage or '').upper()
+            return JsonResponse({
+                'current_size_cm': float(g.estimated_length or 0),
+                'estimated_stage': GROWTH_STAGE_KO.get(stage_raw, stage_raw or '--'),
+                'growth_per_day':  float(g.growth_rate or 0),
+                'fish_id':         g.fish_id,
+                'timestamp':       g.created_at.isoformat(),
+            })
+        except GrowthRecord.DoesNotExist:
+            return JsonResponse({'error': 'no data'}, status=404)
+
+    # ── POST: Pi에서 성장 기록 수신 (API Key 인증) ──────────────────
+    if not _check_api_key(request):
+        return _error("인증 실패: 유효하지 않은 API Key입니다.", status=401)
+
     data = _parse_body(request)
     if not data:
         return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
@@ -419,12 +447,48 @@ def receive_growth_record(request):
 
 # ──────────────────────────────────────────────
 # [5] 활동 패턴  POST /monitoring/api/pattern/
+#               GET  /monitoring/api/pattern/?tank_id=1  (프론트용)
 # ──────────────────────────────────────────────
 
 @csrf_exempt
-@api_key_required
-@require_http_methods(['POST'])
+@require_http_methods(['GET', 'POST'])
 def receive_activity_pattern(request):
+
+    # ── GET: 프론트에서 최신 활동 패턴 조회 ────────────────────────
+    if request.method == 'GET':
+        tank_id = request.GET.get('tank_id', 1)
+        try:
+            p = ActivityPattern.objects.filter(tank_id=tank_id).latest('created_at')
+
+            # hourly_activity: dict {'0':v, '1':v, ...} 또는 list [v,v,...] 형태 정규화
+            raw = p.hourly_activity or {}
+            if isinstance(raw, dict):
+                hourly = [float(raw.get(str(i), 0)) for i in range(24)]
+            elif isinstance(raw, list):
+                hourly = [float(v) for v in raw[:24]]
+                hourly += [0.0] * (24 - len(hourly))
+            else:
+                hourly = [0.0] * 24
+
+            current_hour     = datetime.now().hour
+            current_activity = hourly[current_hour]
+            avg = sum(hourly) / 24 if any(hourly) else 1
+            baseline_pct = round((current_activity - avg) / avg * 100, 1) if avg else 0
+
+            return JsonResponse({
+                'hourly_activity':       hourly,
+                'current_hour_activity': round(current_activity, 2),
+                'compared_to_baseline':  baseline_pct,
+                'has_anomaly':           p.has_anomaly,
+                'timestamp':             p.created_at.isoformat(),
+            })
+        except ActivityPattern.DoesNotExist:
+            return JsonResponse({'error': 'no data'}, status=404)
+
+    # ── POST: Pi에서 활동 패턴 수신 (API Key 인증) ──────────────────
+    if not _check_api_key(request):
+        return _error("인증 실패: 유효하지 않은 API Key입니다.", status=401)
+
     data = _parse_body(request)
     if not data:
         return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
@@ -492,10 +556,6 @@ def get_pending_commands(request, tank_id):
 @api_key_required
 @require_http_methods(['POST'])
 def register_pi(request):
-    """
-    Pi 시작 시 자신의 IP를 서버에 등록합니다.
-    카메라 페이지가 이 IP를 읽어 자동으로 스트림에 연결합니다.
-    """
     data = _parse_body(request)
     if not data:
         return _error("요청 바디가 비어있거나 JSON 형식이 아닙니다.")
@@ -516,7 +576,6 @@ def register_pi(request):
     tank.save(update_fields=['pi_ip', 'pi_stream_port', 'pi_last_seen'])
 
     logger.info(f"[Pi 등록] tank={tank.id} ip={pi_ip}:{pi_stream_port}")
-
     EventLog.objects.create(
         tank=tank, level='INFO',
         message=f"[Pi 연결] {pi_ip}:{pi_stream_port} — 카메라 스트림 준비 완료"
@@ -531,7 +590,7 @@ def register_pi(request):
 
 
 # ──────────────────────────────────────────────
-# ✅ [7-1] 카메라 URL 직접 등록  POST /monitoring/api/register-camera-url/
+# [7-1] 카메라 URL 등록  POST /monitoring/api/register-camera-url/
 # ──────────────────────────────────────────────
 
 @csrf_exempt
@@ -539,7 +598,8 @@ def register_pi(request):
 @require_http_methods(['POST'])
 def register_camera_url(request):
     """
-    ngrok 등 외부 터널링을 사용할 때 전체 URL을 직접 서버에 등록합니다.
+    Cloudflare Tunnel URL을 서버에 등록합니다.
+    pi_ip에 hostname만 저장 (e.g. xxxx.trycloudflare.com)
     """
     data = _parse_body(request)
     if not data:
@@ -553,26 +613,24 @@ def register_camera_url(request):
     if not camera_url:
         return _error("camera_url 필드가 필요합니다.")
 
-    # Tank 모델에 camera_url 필드가 있다면 해당 필드를 업데이트합니다.
-    # 만약 없다면, 기존 pi_ip 방식 등을 활용해 임시로 저장할 수 있습니다.
-    if hasattr(tank, 'camera_url'):
-        tank.camera_url = camera_url
-        tank.save(update_fields=['camera_url'])
-    else:
-        # 모델에 별도 필드가 없는 경우 pi_ip에 URL을 통째로 저장
-        tank.pi_ip = camera_url
-        tank.save(update_fields=['pi_ip'])
+    # hostname만 추출 (e.g. xxxx.trycloudflare.com)
+    parsed   = urlparse(camera_url)
+    hostname = parsed.netloc or camera_url
 
-    logger.info(f"[카메라 URL 등록] tank={tank.id} url={camera_url}")
+    tank.pi_ip        = hostname
+    tank.pi_last_seen = timezone.now()
+    tank.save(update_fields=['pi_ip', 'pi_last_seen'])
 
+    logger.info(f"[카메라 URL 등록] tank={tank.id} host={hostname}")
     EventLog.objects.create(
         tank=tank, level='INFO',
-        message=f"[카메라 연결] 외부 스트림 URL 등록 완료 ({camera_url})"
+        message=f"[카메라 연결] Cloudflare 터널 등록 완료 ({hostname})"
     )
 
     return _ok({
-        'tank_id': tank.id,
-        'camera_url': camera_url
+        'tank_id':    tank.id,
+        'camera_url': camera_url,
+        'stream_url': f"{camera_url}/stream.mjpg",
     })
 
 
@@ -582,7 +640,7 @@ def register_camera_url(request):
 
 @csrf_exempt
 @api_key_required
-@require_http_methods(['POST'])  # 기존 @require_POST 대신 통일성 있게 수정
+@require_http_methods(['POST'])
 def create_event_log(request):
     data = _parse_body(request)
     if not data:
@@ -594,7 +652,6 @@ def create_event_log(request):
 
     if not message:
         return _error("message 필드가 필요합니다.")
-
     if level not in ('INFO', 'WARNING', 'DANGER'):
         level = 'INFO'
 
@@ -602,17 +659,8 @@ def create_event_log(request):
     if err:
         return err
 
-    log = EventLog.objects.create(
-        tank    = tank,
-        level   = level,
-        message = message,
-    )
-
-    return _ok({
-        'log_id':  log.id,
-        'level':   level,
-        'message': message,
-    })
+    log = EventLog.objects.create(tank=tank, level=level, message=message)
+    return _ok({'log_id': log.id, 'level': level, 'message': message})
 
 
 # ──────────────────────────────────────────────
@@ -623,3 +671,59 @@ def create_event_log(request):
 @require_http_methods(['GET'])
 def health_check(request):
     return _ok({'message': 'server is running', 'time': timezone.now().isoformat()})
+
+
+# ──────────────────────────────────────────────
+# [10] FRS 최신 조회  GET /monitoring/api/frs/?tank_id=1
+# ──────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def get_frs(request):
+    tank_id = request.GET.get('tank_id', 1)
+    try:
+        r = FeedingResponse.objects.filter(tank_id=tank_id).latest('created_at')
+        score = int(r.frs_score or 0)
+        if   score >= 70: status = '양호'
+        elif score >= 40: status = '주의'
+        else:             status = '위험'
+
+        ar_ratio = float(r.ar_ratio or 1.0)
+        activity_increase = round((ar_ratio - 1.0) * 100, 1)
+
+        return JsonResponse({
+            'score':                     score,
+            'status':                    status,
+            'response_time_sec':         float(r.rt_seconds or 0),
+            'activity_increase_percent': activity_increase,
+            'surface_visits':            round(float(r.sf_ratio or 0) * 10),
+            'comment':                   f"급이 반응 점수 {score}점 — {status}",
+            'timestamp':                 r.created_at.isoformat(),
+        })
+    except FeedingResponse.DoesNotExist:
+        return JsonResponse({'error': 'no data'}, status=404)
+
+
+# ──────────────────────────────────────────────
+# [11] ABR 최신 조회  GET /monitoring/api/abr/?tank_id=1
+# ──────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def get_abr(request):
+    tank_id = request.GET.get('tank_id', 1)
+    try:
+        b = FishBehavior.objects.filter(tank_id=tank_id).latest('created_at')
+        abr_rate = round(float(b.abr_score or 0) * 100, 1)
+        if   abr_rate <= 10: status = '정상'
+        elif abr_rate <= 30: status = '주의'
+        else:                status = '위험'
+
+        anomaly_count = FishBehavior.objects.filter(tank_id=tank_id, is_anomaly=True).count()
+
+        return JsonResponse({
+            'abr_rate':     abr_rate,
+            'status':       status,
+            'anomaly_count': anomaly_count,
+            'timestamp':    b.created_at.isoformat(),
+        })
+    except FishBehavior.DoesNotExist:
+        return JsonResponse({'error': 'no data'}, status=404)

@@ -25,7 +25,7 @@ urlpatterns = [
     path('toggle-device/<int:tank_id>/',  views.toggle_device,        name='toggle_device'),
     path('water-change/<int:tank_id>/',   views.perform_water_change, name='perform_water_change'),
 
-    # ── [4-1. ✅ 추가: 어항 설정] ─────────────────────────────────
+    # ── [4-1. 어항 설정] ───────────────────────────────────────────
     path('settings/<int:tank_id>/',       views.tank_settings,        name='tank_settings'),
     path('settings/<int:tank_id>/api/',   views.tank_settings_api,    name='tank_settings_api'),
 
@@ -37,17 +37,22 @@ urlpatterns = [
     path('reports/delete/<int:reading_id>/',     views.delete_report_data, name='delete_report_data'),
     path('reports/download/<int:tank_id>/',      views.download_report,    name='download_report'),
 
-    # ── [7. Raspberry Pi REST API] ─────────────────────────────────
+    # ── [7. Raspberry Pi REST API — Pi → 서버 전송] ────────────────
     path('api/sensor/',                          api_views.receive_sensor_data,      name='api_sensor'),
     path('api/behavior/',                        api_views.receive_fish_behavior,    name='api_behavior'),
     path('api/feeding/',                         api_views.receive_feeding_event,    name='api_feeding'),
-    path('api/growth/',                          api_views.receive_growth_record,    name='api_growth'),
-    path('api/pattern/',                         api_views.receive_activity_pattern, name='api_pattern'),
+    path('api/growth/',                          api_views.receive_growth_record,    name='api_growth'),   # GET(프론트) + POST(Pi)
+    path('api/pattern/',                         api_views.receive_activity_pattern, name='api_pattern'),  # GET(프론트) + POST(Pi)
     path('api/commands/<int:tank_id>/',          api_views.get_pending_commands,     name='api_commands'),
     path('api/health/',                          api_views.health_check,             name='api_health'),
-    path('api/register-pi/',                     api_views.register_pi,              name='api_register_pi'),  # ✅ 추가
+    path('api/register-pi/',                     api_views.register_pi,              name='api_register_pi'),
     path('api/register-camera-url/',             api_views.register_camera_url,      name='api_register_camera_url'),
+    path('api/event-log/',                       api_views.create_event_log,         name='api_event_log'),
 
-    # ── [8. ✅ 추가: 대시보드 AJAX 폴링] ──────────────────────────
+    # ── [8. 프론트 전용 GET API] ───────────────────────────────────
+    path('api/frs/',                             api_views.get_frs,                  name='api_frs'),
+    path('api/abr/',                             api_views.get_abr,                  name='api_abr'),
+
+    # ── [9. 대시보드 AJAX 폴링] ────────────────────────────────────
     path('api/dashboard-data/<int:tank_id>/',    views.dashboard_data,               name='dashboard_data'),
 ]
