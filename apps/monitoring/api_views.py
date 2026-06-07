@@ -589,3 +589,40 @@ def register_camera_url(request):
 @require_http_methods(['GET'])
 def health_check(request):
     return _ok({'message': 'server is running', 'time': timezone.now().isoformat()})
+
+# [9] 이벤트 로그 수신  POST /monitoring/api/event-log/
+@require_POST
+@api_key_required
+def create_event_log(request):
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return _error("JSON 파싱 오류")
+
+    tank_id = data.get('tank_id') or 1
+    level   = data.get('level', 'INFO').upper()
+    message = data.get('message', '').strip()
+
+    if not message:
+        return _error("message 필드가 필요합니다.")
+
+    if level not in ('INFO', 'WARNING', 'DANGER'):
+        level = 'INFO'
+
+    try:
+        tank = Tank.objects.get(id=tank_id)
+    except Tank.DoesNotExist:
+        return _error(f"tank_id={tank_id} 없음", status=404)
+
+    log = EventLog.objects.create(
+        tank    = tank,
+        level   = level,
+        message = message,
+    )
+
+    return JsonResponse({
+        'status':  'ok',
+        'log_id':  log.id,
+        'level':   level,
+        'message': message,
+    })

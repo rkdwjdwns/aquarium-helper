@@ -9,6 +9,7 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('profile/', views.profile_view, name='profile'),
+    path('api/event-log/', api_views.create_event_log, name='api_event_log'),
     
     # [삭제] path('chat/', views.chat_view, name='chat'), 
     # 위 줄을 삭제함으로써 챗봇 요청이 꼬이는 것을 원천 봉쇄합니다.
