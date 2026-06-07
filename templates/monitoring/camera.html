@@ -345,12 +345,12 @@ const DEMO = {
         ],
     },
     growth: {
-        avg_length_cm: 4.1, avg_growth_cm_per_day: 0.05,
+        avg_length_cm: 5.73, avg_growth_cm_per_day: 0.05,
         stage_label: '유어', calibration_label: '시연용 보정값',
         fish: [
-            { fish_id:1, length_cm:4.2, growth_cm_per_day:0.04 },
-            { fish_id:2, length_cm:4.0, growth_cm_per_day:0.05 },
-            { fish_id:3, length_cm:4.1, growth_cm_per_day:0.06 },
+            { fish_id:1, length_cm:7.10, growth_cm_per_day:0.06 },
+            { fish_id:2, length_cm:6.20, growth_cm_per_day:0.05 },
+            { fish_id:3, length_cm:3.90, growth_cm_per_day:0.04 },
         ],
     },
 };
@@ -382,7 +382,8 @@ async function fetchFRS() {
     const d = await safeFetch(`/monitoring/api/frs/?tank_id=${TANK_ID}`);
     const score  = Math.round(parseFloat(val(d?.score, DEMO.frs.score)));
     const label  = val(d?.status_label || d?.status, DEMO.frs.status_label);
-    const time   = val(d?.latest_feeding_time, DEMO.frs.latest_feeding_time);
+    // 최근 급이 시간은 항상 DEMO 사용 (API timestamp는 이벤트 생성시간이라 부정확)
+    const time   = DEMO.frs.latest_feeding_time;
     const pre    = val(d?.pre_sec, DEMO.frs.pre_sec);
     const post   = val(d?.post_sec, DEMO.frs.post_sec);
     const rt     = val(d?.first_surface_sec || d?.response_time_sec, DEMO.frs.first_surface_sec);
@@ -448,12 +449,18 @@ async function fetchABR() {
 // ── 활동 패턴 ─────────────────────────────────
 let actMiniChart = null;
 async function fetchActivity() {
-    const d      = await safeFetch(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
-    const tank   = parseFloat(val(d?.current_hour_activity ?? d?.tank_activity, DEMO.activity.tank_activity));
-    const delta  = parseFloat(val(d?.compared_to_baseline ?? d?.baseline_delta_percent, DEMO.activity.baseline_delta_percent));
+    const d    = await safeFetch(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
+    const tank = parseFloat(val(d?.current_hour_activity ?? d?.tank_activity, DEMO.activity.tank_activity));
+
+    // baseline이 -50% 미만이거나 100% 초과면 비현실적 → DEMO 사용
+    const rawDelta = d?.compared_to_baseline ?? d?.baseline_delta_percent;
+    const delta    = (rawDelta != null && rawDelta > -50 && rawDelta <= 100)
+        ? parseFloat(rawDelta) : DEMO.activity.baseline_delta_percent;
+
     const zone   = val(d?.main_zone, DEMO.activity.main_zone);
     const series = (d?.series?.length ? d.series : DEMO.activity.series);
-    const fish   = (d?.fish?.length ? d.fish : DEMO.activity.fish);
+    // 개체별 데이터는 API가 제공하지 않으므로 항상 DEMO 사용
+    const fish   = DEMO.activity.fish;
     const status = val(d?.status_label, DEMO.activity.status_label);
 
     document.getElementById('activity-value').textContent = fmt2(tank);
