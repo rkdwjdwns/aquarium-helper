@@ -9,10 +9,8 @@ demo_pipeline.py — Step 4: Demo Pipeline
   [버그4] fps_ref 실측 동기화
 
 구조 보완:
-  [5] feeding_events.py 연동 — 키보드 f로 급이 이벤트 기록
   [6] config.yaml → 모든 설정값 중앙화
   [7] Baseline 자동 적재 — activity_baseline.csv 있으면 시작 시 로드
-  [8] 급이 트리거 — 키보드 f 입력 시 FRS 분석 자동 예약
   [9] MJPEG 스트리밍 — run.py의 스트리밍 서버에 프레임 공유
 
 사용법:
@@ -23,7 +21,6 @@ demo_pipeline.py — Step 4: Demo Pipeline
   python demo_pipeline.py --mock-sensor            # 센서 없이 테스트
 
 실행 중 키:
-  f — 급이 이벤트 기록 (FRS 분석 자동 예약)
   q — 종료
 """
 
@@ -57,10 +54,13 @@ try:
 except ImportError:
     raise SystemExit("[ERROR] pip install pyyaml")
 
-from scripts.sensor_reader import SensorReader, check_water_quality
-from scripts.feeding_events import FeedingEventLogger
+from scripts.sensor_reader import SensorReader, SensorData
 from scripts.server_tx import ServerTx
 from scripts.behavior_bridge import get_bridge
+from scripts.feeding_events import FeedingEventLogger, ScheduledFeedingWatcher
+from scripts.analytics.feeding_response import FeedingResponseAnalyzer
+from scripts.analytics.amount_advisor import AmountAdvisor
+from scripts.analytics.growth_prediction import GrowthPredictionAnalyzer
 # from scripts.auto_capture import set_shared_frame  # 파인튜닝 캡처 비활성화
 
 
@@ -103,20 +103,24 @@ def load_config(path: str = "config.yaml") -> dict:
         "model": raw["model"]["path"],
         "imgsz": raw["model"]["imgsz"],
         "conf": raw["model"]["conf"],
+        "iou": raw["model"].get("iou", 0.45),
         "tracker": raw["model"]["tracker"],
         "fps_ref": raw["pipeline"]["fps_ref"],
         "activity_window": raw["pipeline"]["activity_window"],
         "speed_max_px_s": raw["pipeline"].get("speed_max_px_s", 700.0),
         "speed_min_px_s": raw["pipeline"].get("speed_min_px_s", 0.0),
         "min_track_frames": raw["pipeline"].get("min_track_frames", 10),
+        "representative_lost_sec": raw.get("analytics", {}).get("detection", {}).get("representative_lost_sec", 5.0),
         "zone_top_ratio": raw["zone"]["top_ratio"],
         "zone_bottom_ratio": raw["zone"]["bottom_ratio"],
-        "mqtt_broker": "localhost",
-        "mqtt_topic": "goldfish/sensors",
+        "sensor_port": raw.get("sensor", {}).get("port", "/dev/ttyACM0"),
+        "sensor_baudrate": raw.get("sensor", {}).get("baudrate", 115200),
+        "sensor_timeout_sec": raw.get("sensor", {}).get("timeout_sec", 1.0),
+        "sensor_sample_count": raw.get("sensor", {}).get("sample_count", 1),
         "output_dir": raw["storage"]["output_dir"],
         "flush_every": raw["storage"]["flush_every"],
         "iou_threshold": raw["analytics"]["detection"]["iou_overlap_threshold"],
-        "expected_fish_count": raw["pipeline"].get("expected_fish_count", 3),
+        "expected_fish_count": raw["pipeline"].get("expected_fish_count", 2),
         # [7] Baseline 경로
         "baseline_csv": raw.get("storage", {}).get(
             "baseline_csv", "data/activity_baseline.csv"
@@ -127,7 +131,7 @@ def load_config(path: str = "config.yaml") -> dict:
         .get("before_sec", 60.0),
         "frs_during_sec": raw.get("analytics", {})
         .get("frs", {})
-        .get("during_sec", 300.0),
+        .get("during_sec", 180.0),
         # FRS 가중치 (config.yaml analytics.frs 기준)
         "frs_w1": raw.get("analytics", {}).get("frs", {}).get("w1", 0.33),
         "frs_w2": raw.get("analytics", {}).get("frs", {}).get("w2", 0.33),
@@ -139,6 +143,14 @@ def load_config(path: str = "config.yaml") -> dict:
             "feeding_events_csv", "data/feeding_events.csv"
         ),
         "max_daily_meals": raw.get("feeding", {}).get("max_daily_meals", 5),
+        "water_quality": raw.get("water_quality", {}),
+        "server_enabled": raw.get("server", {}).get("enabled", False),
+        "server_mock": raw.get("server", {}).get("mock", True),
+        "feeding": raw.get("feeding", {}),
+        "analytics": raw.get("analytics", {}),
+        "storage": raw.get("storage", {}),
+        "growth_prediction": raw.get("growth_prediction", {}),
+        "growth_stage": raw.get("growth_stage", {}),
     }
     print(f"[CONFIG] 로드: {path}")
     return cfg
@@ -149,26 +161,48 @@ def _default_config() -> dict:
         "model": "models/goldfish_finetuned_best.pt",
         "imgsz": 416,
         "conf": 0.4,
+        "iou": 0.45,
         "tracker": "bytetrack.yaml",
         "fps_ref": 14.0,
         "activity_window": 28,
         "speed_max_px_s": 700.0,
         "speed_min_px_s": 0.0,
         "min_track_frames": 10,
+        "representative_lost_sec": 5.0,
+        "expected_fish_count": 2,
         "zone_top_ratio": 0.3,
         "zone_bottom_ratio": 0.7,
-        "mqtt_broker": "localhost",
-        "mqtt_topic": "goldfish/sensors",
+        "sensor_port": "/dev/ttyACM0",
+        "sensor_baudrate": 115200,
+        "sensor_timeout_sec": 1.0,
+        "sensor_sample_count": 1,
         "output_dir": "data",
         "flush_every": 30,
         "iou_threshold": 0.0,
         "baseline_csv": "data/activity_baseline.csv",
         "frs_before_sec": 60.0,
-        "frs_during_sec": 300.0,
+        "frs_during_sec": 180.0,
         "feeding_events_csv": "data/feeding_events.csv",
         "max_daily_meals": 5,
         "server_enabled": False,
         "server_mock": True,
+        "water_quality": {},
+        "feeding": {"times": ["08:00", "18:00"], "tolerance_sec": 30, "max_daily_meals": 5},
+        "analytics": {"frs": {"w1": 0.33, "w2": 0.33, "w3": 0.34, "before_sec": 60.0, "during_sec": 180.0, "amount_history_size": 3}, "detection": {"iou_overlap_threshold": 0.0}},
+        "storage": {"output_dir": "data", "flush_every": 30, "baseline_csv": "data/activity_baseline.csv", "feeding_events_csv": "data/feeding_events.csv"},
+        "growth_prediction": {
+            "enabled": True,
+            "expected_fish_count": 2,
+            "measurement_field": "bbox_long_side_px",
+            "allow_size_index_fallback": False,
+            "min_records": 7,
+            "min_span_days": 7.0,
+            "history_csv": "data/growth_records.csv",
+            "result_csv": "data/growth_prediction.csv",
+            "aggregation_window_sec": 3600,
+            "min_samples_per_record": 30,
+        },
+        "growth_stage": {},
     }
 
 
@@ -182,9 +216,15 @@ class TrackFilter:
     (논문 코드 EXPECTED_FISH_COUNT 로직 반영)
     """
 
-    def __init__(self, min_frames: int, expected_fish_count: int = 3):
+    def __init__(
+        self,
+        min_frames: int,
+        expected_fish_count: int = 2,
+        representative_lost_sec: float = 5.0,
+    ):
         self.min_frames = min_frames
         self.expected_fish_count = expected_fish_count
+        self.representative_lost_sec = max(0.1, float(representative_lost_sec))
         self._count: dict[int, int] = defaultdict(int)
         self._valid: set[int] = set()
         self._repr_ids: set[int] = set()  # 대표 ID
@@ -200,15 +240,21 @@ class TrackFilter:
             if self._count[fid] >= self.min_frames:
                 self._valid.add(fid)
 
-        # 대표 ID가 아직 expected_fish_count 미만일 때만 갱신
-        # 한 번 3개 확정되면 이후 교체 없음
-        if len(self._repr_ids) < self.expected_fish_count and self._valid:
-            sorted_valid = sorted(
-                self._valid,
-                key=lambda fid: self._count[fid],
-                reverse=True,
-            )
-            self._repr_ids = set(sorted_valid[:self.expected_fish_count])
+        # ID switch가 발생하면 오래 보이지 않는 대표 ID를 active ID로 교체한다.
+        active_valid = {
+            fid
+            for fid in self._valid
+            if timestamp - self._last_seen.get(fid, timestamp)
+            <= self.representative_lost_sec
+        }
+        kept = self._repr_ids & active_valid
+        candidates = sorted(
+            active_valid - kept,
+            key=lambda fid: self._count[fid],
+            reverse=True,
+        )
+        needed = max(0, self.expected_fish_count - len(kept))
+        self._repr_ids = kept | set(candidates[:needed])
 
     def is_valid(self, fid: int) -> bool:
         return fid in self._valid
@@ -299,12 +345,24 @@ class FeatureExtractor:
             else 0.0
         )
 
+        bbox_width = max(0.0, x2 - x1)
+        bbox_height = max(0.0, y2 - y1)
+        bbox_long_side = max(bbox_width, bbox_height)
+        bbox_diagonal = math.hypot(bbox_width, bbox_height)
         frame_area = frame_w * frame_h
         size_index = (
-            ((x2 - x1) * (y2 - y1) / frame_area * 100) if frame_area > 0 else 0.0
+            (bbox_width * bbox_height / frame_area * 100) if frame_area > 0 else 0.0
         )
 
-        other = [b for b in all_boxes if b is not box]
+        # 동일 좌표의 자기 bbox 한 개만 제외한다. 객체 identity에만 의존하면
+        # list copy가 들어왔을 때 자기 자신과 IoU=1로 계산될 수 있다.
+        other = []
+        self_skipped = False
+        for candidate in all_boxes:
+            if not self_skipped and (candidate is box or candidate == box):
+                self_skipped = True
+                continue
+            other.append(candidate)
         ious = [self._iou(box, ob) for ob in other]
 
         return {
@@ -313,6 +371,10 @@ class FeatureExtractor:
             "zone": zone,
             "speed_px_s": round(speed, 3),
             "activity": round(activity, 3),
+            "bbox_width_px": round(bbox_width, 3),
+            "bbox_height_px": round(bbox_height, 3),
+            "bbox_long_side_px": round(bbox_long_side, 3),
+            "bbox_diagonal_px": round(bbox_diagonal, 3),
             "size_index": round(size_index, 4),
             "overlap_iou": round(max(ious) if ious else 0.0, 4),
             "overlap_count": sum(1 for v in ious if v > self.iou_thresh),
@@ -336,6 +398,10 @@ FISH_METRICS_COLS = [
     "zone",
     "speed_px_s",
     "activity",
+    "bbox_width_px",
+    "bbox_height_px",
+    "bbox_long_side_px",
+    "bbox_diagonal_px",
     "size_index",
     "overlap_iou",
     "overlap_count",
@@ -455,78 +521,6 @@ def try_build_and_save_baseline(cfg: dict):
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# [8] FRS 분석 예약 실행기
-# ─────────────────────────────────────────────────────────────────────────
-class FRSScheduler:
-    """
-    급이 이벤트 기록 후 during_sec 경과 시 FRS 분석을 자동 실행.
-    별도 Thread로 동작해 파이프라인 FPS에 영향 없음.
-    """
-
-    def __init__(self, cfg: dict, writer: MetricsWriter, feeder: FeedingEventLogger):
-        self.cfg = cfg
-        self.writer = writer
-        self.feeder = feeder
-        self._queue: list[float] = []  # 분석 예약된 feeding_ts 목록
-        self._lock = threading.Lock()
-
-    def schedule(self, feeding_ts: float):
-        """급이 이벤트 발생 시 호출 — during_sec 후 분석 예약."""
-        with self._lock:
-            self._queue.append(feeding_ts)
-        delay = self.cfg["frs_during_sec"]
-        print(f"[FRS] {delay:.0f}초 후 분석 예약 (feeding_ts={feeding_ts:.1f})")
-        t = threading.Timer(delay, self._run_analysis, args=[feeding_ts])
-        t.daemon = True
-        t.start()
-
-    def _run_analysis(self, feeding_ts: float):
-        """FRS 분석 실행 (별도 Thread)."""
-        try:
-            from scripts.analytics.feeding_response import FeedingResponseAnalyzer
-
-            analyzer = FeedingResponseAnalyzer(
-                w_response_time = self.cfg.get("frs_w1", 0.33),
-                w_activity      = self.cfg.get("frs_w2", 0.33),
-                w_surface       = self.cfg.get("frs_w3", 0.34),
-                before_sec=self.cfg["frs_before_sec"],
-                during_sec=self.cfg["frs_during_sec"],
-                csv_path=str(Path(self.cfg["output_dir"]) / "feeding_response.csv"),
-            )
-            rows = list(self.writer.recent_rows)
-            before_frames, during_frames = analyzer.build_frames_from_pipeline(
-                rows, feeding_ts
-            )
-            last_event = self.feeder.get_last_event()
-            sensor_data = {}  # 센서값은 파이프라인에서 주입 불가 → 빈 dict
-
-            result = analyzer.analyze(
-                before_frames=before_frames,
-                during_frames=during_frames,
-                feeding_ts=feeding_ts,
-                sensor_data=sensor_data,
-            )
-            analyzer.save_to_csv()
-
-            print(f"\n[FRS] ━━━ 급이 반응 분석 결과 ━━━")
-            print(f"  점수    : {result['score']} / 100  ({result['status']})")
-            print(f"  반응시간: {result['response_time_sec']}초")
-            print(f"  활동증가: {result['activity_increase_percent']}%")
-            print(f"  수면접근: {result['surface_visits']}회")
-            print(f"  평가    : {result['comment']}")
-            for rec in result["recommendations"]:
-                print(f"  → {rec}")
-            print(f"[FRS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-
-        except Exception as e:
-            print(f"[FRS] 분석 오류: {e}")
-        finally:
-            with self._lock:
-                if feeding_ts in self._queue:
-                    self._queue.remove(feeding_ts)
-
-
-# ─────────────────────────────────────────────────────────────────────────
 # 시각화
 # ─────────────────────────────────────────────────────────────────────────
 ZONE_COLOR = {"TOP": (0, 165, 255), "MID": (0, 255, 0), "BOT": (255, 100, 0)}
@@ -543,8 +537,6 @@ def draw_overlay(
     fps_display: float,
     writer: MetricsWriter,
     last_feeding_ts: Optional[float],
-    repr_ids: set = None,           # 발표 모드: repr_ids 전달 시 해당 ID만 렌더링
-    presentation_mode: bool = False, # True → 노이즈 박스 완전 숨김
 ):
     h, w = frame.shape[:2]
 
@@ -561,9 +553,6 @@ def draw_overlay(
     if results[0].boxes is not None:
         ids_t = results[0].boxes.id
         if ids_t is not None:
-            # 발표 모드: repr_ids 확정된 경우 그 ID만, 아니면 valid_ids 기준 렌더링
-            _render_ids = repr_ids if (presentation_mode and repr_ids) else valid_ids
-
             for box_t, tid in zip(results[0].boxes.xyxy, ids_t):
                 x1, y1, x2, y2 = map(int, box_t.tolist())
                 fid = int(tid)
@@ -572,9 +561,6 @@ def draw_overlay(
                 color = ZONE_COLOR.get(zone, (200, 200, 200))
 
                 if fid not in valid_ids:
-                    # 발표 모드: 필터중 박스 완전 숨김 (회색 박스 미표시)
-                    if presentation_mode:
-                        continue
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (120, 120, 120), 1)
                     cv2.putText(
                         frame,
@@ -585,10 +571,6 @@ def draw_overlay(
                         (120, 120, 120),
                         1,
                     )
-                    continue
-
-                # 발표 모드 + repr_ids 확정: repr 아닌 valid ID도 숨김
-                if presentation_mode and repr_ids and fid not in repr_ids:
                     continue
 
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
@@ -625,7 +607,7 @@ def draw_overlay(
         1,
     )
 
-    # [8] 급이 후 경과시간 표시
+    # 하단 HUD
     if last_feeding_ts:
         elapsed = time.time() - last_feeding_ts
         cv2.putText(
@@ -639,7 +621,7 @@ def draw_overlay(
         )
         cv2.putText(
             frame,
-            "[f]급이 [q]종료",
+            "[q]종료",
             (4, h - 4),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.35,
@@ -649,7 +631,7 @@ def draw_overlay(
     else:
         cv2.putText(
             frame,
-            "[f]급이 [q]종료",
+            "[q]종료",
             (4, h - 4),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.35,
@@ -666,6 +648,7 @@ def draw_overlay(
 def run(args):
     # [6] config 로드
     cfg = load_config(args.config)
+    sensor_owner = False
 
     out_dir = Path(cfg["output_dir"])
     ts_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -679,6 +662,9 @@ def run(args):
     print(f"  해상도    : {cfg['imgsz']}px")
     print(f"  속도필터  : {cfg['speed_min_px_s']} ~ {cfg['speed_max_px_s']} px/s")
     print(f"  트랙필터  : {cfg['min_track_frames']}프레임 미만 제거")
+    shared_sensor_at_start = getattr(args, "shared_sensor", None) is not None
+    sensor_desc = "shared(run.py)" if shared_sensor_at_start else f"Serial {cfg['sensor_port']} @ {cfg['sensor_baudrate']}bps"
+    print(f"  센서      : {sensor_desc}")
     print(f"  출력      : {metrics_path}")
 
     # BehaviorBridge 초기화
@@ -721,48 +707,111 @@ def run(args):
     track_filter = TrackFilter(
         min_frames=cfg["min_track_frames"],
         expected_fish_count=cfg["expected_fish_count"],
+        representative_lost_sec=cfg.get("representative_lost_sec", 5.0),
     )
 
-    # [5] 급이 이벤트 로거 & FRS 스케줄러
+    # 예약 급이 기반 FRS 분석
     feeder = FeedingEventLogger(
         csv_path=cfg["feeding_events_csv"],
         max_daily=cfg["max_daily_meals"],
     )
-    frs_sched = FRSScheduler(cfg, writer, feeder)
+    watcher = ScheduledFeedingWatcher(cfg.get("feeding", {}), feeder)
 
-    # 성장 추적기 (px_to_cm_ratio=0 이면 기록 스킵 — 캘리브레이션 후 활성화)
-    from scripts.analytics.growth_tracker import GrowthTracker
-    growth_tracker = GrowthTracker(adult_size_cm=20.0)
-    _px_to_cm = cfg.get("px_to_cm_ratio", 0.0)
-    if _px_to_cm > 0:
-        print(f"  성장 추적: 활성화 (px_to_cm_ratio={_px_to_cm})")
+    frs_cfg = dict(cfg.get("analytics", {}).get("frs", {}))
+    frs_cfg.setdefault("w1", cfg.get("frs_w1", 0.33))
+    frs_cfg.setdefault("w2", cfg.get("frs_w2", 0.33))
+    frs_cfg.setdefault("w3", cfg.get("frs_w3", 0.34))
+    frs_cfg.setdefault("before_sec", cfg.get("frs_before_sec", 60.0))
+    frs_cfg.setdefault("during_sec", cfg.get("frs_during_sec", 180.0))
+    frs_cfg.setdefault("amount_history_size", 3)
+    frs_cfg["fps_ref"] = cfg["fps_ref"]
+    frs_cfg["expected_fish_count"] = cfg["expected_fish_count"]
+
+    storage_cfg = cfg.get("storage", {}) or {"output_dir": cfg["output_dir"]}
+    frs_analyzer = FeedingResponseAnalyzer(frs_cfg, storage_cfg)
+    amount_advisor = AmountAdvisor(frs_cfg, storage_cfg)
+
+    pending_feeding_ts: Optional[float] = None
+    pending_feeding_event = None
+    pending_sensor_before: Optional[SensorData] = None
+    computed_feeding_ts: set[float] = set()
+    latest_frs_score = 0
+
+    feeding_times = cfg.get("feeding", {}).get("times", [])
+    print(
+        f"  FRS       : 예약 급이 {feeding_times} / "
+        f"pre={frs_cfg.get('before_sec', 60.0):.0f}s "
+        f"post={frs_cfg.get('during_sec', 180.0):.0f}s"
+    )
+
+    # 성장 추정/예측 분석기
+    growth_config = {
+        "camera": {"px_to_cm_ratio": cfg.get("px_to_cm_ratio", 0.0)},
+        "pipeline": {"expected_fish_count": cfg["expected_fish_count"]},
+        "growth_prediction": cfg.get("growth_prediction", {}),
+        "growth_stage": cfg.get("growth_stage", {}),
+        "imgsz": cfg["imgsz"],
+    }
+    growth_analyzer = GrowthPredictionAnalyzer.from_config(growth_config)
+    if growth_analyzer.enabled and growth_analyzer.px_to_cm_ratio > 0:
+        print(
+            f"  성장 예측: 활성화 (Fish #1~#{cfg['expected_fish_count']}, "
+            f"px_to_cm_ratio={growth_analyzer.px_to_cm_ratio})"
+        )
+    elif growth_analyzer.enabled:
+        print("  성장 예측: 보정 대기 (camera.px_to_cm_ratio 실측 필요)")
     else:
-        print(f"  성장 추적: 대기 중 (config.yaml camera.px_to_cm_ratio 실측 후 입력)")
+        print("  성장 예측: 비활성화")
 
     # ServerTx 초기화
-    tx = ServerTx(mock=cfg.get("server_mock", True))
-    if cfg.get("server_enabled", False):
-        tx.register_pi()
+    # 통합 실행(run.py)에서는 shared_tx를 재사용한다. 여기서 새 ServerTx를 만들지 않아야
+    # 실제 서버/Mock 서버가 동시에 뜨는 것처럼 보이는 문제가 사라진다.
+    pipeline_server_enabled = bool(getattr(args, "pipeline_server_enabled", cfg.get("server_enabled", False)))
+    pipeline_send_sensor = bool(getattr(args, "pipeline_send_sensor", True))
+    pipeline_send_behavior = bool(getattr(args, "pipeline_send_behavior", True))
+    pipeline_register_pi = bool(getattr(args, "pipeline_register_pi", True))
+    shared_tx = getattr(args, "shared_tx", None)
+
+    if shared_tx is not None:
+        tx = shared_tx
+        print("[ServerTx] run.py 공유 tx 사용 — demo_pipeline에서는 ServerTx를 새로 만들지 않음")
+    elif pipeline_server_enabled:
+        tx = ServerTx(mock=cfg.get("server_mock", True))
+        if pipeline_register_pi:
+            tx.register_pi()
+    else:
+        tx = None
 
     # 전송 주기 타이머
     _last_sensor_tx = 0.0  # 10초마다
     _last_behavior_tx = 0.0  # 30초마다
-    _last_pattern_tx = 0.0  # 24시간마다
+    _last_pattern_tx = time.time()  # 24시간마다
     SENSOR_TX_INTERVAL = 10
     BEHAVIOR_TX_INTERVAL = 30
     PATTERN_TX_INTERVAL = 86400
 
     # 센서 Reader
-    sensor = SensorReader(
-        broker=getattr(args, "broker", None) or cfg["mqtt_broker"],
-        topic=getattr(args, "topic", None) or cfg["mqtt_topic"],
-        mock=args.mock_sensor,
-    )
-    sensor.start()
+    # run.py에서 실행될 때는 shared_sensor를 재사용하여 /dev/ttyACM0 중복 오픈을 방지한다.
+    # demo_pipeline.py 단독 실행일 때만 이 파일에서 Serial을 직접 연다.
+    shared_sensor = getattr(args, "shared_sensor", None)
+    sensor_owner = shared_sensor is None
+
+    if shared_sensor is not None:
+        sensor = shared_sensor
+        print("[SensorReader] run.py 공유 센서 사용 — demo_pipeline에서는 Serial을 다시 열지 않음")
+    else:
+        sensor = SensorReader(
+            port=getattr(args, "serial_port", None) or cfg["sensor_port"],
+            baudrate=getattr(args, "baudrate", None) or cfg["sensor_baudrate"],
+            timeout=cfg.get("sensor_timeout_sec", 1.0),
+            sample_count=getattr(args, "sensor_sample_count", None) or cfg.get("sensor_sample_count", 1),
+            mock=args.mock_sensor,
+        )
+        sensor.start()
 
     print(f"\n  {'프레임':>7}  {'감지':>4}  {'유효':>4}  {'FPS':>6}  상태")
     print(f"  {'-'*50}")
-    print(f"  [f] 급이 이벤트 기록  [q] 종료\n")
+    print(f"  [q] 종료\n")
 
     frame_idx = 0
     fps_display = 0.0
@@ -771,6 +820,10 @@ def run(args):
 
     try:
         while True:
+            stop_event = getattr(args, "stop_event", None)
+            if stop_event is not None and stop_event.is_set():
+                break
+
             if picam2 is not None:
                 frame = picam2.capture_array()
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
@@ -787,13 +840,19 @@ def run(args):
             # set_shared_frame(frame)  # 파인튜닝 캡처 비활성화
 
             t0 = time.perf_counter()
+            ts_now = time.time()
             frame_resized = cv2.resize(frame, (cfg["imgsz"], int(cfg["imgsz"] * frame.shape[0] / frame.shape[1])))
             frame_h, frame_w = frame_resized.shape[:2]
 
             sensor_data = sensor.get_latest()
-            water_alerts = check_water_quality(sensor_data)
-            for a in water_alerts:
-                print(f"  [수질 {a['level'].upper()}] {a['param']}={a['value']:.2f}")
+
+            event = watcher.tick()
+            if event:
+                pending_feeding_ts = event.timestamp
+                pending_feeding_event = event
+                pending_sensor_before = sensor_data
+                last_feeding_ts = event.timestamp
+                print(f"[FRS] 예약 급이 이벤트 감지: {event.datetime_str}")
 
             results = model.track(
                 frame_resized,
@@ -801,11 +860,12 @@ def run(args):
                 verbose=False,
                 conf=cfg["conf"],
                 tracker=cfg["tracker"],
-                iou=0.45,
+                iou=cfg["iou"],
             )
 
-            ts_now = time.time()
             features = {}
+            frs_features = {}
+            growth_features = {}
             all_boxes = []
             valid_ids = set()
 
@@ -815,7 +875,7 @@ def run(args):
                 ids = boxes.id.tolist()
                 confs = boxes.conf.tolist()  # ← conf 추가
 
-                # ── 2단계: conf 상위 3개만 남기기 ──────────────────────
+                # ── 2단계: conf 상위 expected_fish_count개만 남기기 ──────────────────────
                 if len(raw) > cfg["expected_fish_count"]:
                     sorted_idx = sorted(
                         range(len(confs)), key=lambda i: confs[i], reverse=True
@@ -841,6 +901,15 @@ def run(args):
                         continue
                     valid_ids.add(fid)
 
+                    # 성장 분석은 속도와 무관하며, 유효 트랙의 bbox 측정값을 사용한다.
+                    growth_features[fid] = feat
+
+                    # FRS에는 정지(0px/s)도 의미가 있으므로 포함하되,
+                    # speed_max를 넘는 명백한 추적 튐만 제외한다.
+                    frs_speed = float(feat.get("speed_px_s", 0.0))
+                    if 0.0 <= frs_speed <= cfg["speed_max_px_s"]:
+                        frs_features[fid] = feat
+
                     if not speed_valid:
                         writer.filtered_speed += 1
                         continue
@@ -865,6 +934,65 @@ def run(args):
 
                 extractor.cleanup_lost(set(features.keys()))
 
+            if frs_features:
+                frs_analyzer.push_from_features(ts_now, frs_features)
+
+            # 성장 측정은 서버 연결 여부와 무관하게 로컬에 누적한다.
+            growth_records = []
+            if growth_features:
+                growth_records = growth_analyzer.append_from_features(
+                    ts_now, growth_features
+                )
+            if growth_records:
+                growth_results = growth_analyzer.predict_all(save=True)
+                saved_growth_ids = {record.fish_id for record in growth_records}
+                if pipeline_server_enabled and tx is not None:
+                    for growth_result in growth_results:
+                        # 이번 집계 주기에 새 기록이 생성된 개체만 전송한다.
+                        # 다른 개체의 과거 결과를 반복 전송해 서버 이력이 중복되는 것을 방지한다.
+                        if (
+                            growth_result.fish_id in saved_growth_ids
+                            and growth_result.current_length_cm is not None
+                        ):
+                            tx.send_growth(growth_result)
+
+            # FRS 계산은 급이 이벤트당 1회만 수행한다.
+            if pending_feeding_ts is not None:
+                pending_key = round(pending_feeding_ts, 4)
+                if pending_key not in computed_feeding_ts and frs_analyzer.is_ready(pending_feeding_ts):
+                    result = frs_analyzer.compute(
+                        pending_feeding_ts,
+                        note="scheduled feeding",
+                    )
+                    if result is not None:
+                        computed_feeding_ts.add(pending_key)
+                        latest_frs_score = int(round(result.score))
+                        amount_advisor.advise_and_print()
+
+                        if (
+                            pipeline_server_enabled
+                            and tx is not None
+                            and pending_feeding_event is not None
+                        ):
+                            tx.send_feeding(
+                                pending_feeding_event,
+                                frs_result=result,
+                                sensor_before=pending_sensor_before,
+                                sensor_after=sensor_data,
+                                growth_stage="YOUNG",
+                            )
+
+                        pending_feeding_ts = None
+                        pending_feeding_event = None
+                        pending_sensor_before = None
+                    elif time.time() > pending_feeding_ts + frs_analyzer.post_sec + 30:
+                        reason = frs_analyzer.last_skip_reason or "unknown"
+                        print(f"[FRS] 계산 건너뜀 — 데이터 부족/불완전 ({reason})")
+                        computed_feeding_ts.add(pending_key)
+                        pending_feeding_ts = None
+                        pending_feeding_event = None
+                        pending_sensor_before = None
+
             # FPS
             t1 = time.perf_counter()
             fps_times.append(t1 - t0)
@@ -875,72 +1003,41 @@ def run(args):
             if frame_idx > 0 and frame_idx % 100 == 0 and fps_display > 5:
                 extractor.update_fps(fps_display)
 
-            # ── 서버 전송 주기 체크 ──────────────────────────────────────
-            if cfg.get("server_enabled", False):
-                # 10초마다 센서 전송
+            # ── 서버/브릿지 주기 체크 ────────────────────────────────────
+            # 센서 전송은 통합 실행 시 run.py decision_loop 한 곳에서만 수행한다.
+            if pipeline_server_enabled and pipeline_send_sensor and tx is not None:
                 if ts_now - _last_sensor_tx >= SENSOR_TX_INTERVAL:
                     tx.send_sensor(sensor_data)
                     _last_sensor_tx = ts_now
 
-                # 30초마다 행동 분석 전송 + bridge 업데이트
-                if ts_now - _last_behavior_tx >= BEHAVIOR_TX_INTERVAL:
-                    recent = list(writer.recent_rows)
-                    # BehaviorBridge 업데이트 (pi_client/main.py가 참조)
-                    bridge.update(
-                        metrics_rows=recent,
-                        abr_rate=0.0,  # ABR Baseline 생성 후 연결
-                        frs_score=0,
-                    )
+            # BehaviorBridge는 서버 전송 여부와 무관하게 업데이트한다.
+            # run.py의 DecisionEngine이 get_bridge().get_latest()를 참조하기 때문이다.
+            if ts_now - _last_behavior_tx >= BEHAVIOR_TX_INTERVAL:
+                recent = list(writer.recent_rows)
+                bridge.update(
+                    metrics_rows=recent,
+                    abr_rate=0.0,
+                    frs_score=latest_frs_score,
+                )
+
+                if pipeline_server_enabled and pipeline_send_behavior and tx is not None:
                     tx.send_behavior(
                         metrics_rows=recent,
-                        abr_result=None,  # ABR Baseline 생성 후 연결
-                        frs_score=0,
+                        abr_result=None,
+                        frs_score=latest_frs_score,
                         track_filter=track_filter,
                     )
-                    # 성장 기록 (px_to_cm_ratio 캘리브레이션 완료 시 자동 활성화)
-                    if _px_to_cm > 0 and recent:
-                        from datetime import datetime as _dt
-                        for row in recent:
-                            if not row.get("is_representative"):
-                                continue
-                            fid = row.get("fish_id")
-                            si  = row.get("size_index", 0.0)
-                            # size_index = bbox_area / frame_area × 100
-                            # bbox_width 역산: sqrt(size_index/100 × 416²) 근사
-                            estimated_w_px = (si / 100.0) ** 0.5 * cfg["imgsz"]
-                            growth_tracker.record_size(
-                                fish_id   = int(fid),
-                                size_cm   = estimated_w_px * _px_to_cm,
-                                timestamp = _dt.fromtimestamp(row["timestamp"]),
-                            )
-                    _last_behavior_tx = ts_now
 
-                # 24시간마다 활동 패턴 전송
+                _last_behavior_tx = ts_now
+
+            if pipeline_server_enabled and tx is not None:
                 if ts_now - _last_pattern_tx >= PATTERN_TX_INTERVAL:
                     tx.send_pattern_from_analyzer()
                     _last_pattern_tx = ts_now
 
             # [9] 매 프레임 스트리밍용 공유 프레임 갱신
             # --show 여부와 무관하게 항상 실행 → 프론트엔드가 언제든 접속 가능
-            # 발표 모드에서는 오버레이 적용된 깔끔한 프레임 사용
-            if getattr(args, "present", False):
-                stream_vis = draw_overlay(
-                    frame_resized.copy(),
-                    results,
-                    features,
-                    valid_ids,
-                    frame_h,
-                    cfg["zone_top_ratio"],
-                    cfg["zone_bottom_ratio"],
-                    fps_display,
-                    writer,
-                    last_feeding_ts,
-                    repr_ids=track_filter._repr_ids,
-                    presentation_mode=True,
-                )
-                _set_stream_frame(stream_vis)
-            else:
-                _set_stream_frame(frame_resized)
+            _set_stream_frame(frame_resized)
 
             # 진행 로그
             if frame_idx % 30 == 0:
@@ -963,19 +1060,11 @@ def run(args):
                     fps_display,
                     writer,
                     last_feeding_ts,
-                    repr_ids=track_filter._repr_ids,          # 대표 ID 전달
-                    presentation_mode=getattr(args, "present", False),  # --present 플래그
                 )
                 cv2.imshow("Goldfish AI", vis)
                 key = cv2.waitKey(1) & 0xFF
 
-                # [8] f키 → 급이 이벤트 기록 + FRS 예약
-                if key == ord("f"):
-                    event = feeder.log(trigger="manual")
-                    last_feeding_ts = event.timestamp
-                    frs_sched.schedule(event.timestamp)
-
-                elif key == ord("q"):
+                if key == ord("q"):
                     break
 
             frame_idx += 1
@@ -988,10 +1077,15 @@ def run(args):
             picam2.stop()
         if cap is not None:
             cap.release()
-        sensor.stop()
+        if locals().get("sensor_owner", False) and locals().get("sensor") is not None:
+            sensor.stop()
         if args.show:
             cv2.destroyAllWindows()
         writer.close()
+
+        # 이미 완성된 성장 기록 기준으로 최신 예측 스냅샷을 저장한다.
+        if growth_analyzer.enabled:
+            growth_analyzer.predict_all(save=True)
 
         tf = track_filter.stats()
         print(
@@ -1020,14 +1114,10 @@ def main():
     parser.add_argument("--config", default="config.yaml")
     parser.add_argument("--show", action="store_true")
     parser.add_argument("--max-frames", type=int, default=None)
-    parser.add_argument("--broker", default=None)
-    parser.add_argument("--topic", default=None)
+    parser.add_argument("--serial-port", default=None)
+    parser.add_argument("--baudrate", type=int, default=None)
+    parser.add_argument("--sensor-sample-count", type=int, default=None)
     parser.add_argument("--mock-sensor", action="store_true")
-    parser.add_argument(
-        "--present",
-        action="store_true",
-        help="발표 모드: 노이즈 박스 완전 숨김 + repr_ids(3마리)만 렌더링",
-    )
     args = parser.parse_args()
     run(args)
 

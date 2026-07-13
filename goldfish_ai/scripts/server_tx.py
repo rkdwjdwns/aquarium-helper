@@ -32,6 +32,7 @@ scripts/server_tx.py — Pi → 백엔드 전송 브릿지
 from __future__ import annotations
 
 import logging
+from dataclasses import asdict, is_dataclass
 import statistics
 import sys
 import time as _time
@@ -95,8 +96,9 @@ class ServerTx:
     mock=True 또는 pi_client import 실패 시 실제 전송 없이 로그만 출력.
     """
 
-    def __init__(self, mock: bool = False):
+    def __init__(self, mock: bool = False, event_log_enabled: bool = False):
         self.mock     = mock
+        self.event_log_enabled = event_log_enabled
         self._senders = None if mock else _try_import()
         if self._senders is None:
             self.mock = True
@@ -117,6 +119,18 @@ class ServerTx:
 
         # EventLog 중복 전송 방지 (같은 메시지 60초 내 재전송 억제)
         self._event_log_cache: dict[str, float] = {}
+
+    @staticmethod
+    def _as_mapping(value) -> dict:
+        if value is None:
+            return {}
+        if isinstance(value, dict):
+            return value
+        if is_dataclass(value):
+            return asdict(value)
+        if hasattr(value, "__dict__"):
+            return dict(value.__dict__)
+        return {}
 
     # ══════════════════════════════════════════════════════════════════════
     # Pi IP 등록
@@ -163,7 +177,7 @@ class ServerTx:
                 ph               = sensor_data.ph,
                 dissolved_oxygen = sensor_data.do_mg_l,
                 turbidity        = sensor_data.turbidity_ntu,
-                water_level      = 100.0,  # 수위 센서 미구현 — 추후 연동
+                water_level      = getattr(sensor_data, "level", 100.0),
             )
             ok = result is not None
             self._stats["sensor"]["ok" if ok else "fail"] += 1
@@ -326,7 +340,7 @@ class ServerTx:
         metrics_before: Optional[list[dict]]   = None,
         metrics_during: Optional[list[dict]]   = None,
         metrics_after:  Optional[list[dict]]   = None,
-        growth_stage:   str = "FRY",
+        growth_stage:   str = "YOUNG",
     ) -> bool:
         """
         FeedingEvent + FRS 결과 → send_feeding() 전송.
@@ -339,7 +353,7 @@ class ServerTx:
 
         Args:
             feeding_event  : FeedingEventLogger.get_last_event()
-            frs_result     : FeedingResponseAnalyzer.analyze() 반환값
+            frs_result     : FeedingResponseAnalyzer.compute() 반환값
             sensor_before  : 급이 전 SensorData
             sensor_after   : 급이 후 SensorData
             metrics_before : 급이 전 fish_metrics 행 리스트
@@ -347,8 +361,9 @@ class ServerTx:
             metrics_after  : 급이 후 fish_metrics 행 리스트
             growth_stage   : 현재 성장 단계 ('FRY'|'YOUNG'|'ADULT')
         """
-        # trigger 변환: feeding_events는 소문자, feeding_sender는 대문자
-        trigger = feeding_event.trigger.upper()
+        # 백엔드 sender는 AUTO/MANUAL 값을 기대한다.
+        raw_trigger = str(feeding_event.trigger).lower()
+        trigger = "MANUAL" if raw_trigger == "manual" else "AUTO"
 
         # 탁도
         turbidity_before = (
@@ -364,20 +379,30 @@ class ServerTx:
         # (미확정 — 실측 후 조정, 현재는 10 NTU 기준)
         is_overfeeding = (turbidity_after - turbidity_before) > 10.0
 
-        # FRS 세부 지표
-        frs = frs_result or {}
-        frs_score  = frs.get("score", 0)
-        rt_seconds = frs.get("response_time_sec", 0.0)
-        sub_scores = frs.get("sub_scores", {})
-        # ar_ratio: activity_increase_percent를 비율로 변환
-        ar_ratio   = round(frs.get("activity_increase_percent", 0.0) / 100.0 + 1.0, 3)
-        # sf_ratio: surface_score를 0~1로 정규화
-        sf_ratio   = round(sub_scores.get("surface_score", 0) / 100.0, 3)
+        # 최신 FeedingResponseAnalyzer(FRSResult)와 구버전 dict를 모두 지원한다.
+        frs = self._as_mapping(frs_result)
+        frs_score = float(frs.get("score", 0.0) or 0.0)
+        rt_seconds = float(
+            frs.get("first_surface_sec", frs.get("response_time_sec", 0.0)) or 0.0
+        )
 
-        # 구간별 활동량
-        activity_before = self._mean_speed(metrics_before or [])
-        activity_during = self._mean_speed(metrics_during or [])
-        activity_after  = self._mean_speed(metrics_after  or [])
+        pre_avg = float(frs.get("pre_avg_speed", 0.0) or 0.0)
+        post_avg = float(frs.get("post_avg_speed", 0.0) or 0.0)
+        if pre_avg > 1e-6:
+            ar_ratio = round(post_avg / pre_avg, 3)
+        else:
+            # pre가 0이면 S2(0~1)를 1~3배 비율로 역변환해 전송한다.
+            ar_ratio = round(1.0 + 2.0 * float(frs.get("s2_activity_inc", 0.0) or 0.0), 3)
+
+        sf_ratio = round(
+            float(frs.get("post_top_ratio", frs.get("s3_surface_visit", 0.0)) or 0.0),
+            4,
+        )
+
+        # 새 FRS 결과에 평균값이 있으면 그것을 우선 사용한다.
+        activity_before = pre_avg or self._mean_speed(metrics_before or [])
+        activity_during = post_avg or self._mean_speed(metrics_during or [])
+        activity_after = self._mean_speed(metrics_after or []) or post_avg
 
         if self.mock:
             logger.info(
@@ -418,14 +443,27 @@ class ServerTx:
 
     def send_growth(self, growth_result: dict) -> bool:
         """
-        GrowthTracker.calculate_growth() 결과 → send_growth() 전송.
+        GrowthPredictionAnalyzer 결과 또는 기존 GrowthTracker 결과를 전송.
 
         growth_sender.py 파라미터:
             fish_id, size_index, estimated_length, estimated_weight,
             growth_rate, growth_stage, recommended_feed_g
         """
-        estimated_length = growth_result.get("current_size_cm", 0.0)
-        growth_stage     = growth_result.get("estimated_stage", "fry").upper()
+        growth = self._as_mapping(growth_result)
+        estimated_length = float(
+            growth.get("current_length_cm", growth.get("current_size_cm", 0.0)) or 0.0
+        )
+        if estimated_length <= 0:
+            logger.debug("[ServerTx] 성장 현재 체장 없음 — 전송 건너뜀")
+            return False
+
+        raw_stage = str(growth.get("estimated_stage", "juvenile")).lower()
+        growth_stage = {
+            "fry": "FRY",
+            "juvenile": "YOUNG",
+            "young": "YOUNG",
+            "adult": "ADULT",
+        }.get(raw_stage, "YOUNG")
 
         # growth_sender.py의 estimate_weight() 함수 사용
         if not self.mock and self._senders:
@@ -441,7 +479,7 @@ class ServerTx:
         if self.mock:
             logger.info(
                 f"[ServerTx][Mock] send_growth | "
-                f"fish_id={growth_result.get('fish_id')} "
+                f"fish_id={growth.get('fish_id')} "
                 f"{estimated_length}cm / {estimated_weight}g "
                 f"stage={growth_stage} 권장={recommended_feed_g}g"
             )
@@ -449,11 +487,11 @@ class ServerTx:
 
         try:
             result = self._senders["send_growth"](
-                fish_id            = growth_result.get("fish_id"),
-                size_index         = growth_result.get("moving_avg_size", 0.0),
+                fish_id            = growth.get("fish_id"),
+                size_index         = growth.get("current_raw_size_px", growth.get("moving_avg_size", growth.get("raw_size_px", 0.0))),
                 estimated_length   = estimated_length,
                 estimated_weight   = estimated_weight,
-                growth_rate        = growth_result.get("growth_per_day", 0.0),
+                growth_rate        = growth.get("daily_growth_cm", growth.get("growth_per_day", 0.0)) or 0.0,
                 growth_stage       = growth_stage,
                 recommended_feed_g = recommended_feed_g,
             )
@@ -540,6 +578,10 @@ class ServerTx:
             message      : 경고 메시지
             throttle_sec : 동일 메시지 재전송 억제 시간 (기본 60초)
         """
+        if not getattr(self, "event_log_enabled", False):
+            logger.debug(f"[ServerTx] EventLog 비활성화 — 전송 건너뜀: {message}")
+            return True
+
         # 중복 전송 억제 (같은 메시지가 throttle_sec 내에 재전송되면 스킵)
         now = _time.time()
         last_sent = self._event_log_cache.get(message, 0.0)
@@ -663,7 +705,7 @@ if __name__ == "__main__":
         {"fish_id": i, "speed_px_s": 10.0 + i*5, "activity": 12.0,
          "zone": "MID", "size_index": 1.2, "overlap_count": 0,
          "is_representative": True}
-        for i in range(1, 4)
+        for i in range(1, 3)
     ]
     tx.send_behavior(dummy_rows, frs_score=78)
 

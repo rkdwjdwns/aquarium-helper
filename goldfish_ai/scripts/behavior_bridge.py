@@ -13,7 +13,7 @@ scripts/behavior_bridge.py — 행동 분석 결과 브릿지
 사용 예 (pi_client/main.py에서):
     # 기존 (더미 데이터)
     def get_behavior_result():
-        return {"fish_count": 3, ...}  # TODO
+        return {"fish_count": 2, ...}  # TODO
 
     # 교체 후
     from goldfish_ai.scripts.behavior_bridge import BehaviorBridge
@@ -71,7 +71,7 @@ class BehaviorBridge:
         self._lock           = threading.Lock()
         self._latest: dict   = self._EMPTY_RESULT.copy()
         self._last_update    = 0.0
-        self._frs_score      = 0      # FRSScheduler가 주입
+        self._frs_score      = 0      # FeedingResponseAnalyzer 결과가 주입
         self._abr_rate       = 0.0    # ABRAnalyzer가 주입
         self._abr_per_fish   = []     # ABRResult.per_fish_stats
 
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     zones = ["TOP", "MID", "MID", "BOT", "MID"]
     dummy_rows = [
         {
-            "fish_id":          i % 3 + 1,
+            "fish_id":          i % 2 + 1,
             "speed_px_s":       rng.uniform(5, 40),
             "activity":         rng.uniform(10, 30),
             "zone":             rng.choice(zones),
