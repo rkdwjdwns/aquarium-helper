@@ -1,423 +1,395 @@
 """
-analytics/feeding_response.py — 급이 반응 분석
+analytics/feeding_response.py — 급이 반응 점수(FRS) 계산 모듈
 금붕어 자동 사육 AI 시스템 (v2.0)
 
-demo_pipeline.py의 fish_metrics 행 구조와 직접 연동.
-FrameData는 pipeline에서 변환 없이 바로 생성 가능하도록 설계.
+역할:
+    - 급이 이벤트 전후 행동 데이터를 슬라이싱
+    - sub-score 3개 계산 → 가중합 → 0~100 정규화 → FRS 반환
+    - 결과를 data/frs_history.csv에 누적 저장
 
-CSV 저장:
-    data/feeding_response.csv
+FRS 구성:
+    S1 (반응 시간)    : 급이 후 첫 수면(TOP zone) 접근까지 걸린 시간
+                        빠를수록 높은 점수 (최대 during_sec 기준 역정규화)
+    S2 (활동량 증가)  : post 평균 speed / pre 평균 speed 비율
+                        증가율이 클수록 높은 점수
+    S3 (수면 접근률)  : post 구간 중 TOP zone 프레임 비율
+                        비율이 높을수록 높은 점수
+
+    FRS = (w1×S1 + w2×S2 + w3×S3) × 100   (0~100 클리핑)
 
 사용 예:
-    from analytics.feeding_response import FeedingResponseAnalyzer, FrameData
-
-    analyzer = FeedingResponseAnalyzer()
-    result = analyzer.analyze(
-        before_frames=before,
-        during_frames=during,
-        feeding_ts=time.time(),
-        sensor_data={"water_temp": 22.5, "ph": 7.2},
-    )
-    analyzer.save_to_csv()
+    from analytics.feeding_response import FeedingResponseAnalyzer
+    analyzer = FeedingResponseAnalyzer(cfg["analytics"]["frs"], cfg["storage"])
+    frs = analyzer.compute(feeding_ts=event.timestamp, frame_buffer=buf)
+    print(f"FRS: {frs.score:.1f}점")
 """
 
 from __future__ import annotations
 
 import csv
-import logging
 import time
-from collections import defaultdict
+from collections import deque
 from dataclasses import dataclass, asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
-
-logger = logging.getLogger(__name__)
-
 
 # ─────────────────────────────────────────────────────────────────────────
-# 데이터 구조
+# 프레임 단위 행동 데이터 (파이프라인이 매 프레임 push)
 # ─────────────────────────────────────────────────────────────────────────
 @dataclass
 class FrameData:
-    """
-    단일 프레임의 분석 데이터.
-    demo_pipeline.py의 fish_metrics 행에서 직접 생성 가능.
-
-    Attributes:
-        timestamp:      프레임 타임스탬프 (time.time() 기준, Unix)
-        fish_positions: 금붕어별 중심 좌표 [(cx, cy), ...]  px 단위
-        fish_speeds:    금붕어별 이동 속도 [speed_px_s, ...]  px/s 단위
-                        fish_positions과 인덱스 1:1 대응 필수
-        frame_height:   프레임 세로 해상도 — zone/수면 판단에 사용
-                        FPS 테스트 확정값 416px를 기본값으로 사용
-    """
-    timestamp:      float
-    fish_positions: list[tuple[float, float]]
-    fish_speeds:    list[float]
-    frame_height:   int = 416
-
-    def __post_init__(self):
-        if len(self.fish_positions) != len(self.fish_speeds):
-            raise ValueError(
-                f"fish_positions({len(self.fish_positions)})와 "
-                f"fish_speeds({len(self.fish_speeds)}) 길이가 다릅니다."
-            )
-        if self.frame_height <= 0:
-            raise ValueError(f"frame_height는 양수여야 합니다: {self.frame_height}")
-
-    @classmethod
-    def from_metrics_rows(cls, rows: list[dict]) -> "FrameData":
-        """
-        demo_pipeline.py의 fish_metrics 행 리스트 → FrameData 변환.
-
-        같은 frame_idx를 공유하는 행들의 리스트를 넘긴다.
-        필수 키: timestamp, center_x, center_y, speed_px_s
-        선택 키: frame_height (없으면 416 사용)
-
-        Example:
-            rows = [
-                {"timestamp": 1234.0, "frame_idx": 10,
-                 "center_x": 200, "center_y": 80, "speed_px_s": 45.2},
-                {"timestamp": 1234.0, "frame_idx": 10,
-                 "center_x": 310, "center_y": 200, "speed_px_s": 12.1},
-            ]
-            fd = FrameData.from_metrics_rows(rows)
-        """
-        if not rows:
-            raise ValueError("rows가 비어 있습니다.")
-
-        required = {"timestamp", "center_x", "center_y", "speed_px_s"}
-        missing  = required - rows[0].keys()
-        if missing:
-            raise KeyError(f"필수 키 누락: {missing}")
-
-        return cls(
-            timestamp      = float(rows[0]["timestamp"]),
-            fish_positions = [(float(r["center_x"]), float(r["center_y"])) for r in rows],
-            fish_speeds    = [float(r["speed_px_s"]) for r in rows],
-            frame_height   = int(rows[0].get("frame_height", 416)),
-        )
-
-
-@dataclass
-class FeedingRecord:
-    """급이 이벤트 1회 기록 (CSV 저장 단위)"""
-    feeding_ts:            float
-    before_activity_mean:  float
-    during_activity_mean:  float
-    score:                 int
-    status:                str
-    response_time_sec:     float
-    activity_increase_pct: float
-    surface_visits:        int
-    water_temp:            Optional[float] = None
-    ph:                    Optional[float] = None
-    do_mg_l:               Optional[float] = None
-    turbidity_ntu:         Optional[float] = None
+    timestamp:  float        # Unix time
+    fish_id:    int
+    zone:       str          # "TOP" / "MID" / "BOT"
+    speed_px_s: float
+    activity:   float
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# 분석기
+# FRS 결과
+# ─────────────────────────────────────────────────────────────────────────
+@dataclass
+class FRSResult:
+    feeding_ts:   float       # 급이 이벤트 timestamp
+    datetime_str: str
+    s1_response_time: float   # 반응 시간 sub-score (0~1)
+    s2_activity_inc:  float   # 활동량 증가 sub-score (0~1)
+    s3_surface_visit: float   # 수면 접근률 sub-score (0~1)
+    score:        float       # 최종 FRS (0~100)
+    pre_avg_speed:  float     # 참고값: pre 평균 속도
+    post_avg_speed: float     # 참고값: post 평균 속도
+    post_top_ratio: float     # 참고값: post TOP zone 비율
+    first_surface_sec: Optional[float]  # 첫 수면 접근까지 걸린 시간(초)
+    note: str = ""
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# FRS 계산기
 # ─────────────────────────────────────────────────────────────────────────
 class FeedingResponseAnalyzer:
     """
-    급이 반응 평가기.
+    매 프레임 FrameData를 push() 로 받아 원형 버퍼에 보관.
+    급이 이벤트 발생 후 post_window_sec 경과 시 compute()로 FRS 계산.
 
-    설계 문서 6.1 기준.
-    가중치(w_*)는 config.yaml FRS 가중치와 대응하며
-    실측 후 조정 가능하도록 생성자 파라미터로 노출.
+    버퍼 크기:
+        (pre_window_sec + post_window_sec) × fps_ref 만큼 보관.
+        오래된 데이터는 자동 삭제.
     """
 
-    # 수면 근접 판단: zone_top_ratio(0.3)보다 좁게 (먹이 탐색 특화)
-    SURFACE_THRESHOLD_RATIO: float = 0.15
-    # 활동 급증 판단 배율
-    ACTIVITY_SURGE_RATIO:    float = 1.3
+    CSV_FIELDS = [
+        "feeding_ts", "datetime_str",
+        "s1_response_time", "s2_activity_inc", "s3_surface_visit",
+        "score",
+        "pre_avg_speed", "post_avg_speed", "post_top_ratio",
+        "first_surface_sec", "note",
+    ]
 
-    def __init__(
-        self,
-        w_response_time: float = 0.33,   # config.yaml analytics.frs.w1
-        w_activity:      float = 0.33,   # config.yaml analytics.frs.w2
-        w_surface:       float = 0.34,   # config.yaml analytics.frs.w3
-        before_sec:      float = 60.0,
-        during_sec:      float = 300.0,
-        csv_path:        str   = "data/feeding_response.csv",
-    ) -> None:
-        total = w_response_time + w_activity + w_surface
-        if abs(total - 1.0) > 0.01:
-            raise ValueError(f"가중치 합이 1.0이어야 합니다. 현재: {total:.3f}")
+    def __init__(self, frs_cfg: dict, storage_cfg: dict):
+        """
+        Args:
+            frs_cfg:     config.yaml analytics.frs 섹션
+            storage_cfg: config.yaml storage 섹션
+        """
+        raw_w1 = float(frs_cfg.get("w1", 0.33))
+        raw_w2 = float(frs_cfg.get("w2", 0.33))
+        raw_w3 = float(frs_cfg.get("w3", 0.34))
+        weight_sum = raw_w1 + raw_w2 + raw_w3
+        if weight_sum <= 0:
+            raw_w1, raw_w2, raw_w3, weight_sum = 0.33, 0.33, 0.34, 1.0
+        # 설정 오타로 가중치 합이 1이 아니어도 최종 점수가 왜곡되지 않게 정규화한다.
+        self.w1 = raw_w1 / weight_sum
+        self.w2 = raw_w2 / weight_sum
+        self.w3 = raw_w3 / weight_sum
+        self.pre_sec = float(frs_cfg.get("before_sec", 60.0))
+        self.post_sec = float(frs_cfg.get("during_sec", 180.0))
+        self.fps_ref = float(frs_cfg.get("fps_ref", 14.0))
+        self.expected_fish_count = max(1, int(frs_cfg.get("expected_fish_count", 2)))
+        self.min_pre_coverage_ratio = min(1.0, max(0.0, float(
+            frs_cfg.get("min_pre_coverage_ratio", 0.8)
+        )))
+        self.min_post_coverage_ratio = min(1.0, max(0.0, float(
+            frs_cfg.get("min_post_coverage_ratio", 0.8)
+        )))
+        self.min_detected_fish_ratio = min(1.0, max(0.0, float(
+            frs_cfg.get("min_detected_fish_ratio", 0.5)
+        )))
+        # 실제 Pi 처리 FPS가 fps_ref보다 낮아도 정상적인 연속 관측이면 계산할 수 있게 한다.
+        # 단, 지나치게 희소한 데이터로 점수를 만드는 것은 막는다.
+        self.min_frame_rate_ratio = min(1.0, max(0.05, float(
+            frs_cfg.get("min_frame_rate_ratio", 0.35)
+        )))
+        self.last_skip_reason = ""
 
-        self.w_response_time = w_response_time
-        self.w_activity      = w_activity
-        self.w_surface       = w_surface
-        self.before_sec      = before_sec
-        self.during_sec      = during_sec
-        self.csv_path        = csv_path
-        self._records: list[FeedingRecord] = []
+        output_dir = Path(storage_cfg.get("output_dir", "data"))
+        self.csv_path = output_dir / "frs_history.csv"
+        self.csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 원형 버퍼: 프레임당 여러 마리 데이터가 push되므로 expected_fish_count를 반영한다.
+        maxlen = int((self.pre_sec + self.post_sec) * self.fps_ref * self.expected_fish_count * 1.5)
+        self._buffer: deque[FrameData] = deque(maxlen=maxlen)
+        self._computed_feeding_ts: set[float] = self._load_computed_keys()
 
     # ══════════════════════════════════════════════════════════════════════
     # Public API
     # ══════════════════════════════════════════════════════════════════════
 
-    def analyze(
+    def push(self, frame_data: FrameData):
+        """매 프레임 호출. 파이프라인 features dict → FrameData로 변환 후 전달."""
+        self._buffer.append(frame_data)
+
+    def push_from_features(
         self,
-        before_frames: list[FrameData],
-        during_frames: list[FrameData],
-        feeding_ts:    float,
-        sensor_data:   Optional[dict] = None,
-    ) -> dict:
+        timestamp: float,
+        features: dict,
+    ):
         """
-        급이 반응 종합 평가.
+        demo_pipeline.py의 features dict를 직접 받아 push.
 
         Args:
-            before_frames: 급이 전 구간 FrameData 리스트
-            during_frames: 급이 중 구간 FrameData 리스트
-            feeding_ts:    급이 이벤트 시각 (time.time())
-            sensor_data:   {"water_temp", "ph", "do_mg_l", "turbidity_ntu"}
-
-        Returns:
-            score, status, comment, response_time_sec,
-            activity_increase_percent, surface_visits,
-            sub_scores, recommendations
+            timestamp: 현재 프레임 Unix time
+            features:  {fish_id: {zone, speed_px_s, activity, ...}, ...}
         """
-        if not before_frames:
-            return self._empty_result("before_frames가 비어 있습니다.")
-        if not during_frames:
-            return self._empty_result("during_frames가 비어 있습니다.")
+        for fid, feat in features.items():
+            self._buffer.append(FrameData(
+                timestamp  = timestamp,
+                fish_id    = int(fid),
+                zone       = feat.get("zone",       "MID"),
+                speed_px_s = float(feat.get("speed_px_s", 0.0)),
+                activity   = float(feat.get("activity",   0.0)),
+            ))
 
-        rt   = self._calc_response_time(before_frames, during_frames)
-        ai   = self._calc_activity_increase(before_frames, during_frames)
-        sv   = self._count_surface_visits(during_frames)
-        dur  = self._duration(during_frames)
-
-        sub  = self._calc_sub_scores(rt, ai, sv, dur)
-        score = self._calc_score(sub)
-        status, comment = self._evaluate_status(score)
-
-        sd = sensor_data or {}
-        self._records.append(FeedingRecord(
-            feeding_ts            = feeding_ts,
-            before_activity_mean  = round(self._mean_speed(before_frames), 3),
-            during_activity_mean  = round(self._mean_speed(during_frames), 3),
-            score                 = score,
-            status                = status,
-            response_time_sec     = round(rt, 2),
-            activity_increase_pct = round(ai, 1),
-            surface_visits        = sv,
-            water_temp            = sd.get("water_temp"),
-            ph                    = sd.get("ph"),
-            do_mg_l               = sd.get("do_mg_l"),
-            turbidity_ntu         = sd.get("turbidity_ntu"),
-        ))
-
-        return {
-            "score":                     score,
-            "status":                    status,
-            "comment":                   comment,
-            "response_time_sec":         round(rt, 2),
-            "activity_increase_percent": round(ai, 1),
-            "surface_visits":            sv,
-            "sub_scores":                sub,
-            "recommendations":           self._recommendations(score, sub),
-        }
-
-    def build_frames_from_pipeline(
+    def compute(
         self,
-        metrics_rows: list[dict],
-        feeding_ts:   float,
-    ) -> tuple[list[FrameData], list[FrameData]]:
+        feeding_ts: float,
+        note: str = "",
+    ) -> Optional[FRSResult]:
         """
-        demo_pipeline.py의 fish_metrics 버퍼에서
-        before/during FrameData 리스트를 자동 생성.
+        급이 이벤트 timestamp 기준으로 FRS 계산.
 
-        Args:
-            metrics_rows: fish_metrics 전체 버퍼 (list[dict])
-            feeding_ts:   급이 이벤트 시각
+        pre  구간: [feeding_ts - pre_sec,  feeding_ts)
+        post 구간: [feeding_ts,            feeding_ts + post_sec]
+
+        버퍼에 post 구간 데이터가 충분히 쌓이지 않은 경우 None 반환.
 
         Returns:
-            (before_frames, during_frames)
+            FRSResult or None
         """
-        before_rows = [
-            r for r in metrics_rows
-            if feeding_ts - self.before_sec <= r["timestamp"] < feeding_ts
-        ]
-        during_rows = [
-            r for r in metrics_rows
-            if feeding_ts <= r["timestamp"] < feeding_ts + self.during_sec
-        ]
-        return (
-            self._rows_to_frames(before_rows),
-            self._rows_to_frames(during_rows),
+        self.last_skip_reason = ""
+        key = round(feeding_ts, 4)
+        if key in self._computed_feeding_ts:
+            self.last_skip_reason = "already_computed"
+            return None
+
+        now = time.time()
+        # post 구간이 아직 완료되지 않음
+        if now < feeding_ts + self.post_sec:
+            self.last_skip_reason = "post_window_incomplete"
+            return None
+
+        pre_frames  = self._slice(feeding_ts - self.pre_sec,  feeding_ts)
+        post_frames = self._slice(feeding_ts,                  feeding_ts + self.post_sec)
+
+        if not pre_frames or not post_frames:
+            self.last_skip_reason = "pre_or_post_empty"
+            return None
+
+        if not self._coverage_ok(
+            pre_frames, self.pre_sec, self.min_pre_coverage_ratio
+        ):
+            self.last_skip_reason = "pre_coverage_insufficient"
+            return None
+        if not self._coverage_ok(
+            post_frames, self.post_sec, self.min_post_coverage_ratio
+        ):
+            self.last_skip_reason = "post_coverage_insufficient"
+            return None
+
+        # ── sub-score 계산 ─────────────────────────────────────────────
+
+        # S1: 반응 시간 — 급이 후 첫 TOP zone 접근까지 걸린 시간 (역정규화)
+        first_surface_sec = self._first_top_zone_sec(
+            pre_frames, post_frames, feeding_ts
         )
+        if first_surface_sec is None:
+            s1 = 0.0   # post 구간 내 수면 접근 없음
+        else:
+            # 빠를수록 1에 가깝게 (post_sec 기준 선형 역정규화)
+            s1 = max(0.0, 1.0 - first_surface_sec / self.post_sec)
 
-    def save_to_csv(self, path: Optional[str] = None) -> str:
+        # S2: 활동량 증가율 — post/pre 평균 speed 비율
+        pre_avg_speed  = self._avg_speed(pre_frames)
+        post_avg_speed = self._avg_speed(post_frames)
+        if pre_avg_speed < 1e-6:
+            # pre 구간에 움직임 없으면 post 활동 자체를 점수화
+            s2 = min(1.0, post_avg_speed / 200.0)
+        else:
+            ratio = post_avg_speed / pre_avg_speed
+            # ratio 1.0(변화없음)→0점, 3.0(3배 증가)→1점으로 클리핑
+            s2 = min(1.0, max(0.0, (ratio - 1.0) / 2.0))
+
+        # S3: 수면 접근률 — post 구간 TOP zone 프레임 비율
+        post_top_ratio = self._top_zone_ratio(post_frames)
+        s3 = post_top_ratio   # 이미 0~1
+
+        # ── 최종 FRS ──────────────────────────────────────────────────
+        score = min(100.0, max(0.0, (self.w1 * s1 + self.w2 * s2 + self.w3 * s3) * 100))
+
+        result = FRSResult(
+            feeding_ts        = round(feeding_ts, 4),
+            datetime_str      = datetime.fromtimestamp(feeding_ts).strftime("%Y-%m-%d %H:%M:%S"),
+            s1_response_time  = round(s1,              4),
+            s2_activity_inc   = round(s2,              4),
+            s3_surface_visit  = round(s3,              4),
+            score             = round(score,           2),
+            pre_avg_speed     = round(pre_avg_speed,   2),
+            post_avg_speed    = round(post_avg_speed,  2),
+            post_top_ratio    = round(post_top_ratio,  4),
+            first_surface_sec = round(first_surface_sec, 2) if first_surface_sec is not None else None,
+            note              = note,
+        )
+        self._save_csv(result)
+        self._computed_feeding_ts.add(key)
+        print(f"[FRS] 계산 완료  score={score:.1f}  "
+              f"S1={s1:.2f} S2={s2:.2f} S3={s3:.2f}  "
+              f"({result.datetime_str})")
+        return result
+
+    def is_ready(self, feeding_ts: float) -> bool:
+        """post 구간 데이터가 충분히 쌓였는지 확인."""
+        return time.time() >= feeding_ts + self.post_sec
+
+    def load_history(self) -> list[FRSResult]:
+        """CSV 전체를 FRSResult 리스트로 반환 (AmountAdvisor용)."""
+        if not self.csv_path.exists():
+            return []
+        results = []
+        with open(self.csv_path, encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                try:
+                    results.append(FRSResult(
+                        feeding_ts        = float(row["feeding_ts"]),
+                        datetime_str      = row["datetime_str"],
+                        s1_response_time  = float(row["s1_response_time"]),
+                        s2_activity_inc   = float(row["s2_activity_inc"]),
+                        s3_surface_visit  = float(row["s3_surface_visit"]),
+                        score             = float(row["score"]),
+                        pre_avg_speed     = float(row["pre_avg_speed"]),
+                        post_avg_speed    = float(row["post_avg_speed"]),
+                        post_top_ratio    = float(row["post_top_ratio"]),
+                        first_surface_sec = float(row["first_surface_sec"]) if row.get("first_surface_sec") else None,
+                        note              = row.get("note", ""),
+                    ))
+                except (ValueError, KeyError, TypeError):
+                    continue
+        return results
+
+    # ══════════════════════════════════════════════════════════════════════
+    # Private
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _slice(self, start_ts: float, end_ts: float) -> list[FrameData]:
+        return [f for f in self._buffer if start_ts <= f.timestamp < end_ts]
+
+    def _avg_speed(self, frames: list[FrameData]) -> float:
+        # 정지(0px/s)도 급이 반응 분석에 의미가 있으므로 평균에서 제외하지 않는다.
+        speeds = [max(0.0, f.speed_px_s) for f in frames]
+        return sum(speeds) / len(speeds) if speeds else 0.0
+
+    def _coverage_ok(
+        self,
+        frames: list[FrameData],
+        window_sec: float,
+        required_ratio: float,
+    ) -> bool:
+        if not frames:
+            return False
+        timestamps = sorted({round(frame.timestamp, 4) for frame in frames})
+        if not timestamps:
+            return False
+
+        # 1) 분석 구간의 시간 범위가 실제로 채워졌는지 확인한다.
+        observed_span = max(0.0, timestamps[-1] - timestamps[0])
+        required_span = max(
+            0.0,
+            window_sec * required_ratio - 1.0 / max(self.fps_ref, 1.0),
+        )
+        if observed_span < required_span:
+            return False
+
+        # 2) fps_ref(목표 FPS)를 고정 행 수로 강제하면 실제 Pi가 9~12 FPS일 때
+        #    충분한 데이터가 있어도 실패한다. 대신 최소 관측 FPS만 검사한다.
+        minimum_unique_frames = max(
+            2,
+            int(
+                window_sec
+                * self.fps_ref
+                * self.min_frame_rate_ratio
+                * required_ratio
+            ),
+        )
+        if len(timestamps) < minimum_unique_frames:
+            return False
+
+        # 3) 각 관측 프레임에 평균적으로 몇 마리가 포함됐는지 검사한다.
+        average_detected_fish = len(frames) / len(timestamps)
+        minimum_detected_fish = (
+            self.expected_fish_count * self.min_detected_fish_ratio
+        )
+        return average_detected_fish >= minimum_detected_fish
+
+    def _top_zone_ratio(self, frames: list[FrameData]) -> float:
+        if not frames:
+            return 0.0
+        top_count = sum(1 for f in frames if f.zone == "TOP")
+        return top_count / len(frames)
+
+    def _first_top_zone_sec(
+        self,
+        pre_frames: list[FrameData],
+        post_frames: list[FrameData],
+        feeding_ts: float,
+    ) -> Optional[float]:
+        """급이 후 최초의 비TOP→TOP 진입까지 걸린 시간.
+
+        급이 직전부터 이미 TOP에 있던 개체를 0초 반응으로 처리하면 FRS가
+        과대평가될 수 있으므로, 개체별 직전 zone을 이어받아 TOP 진입 전이를 찾는다.
+        pre 데이터가 없는 신규 ID는 첫 TOP 관측을 진입으로 허용한다.
         """
-        누적된 급이 기록을 CSV에 추가 저장 후 내부 버퍼 초기화.
-        파일이 없으면 헤더 포함 생성, 있으면 append.
-        """
-        save_path = path or self.csv_path
-        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        previous_zone: dict[int, str] = {}
+        for frame in sorted(pre_frames, key=lambda item: item.timestamp):
+            previous_zone[frame.fish_id] = frame.zone
 
-        fields = list(FeedingRecord.__dataclass_fields__.keys())
-        write_header = not Path(save_path).exists()
+        for frame in sorted(post_frames, key=lambda item: item.timestamp):
+            previous = previous_zone.get(frame.fish_id)
+            if frame.zone == "TOP" and previous != "TOP":
+                return max(0.0, frame.timestamp - feeding_ts)
+            previous_zone[frame.fish_id] = frame.zone
+        return None
 
-        with open(save_path, "a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fields)
+    def _load_computed_keys(self) -> set[float]:
+        """재시작 후에도 같은 feeding_ts가 중복 저장되지 않도록 기존 CSV 키를 로드."""
+        if not self.csv_path.exists():
+            return set()
+        keys: set[float] = set()
+        with open(self.csv_path, encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                try:
+                    keys.add(round(float(row["feeding_ts"]), 4))
+                except (ValueError, KeyError, TypeError):
+                    pass
+        return keys
+
+    def _save_csv(self, result: FRSResult):
+        write_header = not self.csv_path.exists()
+        with open(self.csv_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=self.CSV_FIELDS)
             if write_header:
                 writer.writeheader()
-            for r in self._records:
-                writer.writerow(asdict(r))
-
-        n = len(self._records)
-        self._records.clear()
-        logger.info(f"[FRS] {n}건 저장 → {save_path}")
-        return save_path
-
-    # ══════════════════════════════════════════════════════════════════════
-    # Private — 지표 계산
-    # ══════════════════════════════════════════════════════════════════════
-
-    def _calc_response_time(self, before: list[FrameData], during: list[FrameData]) -> float:
-        baseline  = max(self._mean_speed(before), 0.1)
-        threshold = baseline * self.ACTIVITY_SURGE_RATIO
-        t0        = during[0].timestamp
-
-        for frame in during:
-            if self._mean_speed([frame]) >= threshold:
-                return max(0.0, frame.timestamp - t0)
-        return self._duration(during)
-
-    def _calc_activity_increase(self, before: list[FrameData], during: list[FrameData]) -> float:
-        m_before = self._mean_speed(before)
-        m_during = self._mean_speed(during)
-        return (m_during - m_before) / max(m_before, 0.1) * 100.0
-
-    def _count_surface_visits(self, during: list[FrameData]) -> int:
-        visits, in_zone = 0, False
-        for frame in during:
-            if not frame.fish_positions:
-                in_zone = False
-                continue
-            threshold_y = frame.frame_height * self.SURFACE_THRESHOLD_RATIO
-            near = any(y < threshold_y for _, y in frame.fish_positions)
-            if near and not in_zone:
-                visits += 1
-                in_zone = True
-            elif not near:
-                in_zone = False
-        return visits
-
-    # ══════════════════════════════════════════════════════════════════════
-    # Private — 점수 산출
-    # ══════════════════════════════════════════════════════════════════════
-
-    @staticmethod
-    def _calc_sub_scores(rt: float, ai: float, sv: int, dur: float) -> dict:
-        if rt <= 5:       rt_s = 100
-        elif rt <= 15:    rt_s = 80
-        elif rt <= 30:    rt_s = 60
-        elif rt <= 60:    rt_s = 40
-        else:             rt_s = 20
-
-        if ai >= 100:     ac_s = 100
-        elif ai >= 50:    ac_s = 80
-        elif ai >= 20:    ac_s = 60
-        elif ai >= 0:     ac_s = 40
-        else:             ac_s = 20
-
-        vpm = sv / max(dur / 60.0, 0.01)
-        if vpm >= 3.0:    sv_s = 100
-        elif vpm >= 2.0:  sv_s = 80
-        elif vpm >= 1.0:  sv_s = 60
-        elif vpm >= 0.5:  sv_s = 40
-        else:             sv_s = 20
-
-        return {"response_time_score": rt_s, "activity_score": ac_s, "surface_score": sv_s}
-
-    def _calc_score(self, sub: dict) -> int:
-        raw = (
-            sub["response_time_score"] * self.w_response_time
-            + sub["activity_score"]    * self.w_activity
-            + sub["surface_score"]     * self.w_surface
-        )
-        return int(round(min(max(raw, 0), 100)))
-
-    # ══════════════════════════════════════════════════════════════════════
-    # Private — 평가 & 권장사항
-    # ══════════════════════════════════════════════════════════════════════
-
-    @staticmethod
-    def _evaluate_status(score: int) -> tuple[str, str]:
-        if score >= 80:   return "excellent", "매우 건강한 식욕"
-        elif score >= 60: return "good",      "정상적인 식욕"
-        elif score >= 40: return "fair",      "식욕 약간 저하"
-        else:             return "poor",      "식욕 부진 — 건강 체크 필요"
-
-    def _recommendations(self, score: int, sub: dict) -> list[str]:
-        if score >= 80:
-            return ["건강 상태 양호 — 현재 환경 유지"]
-
-        recs = []
-        if score >= 60:
-            recs.append("활동성 관찰 지속")
-            if sub["surface_score"] < 60:
-                recs.append("수면 접근 빈도 낮음 — 먹이 부유 시간 확인")
-            return recs
-
-        if sub["response_time_score"] < 60:
-            recs.append("반응 속도 저하 — 급이 시간대 또는 주기 재검토")
-        if sub["activity_score"] < 60:
-            recs.append("활동 증가폭 낮음 — 수온(20~24°C) 및 DO 수준 확인")
-        if sub["surface_score"] < 60:
-            recs.append("수면 탐색 부족 — 먹이 크기·종류 변경 고려")
-        if score < 40:
-            recs.append("수질 전반 점검 (pH, NH₃, NO₂) 권장")
-            recs.append("급이량 20~30% 감량 후 반응 재평가")
-            recs.append("이상 행동(선회, 급부상) 여부 병행 관찰")
-
-        return recs or ["관찰 지속"]
-
-    # ══════════════════════════════════════════════════════════════════════
-    # Private — 유틸
-    # ══════════════════════════════════════════════════════════════════════
-
-    @staticmethod
-    def _mean_speed(frames: list[FrameData]) -> float:
-        speeds = [s for f in frames for s in f.fish_speeds]
-        return float(np.mean(speeds)) if speeds else 0.0
-
-    @staticmethod
-    def _duration(frames: list[FrameData]) -> float:
-        if len(frames) < 2:
-            return 0.0
-        return frames[-1].timestamp - frames[0].timestamp
-
-    @staticmethod
-    def _rows_to_frames(rows: list[dict]) -> list[FrameData]:
-        """fish_metrics 행을 frame_idx 기준으로 그루핑해 FrameData 리스트 반환."""
-        grouped: dict = defaultdict(list)
-        for r in rows:
-            key = r.get("frame_idx", r["timestamp"])
-            grouped[key].append(r)
-
-        frames = []
-        for key in sorted(grouped):
-            try:
-                frames.append(FrameData.from_metrics_rows(grouped[key]))
-            except (KeyError, ValueError) as e:
-                logger.warning(f"[FRS] 행 변환 실패 key={key}: {e}")
-        return frames
-
-    @staticmethod
-    def _empty_result(reason: str = "데이터 부족") -> dict:
-        return {
-            "score": 0, "status": "unknown", "comment": reason,
-            "response_time_sec": -1.0, "activity_increase_percent": 0.0,
-            "surface_visits": 0,
-            "sub_scores": {"response_time_score": 0, "activity_score": 0, "surface_score": 0},
-            "recommendations": ["충분한 프레임 데이터 수집 후 재시도"],
-        }
+            row = asdict(result)
+            row["first_surface_sec"] = result.first_surface_sec if result.first_surface_sec is not None else ""
+            writer.writerow(row)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -426,38 +398,35 @@ class FeedingResponseAnalyzer:
 if __name__ == "__main__":
     import random
 
-    rng = random.Random(42)
-    FPS = 14
+    frs_cfg = {
+        "w1": 0.33, "w2": 0.33, "w3": 0.34,
+        "before_sec": 60.0, "during_sec": 180.0, "fps_ref": 14.0,
+    }
+    storage_cfg = {"output_dir": "data"}
 
-    def _make_frames(n_sec, base_speed, t_offset, near_surface=False):
-        frames = []
-        for i in range(n_sec * FPS):
-            noise = rng.uniform(0.8, 1.2)
-            y_val = rng.uniform(0, 60) if near_surface else rng.uniform(100, 380)
-            frames.append(FrameData(
-                timestamp      = t_offset + i / FPS,
-                fish_positions = [(rng.uniform(0, 416), y_val) for _ in range(3)],
-                fish_speeds    = [base_speed * noise for _ in range(3)],
-                frame_height   = 416,
-            ))
-        return frames
+    analyzer = FeedingResponseAnalyzer(frs_cfg, storage_cfg)
+    now = time.time()
 
-    before = _make_frames(60,  base_speed=8.0,  t_offset=0.0)
-    during = _make_frames(120, base_speed=22.0, t_offset=60.0, near_surface=True)
+    # pre 구간 데이터 생성 (조용한 상태)
+    for i in range(60 * 14):
+        ts = now - 240 + i / 14.0
+        analyzer.push(FrameData(ts, fish_id=1, zone="MID",
+                                speed_px_s=random.uniform(10, 50), activity=30.0))
 
-    analyzer = FeedingResponseAnalyzer()
-    result   = analyzer.analyze(
-        before_frames = before,
-        during_frames = during,
-        feeding_ts    = 60.0,
-        sensor_data   = {"water_temp": 22.5, "ph": 7.2,
-                         "do_mg_l": 6.8, "turbidity_ntu": 15.0},
-    )
+    # 급이 이벤트 시각
+    feeding_ts = now - 180
 
-    print("=" * 55)
-    for k, v in result.items():
-        print(f"  {k:<35}: {v}")
-    print("=" * 55)
+    # post 구간 데이터 생성 (활성화 + 수면 접근)
+    for i in range(180 * 14):
+        ts = feeding_ts + i / 14.0
+        zone = "TOP" if i > 20 * 14 else "MID"
+        analyzer.push(FrameData(ts, fish_id=1, zone=zone,
+                                speed_px_s=random.uniform(80, 300), activity=150.0))
 
-    path = analyzer.save_to_csv("data/feeding_response_test.csv")
-    print(f"\n  저장: {path}")
+    result = analyzer.compute(feeding_ts=feeding_ts, note="테스트")
+    if result:
+        print(f"\n최종 FRS: {result.score}점")
+        print(f"  S1(반응시간): {result.s1_response_time}")
+        print(f"  S2(활동증가): {result.s2_activity_inc}")
+        print(f"  S3(수면접근): {result.s3_surface_visit}")
+        print(f"  첫 수면 접근: {result.first_surface_sec}초")
