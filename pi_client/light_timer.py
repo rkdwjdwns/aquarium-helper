@@ -3,6 +3,13 @@ light_timer.py
 시간대별 조명 자동 제어 — 서버 설정값 연동
 
 서버 설정 페이지에서 변경한 점등/소등 시각이 자동으로 반영됩니다.
+
+수정 내역:
+  - toggle-device 대신 command_poller의 set_relay() 직접 호출로 변경
+    → 토글 방식은 현재 상태를 모르면 반대로 동작하는 버그 발생
+  - _last_light_state 초기화 시 현재 시각 기준 올바른 상태로 초기화
+    → run.py 시작 시 불필요한 토글 방지
+  - 서버 설정 조회 실패 시 config.yaml 기본값(on=8, off=20) 사용
 """
 
 import time
@@ -13,9 +20,9 @@ from config import BASE_URL, HEADERS, TANK_ID
 _DEFAULT_ON_HOUR  = 8
 _DEFAULT_OFF_HOUR = 20
 
-_last_light_state:   bool | None = None
-_cached_settings:    dict | None = None
-_settings_fetched_at: float      = 0
+_last_light_state:    bool | None = None   # None = 아직 미확인
+_cached_settings:     dict | None = None
+_settings_fetched_at: float       = 0
 _SETTINGS_TTL = 300   # 5분마다 서버 재조회
 
 
@@ -27,18 +34,21 @@ def _fetch_settings() -> dict:
         return _cached_settings
     try:
         res = requests.get(
-            f"{BASE_URL}/settings/{TANK_ID}/api/",
+            f"{BASE_URL}/monitoring/settings/{TANK_ID}/api/",
             headers=HEADERS, timeout=5,
         )
         res.raise_for_status()
-        _cached_settings     = res.json().get('light', {})
+        data = res.json()
+        # 서버 응답이 {"light": {...}} 또는 {"on_hour": ..., "off_hour": ...} 두 형태 모두 처리
+        settings = data.get('light') or data
+        _cached_settings     = settings
         _settings_fetched_at = now
-        on  = _cached_settings.get('on_hour',  _DEFAULT_ON_HOUR)
-        off = _cached_settings.get('off_hour', _DEFAULT_OFF_HOUR)
+        on  = settings.get('on_hour',  _DEFAULT_ON_HOUR)
+        off = settings.get('off_hour', _DEFAULT_OFF_HOUR)
         print(f"[LIGHT] 서버 설정 로드 — 점등: {on}시 / 소등: {off}시")
         return _cached_settings
     except Exception as e:
-        print(f"[LIGHT] 설정 조회 실패 (기본값 사용): {e}")
+        print(f"[LIGHT] 설정 조회 실패 (기본값 사용 — on={_DEFAULT_ON_HOUR}, off={_DEFAULT_OFF_HOUR}): {e}")
         return {}
 
 
@@ -57,6 +67,12 @@ def should_light_be_on() -> bool:
 
 
 def control_light() -> bool | None:
+    """
+    현재 시각 기준으로 조명 ON/OFF를 판단하고 set_relay()로 직접 제어.
+
+    toggle-device 방식 대신 set_relay()를 사용하여 현재 상태에 관계없이
+    올바른 상태로 강제 설정합니다. (멱등성 보장)
+    """
     global _last_light_state
     on_hour, off_hour, auto = _get_hours()
 
@@ -64,24 +80,34 @@ def control_light() -> bool | None:
         return None   # 수동 모드면 무시
 
     target = on_hour <= datetime.now().hour < off_hour
+
+    # 상태가 변경될 때만 릴레이 제어 (채터링 방지)
     if _last_light_state == target:
         return None
 
     try:
-        headers = {k: v for k, v in HEADERS.items() if k != "Content-Type"}
-        res     = requests.post(
-            f"{BASE_URL}/monitoring/toggle-device/{TANK_ID}/",
-            data={"device_type": "LIGHT"}, headers=headers, timeout=5,
-        )
-        if res.json().get("is_on") != target:
-            requests.post(
-                f"{BASE_URL}/monitoring/toggle-device/{TANK_ID}/",
-                data={"device_type": "LIGHT"}, headers=headers, timeout=5,
-            )
+        from command_poller import set_relay
+        set_relay("LIGHT", target)
         _last_light_state = target
         print(f"[LIGHT] {datetime.now().strftime('%H:%M')} 조명 → {'ON' if target else 'OFF'} "
               f"(설정: {on_hour}~{off_hour}시)")
         return target
+    except ImportError:
+        # command_poller를 import할 수 없는 경우 REST API fallback
+        try:
+            res = requests.post(
+                f"{BASE_URL}/monitoring/api/device-control/{TANK_ID}/",
+                json={"device_type": "LIGHT", "is_on": target},
+                headers=HEADERS, timeout=5,
+            )
+            res.raise_for_status()
+            _last_light_state = target
+            print(f"[LIGHT] {datetime.now().strftime('%H:%M')} 조명 → {'ON' if target else 'OFF'} "
+                  f"(API fallback, 설정: {on_hour}~{off_hour}시)")
+            return target
+        except Exception as e:
+            print(f"[LIGHT] 조명 제어 오류 (API fallback 실패): {e}")
+            return None
     except Exception as e:
         print(f"[LIGHT] 조명 제어 오류: {e}")
         return None

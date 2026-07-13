@@ -26,10 +26,10 @@ def send_feeding(trigger: str, amount_g: float, growth_stage: str,
         is_overfeeding   : 과급여 여부
         rt_seconds       : 반응 시간 (초)
         ar_ratio         : 활동 증가율
-        sf_ratio         : 수면 접근 빈도
+        sf_ratio         : 급이 후 TOP zone 수면 접근률(0~1)
         frs_score        : 급이 반응 점수 (0~100)
         activity_before  : 급이 전 활동량
-        activity_during  : 급이 중 활동량
+        activity_during  : 급이 후 관찰 구간 평균 활동량
         activity_after   : 급이 후 활동량
     """
     payload = {

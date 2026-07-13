@@ -76,7 +76,7 @@ def send_behavior(fish_count: int, overlap_frames: int, activity_level: float,
 # ── 단독 실행 테스트 ──────────────────────────────
 if __name__ == "__main__":
     result = send_behavior(
-        fish_count=3,
+        fish_count=2,
         overlap_frames=2,
         activity_level=14.5,
         abr_score=0.05,

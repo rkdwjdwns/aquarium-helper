@@ -1,0 +1,2 @@
+# 별도 카메라 서비스는 run.py의 picamera2와 충돌할 수 있어 사용하지 않습니다.
+# MJPEG 스트리밍은 run.py 내부 HTTP 서버가 /video_feed 및 /stream.mjpg로 제공합니다.

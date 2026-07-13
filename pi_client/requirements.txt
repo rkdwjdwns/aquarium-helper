@@ -1,19 +1,30 @@
-# Raspberry Pi 5 — pi_client 의존성
-# 설치: pip install -r requirements.txt
+# Raspberry Pi 5 - Goldfish AI dependencies
+# Install: pip install -r pi_client/requirements.txt
 
-# 서버 통신
-requests==2.31.0
+# Server communication
+requests>=2.31,<3
 
-# ESP32 UART 통신
-pyserial==3.5
+# ESP32 USB Serial
+pyserial>=3.5,<4
 
-# AI 분석 (YOLOv11 + ByteTrack)
-ultralytics==8.3.0       # YOLOv11 포함
-opencv-python==4.9.0.80  # 카메라 프레임 처리
-numpy==1.26.4
+# Configuration / data analysis
+PyYAML>=6.0,<7
+pandas>=2.2,<3
 
-# GPIO 릴레이 제어 (Pi에서만 동작)
-RPi.GPIO==0.7.1
+# AI / image processing
+ultralytics>=8.3,<9
+opencv-python>=4.9,<5
+numpy>=1.26,<3
 
-# 유틸
-python-dotenv==1.0.0     # .env 파일로 API_KEY 관리
+# vBGF nonlinear fitting. The code has a grid-search fallback when scipy is unavailable.
+# Optional for faster/nonlinear vBGF fitting:
+# scipy>=1.14,<2
+
+# GPIO relay control (Raspberry Pi only)
+RPi.GPIO>=0.7.1
+
+# Utility
+python-dotenv>=1.0,<2
+
+# picamera2 is normally installed from Raspberry Pi OS packages:
+#   sudo apt install python3-picamera2

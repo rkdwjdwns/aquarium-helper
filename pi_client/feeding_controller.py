@@ -39,7 +39,7 @@ def _fetch_feeding_settings() -> dict:
         return _cached_feeding_settings
     try:
         res = requests.get(
-            f"{BASE_URL}/settings/{TANK_ID}/api/",
+            f"{BASE_URL}/monitoring/settings/{TANK_ID}/api/",
             headers=HEADERS, timeout=5,
         )
         res.raise_for_status()
@@ -202,6 +202,6 @@ if __name__ == "__main__":
     print(" 급이 자동화 테스트")
     print("=" * 45)
     for length in [1.5, 3.0, 5.0, 7.0]:
-        info = calc_feed_amount(length, fish_count=3)
+        info = calc_feed_amount(length, fish_count=2)
         print(f"  체장 {length:4.1f}cm → {info['stage']:5s} | "
               f"1회:{info['amount_total']:.4f}g | 일{info['daily_feeds']}회")

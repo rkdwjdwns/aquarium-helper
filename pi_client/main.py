@@ -51,7 +51,7 @@ signal.signal(signal.SIGTERM, on_exit)
 def get_behavior_result() -> dict | None:
     # TODO: from yolo_analyzer import FishAnalyzer
     return {
-        "fish_count": 3, "overlap_frames": 1,
+        "fish_count": 2, "overlap_frames": 1,
         "activity_level": 14.5, "abr_score": 0.04,
         "dominant_zone": "MID",
         "zone_top_ratio": 0.1, "zone_mid_ratio": 0.7, "zone_bot_ratio": 0.2,
