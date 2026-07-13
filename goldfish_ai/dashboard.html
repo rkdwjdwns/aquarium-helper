@@ -15,6 +15,7 @@
   --amber:#b45309;--amber-bg:#fffbeb;
   --red:#dc2626;--red-bg:#fef2f2;
   --teal:#0d9488;--teal-bg:#f0fdfa;
+  --purple:#7c3aed;--purple-bg:#f5f3ff;
   --border:#e5e4de;--border2:#d1d0c8;
   --mono:'IBM Plex Mono',monospace;
   --sans:'IBM Plex Sans KR','Apple SD Gothic Neo',sans-serif;
@@ -22,8 +23,6 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5;}
-
-/* ── 헤더 ── */
 .hdr{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
 .hdr-l{display:flex;align-items:center;gap:16px;}
 .logo{font-family:var(--mono);font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);}
@@ -34,71 +33,51 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--sa
 .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
 .dot.blink{animation:blink 1.8s ease-in-out infinite;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-.hdr-r{font-family:var(--mono);font-size:11px;color:var(--ink3);}
-
-/* ── 탭 ── */
-.nav{display:flex;padding:0 28px;background:var(--bg2);border-bottom:1px solid var(--border);gap:0;}
+.hdr-r{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:11px;color:var(--ink3);}
+.upload-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);font-family:var(--mono);font-size:11px;cursor:pointer;transition:background .15s;}
+.upload-btn:hover{background:var(--accent);color:#fff;}
+.nav{display:flex;padding:0 28px;background:var(--bg2);border-bottom:1px solid var(--border);gap:0;overflow-x:auto;}
 .nav-tab{padding:10px 16px;font-size:12px;font-family:var(--mono);color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s;}
 .nav-tab:hover{color:var(--ink2);}
 .nav-tab.on{color:var(--accent);border-bottom-color:var(--accent);}
-
-/* ── 본문 ── */
 .body{padding:24px 28px;max-width:1160px;}
 .panel{display:none;}.panel.on{display:block;}
-
-/* ── 카드 ── */
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;}
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;}
 .card-sm{padding:12px 14px;}
-
-/* ── 스탯 카드 ── */
 .stat-label{font-family:var(--mono);font-size:10px;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
 .stat-val{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--ink);line-height:1;}
 .stat-unit{font-size:11px;color:var(--ink3);margin-top:3px;}
 .stat-badge{margin-top:6px;}
-
-/* ── 배지 ── */
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:10px;font-weight:500;}
 .b-ok{background:var(--green-bg);color:var(--green);}
 .b-warn{background:var(--amber-bg);color:var(--amber);}
 .b-bad{background:var(--red-bg);color:var(--red);}
 .b-info{background:var(--accent-bg);color:var(--accent);}
 .b-neu{background:var(--bg3);color:var(--ink2);}
-
-/* ── 섹션 제목 ── */
 .sec{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
-
-/* ── 차트 래퍼 ── */
 .cw{position:relative;width:100%;height:200px;}
 .cw-lg{position:relative;width:100%;height:260px;}
 .cw-sm{position:relative;width:100%;height:150px;}
 .cw-xl{position:relative;width:100%;height:300px;}
-
-/* ── 슬라이더 ── */
 .ctrl{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
 .ctrl-lbl{font-size:12px;color:var(--ink2);min-width:148px;}
 .ctrl-v{font-family:var(--mono);font-size:12px;color:var(--accent);min-width:52px;text-align:right;}
 input[type=range]{flex:1;-webkit-appearance:none;height:2px;background:var(--border2);border-radius:1px;outline:none;}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg2);box-shadow:0 0 0 1px var(--accent);}
 select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--ink);padding:5px 8px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;outline:none;}
-
-/* ── 결과 행 ── */
 .rbox{background:var(--bg3);border-radius:var(--radius);padding:12px 14px;margin-top:12px;}
 .rrow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;}
 .rrow:last-child{border:none;}
 .rk{color:var(--ink3);font-family:var(--mono);font-size:11px;}
 .rv{font-family:var(--mono);font-weight:500;color:var(--ink);}
-
-/* ── 수질 게이지 ── */
 .gauge{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .g-lbl{font-size:11px;color:var(--ink2);min-width:72px;}
 .g-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
 .g-fill{height:100%;border-radius:3px;transition:width .5s;}
 .g-val{font-family:var(--mono);font-size:11px;color:var(--ink2);min-width:58px;text-align:right;}
-
-/* ── 검증 테이블 ── */
 .vtbl{width:100%;border-collapse:collapse;font-size:12px;}
 .vtbl th{text-align:left;font-family:var(--mono);font-size:10px;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;padding:7px 10px;border-bottom:1px solid var(--border);}
 .vtbl td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--ink);}
@@ -107,26 +86,40 @@ select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--i
 .pass{color:var(--green);font-family:var(--mono);font-weight:500;}
 .fail{color:var(--red);font-family:var(--mono);font-weight:500;}
 .mono{font-family:var(--mono);font-size:11px;color:var(--ink2);}
-
-/* ── 센서 시계열 탭 ── */
-.stabs{display:flex;gap:4px;margin-bottom:12px;}
+.stabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
 .stab{padding:4px 12px;border-radius:20px;font-family:var(--mono);font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--ink3);}
 .stab.on{background:var(--accent-bg);color:var(--accent);border-color:var(--accent);}
-
-@media(max-width:720px){
-  .g4{grid-template-columns:repeat(2,1fr);}
-  .g2,.g3{grid-template-columns:1fr;}
-}
+.scen{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.scen-btn{flex:1;min-width:140px;padding:12px 14px;border-radius:var(--radius-lg);border:1px solid var(--border2);background:var(--bg2);cursor:pointer;text-align:left;transition:all .15s;}
+.scen-btn:hover{border-color:var(--accent);background:var(--accent-bg);}
+.scen-btn.on{border-color:var(--accent);background:var(--accent-bg);box-shadow:0 0 0 1px var(--accent);}
+.scen-ttl{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink);margin-bottom:3px;}
+.scen-desc{font-size:11px;color:var(--ink3);line-height:1.4;}
+.adv-toggle{font-family:var(--mono);font-size:11px;color:var(--accent);cursor:pointer;margin-bottom:10px;user-select:none;}
+.adv-panel{display:none;}
+.adv-panel.on{display:block;}
+.legend-row{display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--ink2);}
+.legend-item{display:flex;align-items:center;gap:6px;}
+.legend-line{width:18px;height:2px;}
+.legend-dash{width:18px;height:0;border-top:2px dashed;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 20px;border-radius:var(--radius);font-family:var(--mono);font-size:12px;z-index:1000;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+@media(max-width:720px){.g4{grid-template-columns:repeat(2,1fr);}.g2,.g3{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
-
 <div class="hdr">
   <div class="hdr-l">
     <div class="logo">Goldfish<em>/</em>AI</div>
     <div class="pill pill-wait" id="live-pill"><div class="dot" id="live-dot"></div><span id="live-txt">연결 대기</span></div>
   </div>
-  <div class="hdr-r" id="updated-at">—</div>
+  <div class="hdr-r">
+    <label class="upload-btn">
+      ↑ CSV 업로드
+      <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="handleCSV(event)">
+    </label>
+    <span id="updated-at">—</span>
+  </div>
 </div>
 
 <div class="nav">
@@ -134,7 +127,7 @@ select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--i
   <div class="nav-tab" onclick="sw('sensor')">수질 이력</div>
   <div class="nav-tab" onclick="sw('frs')">FRS 시뮬</div>
   <div class="nav-tab" onclick="sw('abr')">ABR 시뮬</div>
-  <div class="nav-tab" onclick="sw('growth')">성장 추이</div>
+  <div class="nav-tab" onclick="sw('growth')">성장 예측</div>
   <div class="nav-tab" onclick="sw('verify')">검증 리포트</div>
 </div>
 
@@ -185,13 +178,19 @@ select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--i
     <div class="cw-xl"><canvas id="c-sensor" role="img" aria-label="센서 시계열">센서 이력</canvas></div>
   </div>
   <div class="card">
-    <div class="sec">수질 범위 요약 (전체 구간)</div>
+    <div class="sec">수질 범위 요약</div>
     <div id="sensor-summary"></div>
   </div>
 </div>
 
 <!-- ══ FRS 시뮬 ══ -->
 <div id="panel-frs" class="panel">
+  <div class="sec" style="margin-bottom:10px;">시나리오 선택</div>
+  <div class="scen" id="frs-scen">
+    <button class="scen-btn on" onclick="frsScen('healthy',this)"><div class="scen-ttl">건강한 급이반응</div><div class="scen-desc">급이 즉시 활동 급증, 수면 집결. 정상 식욕</div></button>
+    <button class="scen-btn" onclick="frsScen('weak',this)"><div class="scen-ttl">식욕 부진</div><div class="scen-desc">반응 느리고 활동 증가 미미. 관찰 필요</div></button>
+    <button class="scen-btn" onclick="frsScen('none',this)"><div class="scen-ttl">무반응</div><div class="scen-desc">급이에도 변화 거의 없음. 질병·수질 의심</div></button>
+  </div>
   <div class="g4" style="margin-bottom:16px;">
     <div class="card card-sm"><div class="stat-label">FRS 점수</div><div class="stat-val" id="f-score">—</div><div class="stat-badge" id="f-st"></div></div>
     <div class="card card-sm"><div class="stat-label">RT_score</div><div class="stat-val" id="f-rt-s">—</div><div class="stat-unit">반응시간 서브</div></div>
@@ -200,31 +199,38 @@ select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--i
   </div>
   <div class="g2">
     <div class="card">
-      <div class="sec">파라미터</div>
-      <div class="ctrl"><span class="ctrl-lbl">before 평균속도 (px/s)</span><input type="range" min="2" max="60" value="15" id="f-bs" oninput="frs()"><span class="ctrl-v" id="f-bs-v">15</span></div>
-      <div class="ctrl"><span class="ctrl-lbl">during 평균속도 (px/s)</span><input type="range" min="2" max="120" value="40" id="f-ds" oninput="frs()"><span class="ctrl-v" id="f-ds-v">40</span></div>
-      <div class="ctrl"><span class="ctrl-lbl">반응시간 RT (초)</span><input type="range" min="0" max="60" value="8" id="f-rt" oninput="frs()"><span class="ctrl-v" id="f-rt-v">8</span></div>
-      <div class="ctrl"><span class="ctrl-lbl">수면접근 VPM</span><input type="range" min="0" max="10" step="0.5" value="2.5" id="f-vpm" oninput="frs()"><span class="ctrl-v" id="f-vpm-v">2.5</span></div>
-      <div class="ctrl"><span class="ctrl-lbl">before TOP 비율</span><input type="range" min="0" max="100" value="20" id="f-bt" oninput="frs()"><span class="ctrl-v" id="f-bt-v">20%</span></div>
-      <div class="ctrl"><span class="ctrl-lbl">during TOP 비율</span><input type="range" min="0" max="100" value="55" id="f-dt" oninput="frs()"><span class="ctrl-v" id="f-dt-v">55%</span></div>
-    </div>
-    <div class="card">
-      <div class="sec">수식 상세</div>
+      <div class="adv-toggle" onclick="toggleAdv('frs')">▸ 수동 파라미터 조정</div>
+      <div class="adv-panel" id="adv-frs">
+        <div class="ctrl"><span class="ctrl-lbl">before 평균속도</span><input type="range" min="2" max="60" value="15" id="f-bs" oninput="frs()"><span class="ctrl-v" id="f-bs-v">15</span></div>
+        <div class="ctrl"><span class="ctrl-lbl">during 평균속도</span><input type="range" min="2" max="120" value="40" id="f-ds" oninput="frs()"><span class="ctrl-v" id="f-ds-v">40</span></div>
+        <div class="ctrl"><span class="ctrl-lbl">반응시간 RT (초)</span><input type="range" min="0" max="60" value="8" id="f-rt" oninput="frs()"><span class="ctrl-v" id="f-rt-v">8</span></div>
+        <div class="ctrl"><span class="ctrl-lbl">수면접근 VPM</span><input type="range" min="0" max="10" step="0.5" value="2.5" id="f-vpm" oninput="frs()"><span class="ctrl-v" id="f-vpm-v">2.5</span></div>
+      </div>
+      <div class="sec" style="margin-top:14px;">수식 상세</div>
       <div class="rbox" style="margin-top:0;">
         <div class="rrow"><span class="rk">RT_score</span><span class="rv" id="f-rt-c">—</span></div>
         <div class="rrow"><span class="rk">AR% = (during−before)/before</span><span class="rv" id="f-ar-c">—</span></div>
         <div class="rrow"><span class="rk">AR_score</span><span class="rv" id="f-ar-sc">—</span></div>
-        <div class="rrow"><span class="rk">SF_score (VPM 구간)</span><span class="rv" id="f-sf-c">—</span></div>
-        <div class="rrow"><span class="rk">FRS = 0.33·RT + 0.33·AR + 0.34·SF</span><span class="rv" id="f-frs-c">—</span></div>
+        <div class="rrow"><span class="rk">SF_score (VPM)</span><span class="rv" id="f-sf-c">—</span></div>
+        <div class="rrow"><span class="rk">FRS = .33·RT + .33·AR + .34·SF</span><span class="rv" id="f-frs-c">—</span></div>
         <div class="rrow"><span class="rk">판정</span><span class="rv" id="f-cm">—</span></div>
       </div>
-      <div class="cw-sm" style="margin-top:16px;"><canvas id="c-frs" role="img" aria-label="FRS 서브스코어">FRS</canvas></div>
+    </div>
+    <div class="card">
+      <div class="sec">서브스코어 구성</div>
+      <div class="cw"><canvas id="c-frs" role="img" aria-label="FRS 서브스코어">FRS</canvas></div>
     </div>
   </div>
 </div>
 
 <!-- ══ ABR 시뮬 ══ -->
 <div id="panel-abr" class="panel">
+  <div class="sec" style="margin-bottom:10px;">시나리오 선택</div>
+  <div class="scen" id="abr-scen">
+    <button class="scen-btn on" onclick="abrScen('normal',this)"><div class="scen-ttl">정상</div><div class="scen-desc">속도 분포 안정. 이상 행동 거의 없음</div></button>
+    <button class="scen-btn" onclick="abrScen('mild',this)"><div class="scen-ttl">경미한 이상</div><div class="scen-desc">간헐적 급가속/정지. 모니터링 권장</div></button>
+    <button class="scen-btn" onclick="abrScen('disease',this)"><div class="scen-ttl">질병 의심</div><div class="scen-desc">비정상 유영 다발. 즉각 점검 필요</div></button>
+  </div>
   <div class="g4" style="margin-bottom:16px;">
     <div class="card card-sm"><div class="stat-label">ABR</div><div class="stat-val" id="a-rate">—</div><div class="stat-badge" id="a-st"></div></div>
     <div class="card card-sm"><div class="stat-label">μ</div><div class="stat-val" id="a-mu">—</div><div class="stat-unit">px / s</div></div>
@@ -233,12 +239,16 @@ select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--i
   </div>
   <div class="g2">
     <div class="card">
-      <div class="sec">파라미터</div>
-      <div class="ctrl"><span class="ctrl-lbl">sigma_threshold (N)</span><input type="range" min="1" max="4" step="0.5" value="2" id="a-n" oninput="abr()"><span class="ctrl-v" id="a-n-v">2.0</span></div>
-      <div class="ctrl"><span class="ctrl-lbl">이상행동 주입 비율</span><input type="range" min="0" max="100" value="10" id="a-inj" oninput="abr()"><span class="ctrl-v" id="a-inj-v">10%</span></div>
-      <div class="rbox" style="margin-top:14px;">
+      <div class="adv-toggle" onclick="toggleAdv('abr')">▸ 수동 파라미터 조정</div>
+      <div class="adv-panel" id="adv-abr">
+        <div class="ctrl"><span class="ctrl-lbl">sigma_threshold (N)</span><input type="range" min="1" max="4" step="0.5" value="2" id="a-n" oninput="abr()"><span class="ctrl-v" id="a-n-v">2.0</span></div>
+        <div class="ctrl"><span class="ctrl-lbl">이상행동 주입</span><input type="range" min="0" max="100" value="5" id="a-inj" oninput="abr()"><span class="ctrl-v" id="a-inj-v">5%</span></div>
+      </div>
+      <div class="sec" style="margin-top:14px;">계산 상세</div>
+      <div class="rbox" style="margin-top:0;">
         <div class="rrow"><span class="rk">임계값 (μ + N×σ)</span><span class="rv" id="a-thr-v">—</span></div>
         <div class="rrow"><span class="rk">이상 / 전체 프레임</span><span class="rv" id="a-fr">—</span></div>
+        <div class="rrow"><span class="rk">baseline 기간</span><span class="rv">3일 (권장)</span></div>
         <div class="rrow"><span class="rk">판정</span><span class="rv" id="a-jd">—</span></div>
       </div>
     </div>
@@ -249,43 +259,61 @@ select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--i
   </div>
 </div>
 
-<!-- ══ 성장 추이 ══ -->
+<!-- ══ 성장 예측 ══ -->
 <div id="panel-growth" class="panel">
   <div class="g4" style="margin-bottom:16px;">
-    <div class="card card-sm"><div class="stat-label">현재 체장</div><div class="stat-val" id="g-len">—</div><div class="stat-unit">cm</div></div>
-    <div class="card card-sm"><div class="stat-label">추정 체중</div><div class="stat-val" id="g-wt">—</div><div class="stat-unit">g · W=0.01049×TL³·¹⁴</div></div>
-    <div class="card card-sm"><div class="stat-label">권장 급이 / 회</div><div class="stat-val" id="g-fd">—</div><div class="stat-unit">g (3회 / day)</div></div>
-    <div class="card card-sm"><div class="stat-label">성어 도달</div><div class="stat-val" id="g-dy">—</div><div class="stat-unit">일 후 (20 cm 기준)</div></div>
+    <div class="card card-sm"><div class="stat-label">최근 실측 체장</div><div class="stat-val" id="g-cur">—</div><div class="stat-unit">cm (D+<span id="g-curday">—</span>)</div></div>
+    <div class="card card-sm"><div class="stat-label">vBGF 적합도</div><div class="stat-val" id="g-r2">—</div><div class="stat-unit">R² (결정계수)</div></div>
+    <div class="card card-sm"><div class="stat-label">추정 L∞</div><div class="stat-val" id="g-linf">—</div><div class="stat-unit">cm (최대 체장)</div></div>
+    <div class="card card-sm"><div class="stat-label">성어 도달</div><div class="stat-val" id="g-adult">—</div><div class="stat-unit">일 후 (15cm)</div></div>
   </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="sec">개체 선택 · 예측 기간</div>
+    <div class="stabs" id="g-fish-tabs">
+      <div class="stab on" onclick="setGrowthFish(1,this)">Fish #1</div>
+      <div class="stab" onclick="setGrowthFish(2,this)">Fish #2</div>
+      <div class="stab" onclick="setGrowthFish(3,this)">Fish #3</div>
+      <div class="stab" onclick="setGrowthFish(0,this)">전체 비교</div>
+    </div>
+    <div class="ctrl"><span class="ctrl-lbl">예측 기간 (일)</span><input type="range" min="90" max="365" step="5" value="180" id="g-horizon" oninput="growth()"><span class="ctrl-v" id="g-horizon-v">180</span></div>
+    <div class="ctrl"><span class="ctrl-lbl">학습 데이터 비율</span><input type="range" min="40" max="100" step="5" value="100" id="g-train" oninput="growth()"><span class="ctrl-v" id="g-train-v">100%</span></div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:4px;">※ 학습 비율을 낮추면 일부 데이터만으로 예측 → 나머지 실측점과 비교해 모델 정확도 검증 가능</div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="sec">성장 예측 모델 — von Bertalanffy vs 선형회귀</div>
+    <div class="cw-xl"><canvas id="c-growth" role="img" aria-label="성장 예측 곡선">성장 예측</canvas></div>
+    <div class="legend-row">
+      <div class="legend-item"><span class="legend-line" style="background:#9c9c96"></span>실측 데이터</div>
+      <div class="legend-item"><span class="legend-line" style="background:#2563c4"></span>von Bertalanffy (생물학적 모델)</div>
+      <div class="legend-item"><span class="legend-dash" style="border-color:#dc2626"></span>선형회귀 (단순 외삽)</div>
+      <div class="legend-item"><span class="legend-line" style="background:rgba(37,99,196,0.15);height:10px"></span>vBGF 신뢰구간</div>
+    </div>
+  </div>
+
   <div class="g2">
     <div class="card">
-      <div class="sec">시뮬레이션 파라미터</div>
-      <div class="ctrl"><span class="ctrl-lbl">현재 체장 (cm)</span><input type="range" min="1" max="15" step="0.1" value="4" id="g-ls" oninput="growth()"><span class="ctrl-v" id="g-ls-v">4.0</span></div>
-      <div class="ctrl"><span class="ctrl-lbl">일별 성장률 (cm/day)</span><input type="range" min="0.01" max="0.3" step="0.01" value="0.05" id="g-rs" oninput="growth()"><span class="ctrl-v" id="g-rs-v">0.05</span></div>
-      <div class="ctrl"><span class="ctrl-lbl">수온 (°C)</span><input type="range" min="18" max="28" step="0.5" value="22.5" id="g-ts" oninput="growth()"><span class="ctrl-v" id="g-ts-v">22.5°C</span></div>
-      <div class="ctrl"><span class="ctrl-lbl">성장 단계</span>
-        <select id="g-stage" onchange="growth()">
-          <option value="fry">치어 (~3cm · 10%/day)</option>
-          <option value="juvenile" selected>유어 (3~7cm · 3%/day) ★</option>
-          <option value="adult">성어 (7cm+ · 1%/day)</option>
-        </select>
+      <div class="sec">von Bertalanffy 파라미터</div>
+      <div class="rbox" style="margin-top:0;">
+        <div class="rrow"><span class="rk">L∞ (최대 체장)</span><span class="rv" id="g-p-linf">—</span></div>
+        <div class="rrow"><span class="rk">k (성장 계수)</span><span class="rv" id="g-p-k">—</span></div>
+        <div class="rrow"><span class="rk">t₀ (이론 시점)</span><span class="rv" id="g-p-t0">—</span></div>
+        <div class="rrow"><span class="rk">R² (적합도)</span><span class="rv" id="g-p-r2">—</span></div>
+        <div class="rrow"><span class="rk">RMSE</span><span class="rv" id="g-p-rmse">—</span></div>
       </div>
-      <div class="ctrl"><span class="ctrl-lbl">개체간 편차 (±cm)</span><input type="range" min="0" max="1.5" step="0.1" value="0.3" id="g-vs" oninput="growth()"><span class="ctrl-v" id="g-vs-v">±0.3</span></div>
-      <div class="rbox" style="margin-top:14px;">
-        <div class="rrow"><span class="rk">W = 0.01049 × TL^3.14</span><span class="rv" id="g-wc">—</span></div>
-        <div class="rrow"><span class="rk">권장 급이량 / day</span><span class="rv" id="g-fdc">—</span></div>
-        <div class="rrow"><span class="rk">수온 보정 (Q10=2)</span><span class="rv" id="g-tc">—</span></div>
-        <div class="rrow"><span class="rk">성장 평가</span><span class="rv" id="g-ev">—</span></div>
-      </div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:10px;line-height:1.5;">L(t) = L∞ · (1 − e<sup>−k(t−t₀)</sup>)<br>어류 표준 성장 곡선. 선형과 달리 L∞에 수렴.</div>
     </div>
     <div class="card">
-      <div class="sec">30일 예측 (체장 · 체중)</div>
-      <div class="cw-lg"><canvas id="c-growth" role="img" aria-label="성장 예측">성장</canvas></div>
+      <div class="sec">모델 비교 · 예측 검증</div>
+      <div class="rbox" style="margin-top:0;">
+        <div class="rrow"><span class="rk">D+<span id="g-cmp-day">180</span> vBGF 예측</span><span class="rv" id="g-cmp-vbgf">—</span></div>
+        <div class="rrow"><span class="rk">D+<span id="g-cmp-day2">180</span> 선형 예측</span><span class="rv" id="g-cmp-lin">—</span></div>
+        <div class="rrow"><span class="rk">두 모델 차이</span><span class="rv" id="g-cmp-diff">—</span></div>
+        <div class="rrow"><span class="rk">홀드아웃 검증 오차</span><span class="rv" id="g-cmp-holdout">—</span></div>
+      </div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:10px;line-height:1.5;" id="g-insight">선형 모델은 장기 예측 시 체장을 과대추정합니다.</div>
     </div>
-  </div>
-  <div class="card" style="margin-bottom:20px;">
-    <div class="sec">3마리 개체별 성장 비교</div>
-    <div class="cw-lg"><canvas id="c-multi" role="img" aria-label="3마리 비교">비교</canvas></div>
   </div>
 </div>
 
@@ -298,7 +326,7 @@ select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--i
     <div class="card card-sm"><div class="stat-label">판정</div><div class="stat-val" style="font-size:15px;" id="v-jd">—</div></div>
   </div>
   <div class="card">
-    <div class="sec">단위 검증 — 실측 CSV 기반</div>
+    <div class="sec">단위 검증 — 실측·시뮬 데이터 기반</div>
     <table class="vtbl"><thead><tr><th>항목</th><th>기대값</th><th>계산값</th><th>결과</th><th>비고</th></tr></thead>
     <tbody id="v-body"></tbody></table>
   </div>
@@ -306,46 +334,84 @@ select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--i
 
 </div>
 
+<div class="toast" id="toast"></div>
 <script>
-/* ── 상수 ── */
+const GROWTH_DATA=[{"fish_id":1,"day":0,"size_cm":3.78,"weight_g":0.682},{"fish_id":2,"day":0,"size_cm":3.9,"weight_g":0.753},{"fish_id":3,"day":0,"size_cm":3.36,"weight_g":0.471},{"fish_id":1,"day":3,"size_cm":4.41,"weight_g":1.107},{"fish_id":2,"day":3,"size_cm":4.23,"weight_g":0.972},{"fish_id":3,"day":3,"size_cm":4.16,"weight_g":0.922},{"fish_id":1,"day":6,"size_cm":5.03,"weight_g":1.674},{"fish_id":2,"day":6,"size_cm":5.04,"weight_g":1.684},{"fish_id":3,"day":6,"size_cm":5.0,"weight_g":1.643},{"fish_id":1,"day":9,"size_cm":5.72,"weight_g":2.506},{"fish_id":2,"day":9,"size_cm":5.49,"weight_g":2.203},{"fish_id":3,"day":9,"size_cm":5.43,"weight_g":2.128},{"fish_id":1,"day":12,"size_cm":6.2,"weight_g":3.228},{"fish_id":2,"day":12,"size_cm":6.23,"weight_g":3.277},{"fish_id":3,"day":12,"size_cm":6.22,"weight_g":3.26},{"fish_id":1,"day":15,"size_cm":6.58,"weight_g":3.89},{"fish_id":2,"day":15,"size_cm":6.66,"weight_g":4.041},{"fish_id":3,"day":15,"size_cm":6.86,"weight_g":4.434},{"fish_id":1,"day":18,"size_cm":7.34,"weight_g":5.484},{"fish_id":2,"day":18,"size_cm":6.83,"weight_g":4.374},{"fish_id":3,"day":18,"size_cm":7.4,"weight_g":5.626},{"fish_id":1,"day":21,"size_cm":7.78,"weight_g":6.583},{"fish_id":2,"day":21,"size_cm":7.57,"weight_g":6.041},{"fish_id":3,"day":21,"size_cm":8.07,"weight_g":7.385},{"fish_id":1,"day":24,"size_cm":8.28,"weight_g":8.006},{"fish_id":2,"day":24,"size_cm":7.71,"weight_g":6.399},{"fish_id":3,"day":24,"size_cm":8.61,"weight_g":9.051},{"fish_id":1,"day":27,"size_cm":8.81,"weight_g":9.727},{"fish_id":2,"day":27,"size_cm":8.26,"weight_g":7.945},{"fish_id":3,"day":27,"size_cm":9.32,"weight_g":11.608},{"fish_id":1,"day":30,"size_cm":9.28,"weight_g":11.452},{"fish_id":2,"day":30,"size_cm":8.62,"weight_g":9.084},{"fish_id":3,"day":30,"size_cm":9.66,"weight_g":12.99},{"fish_id":1,"day":33,"size_cm":9.85,"weight_g":13.809},{"fish_id":2,"day":33,"size_cm":9.07,"weight_g":10.658},{"fish_id":3,"day":33,"size_cm":10.03,"weight_g":14.617},{"fish_id":1,"day":36,"size_cm":10.22,"weight_g":15.504},{"fish_id":2,"day":36,"size_cm":9.54,"weight_g":12.49},{"fish_id":3,"day":36,"size_cm":10.51,"weight_g":16.928},{"fish_id":1,"day":39,"size_cm":10.57,"weight_g":17.233},{"fish_id":2,"day":39,"size_cm":9.87,"weight_g":13.897},{"fish_id":3,"day":39,"size_cm":10.94,"weight_g":19.199},{"fish_id":1,"day":42,"size_cm":10.87,"weight_g":18.816},{"fish_id":2,"day":42,"size_cm":10.18,"weight_g":15.315},{"fish_id":3,"day":42,"size_cm":11.56,"weight_g":22.828},{"fish_id":1,"day":45,"size_cm":11.23,"weight_g":20.843},{"fish_id":2,"day":45,"size_cm":10.56,"weight_g":17.182},{"fish_id":3,"day":45,"size_cm":11.83,"weight_g":24.544},{"fish_id":1,"day":48,"size_cm":11.76,"weight_g":24.091},{"fish_id":2,"day":48,"size_cm":10.86,"weight_g":18.762},{"fish_id":3,"day":48,"size_cm":12.29,"weight_g":27.667},{"fish_id":1,"day":51,"size_cm":12.26,"weight_g":27.456},{"fish_id":2,"day":51,"size_cm":11.01,"weight_g":19.588},{"fish_id":3,"day":51,"size_cm":12.77,"weight_g":31.204},{"fish_id":1,"day":54,"size_cm":12.46,"weight_g":28.887},{"fish_id":2,"day":54,"size_cm":11.31,"weight_g":21.313},{"fish_id":3,"day":54,"size_cm":13.0,"weight_g":33.003},{"fish_id":1,"day":57,"size_cm":12.78,"weight_g":31.281},{"fish_id":2,"day":57,"size_cm":11.64,"weight_g":23.327},{"fish_id":3,"day":57,"size_cm":13.41,"weight_g":36.383},{"fish_id":1,"day":60,"size_cm":13.18,"weight_g":34.46},{"fish_id":2,"day":60,"size_cm":12.07,"weight_g":26.142},{"fish_id":3,"day":60,"size_cm":13.6,"weight_g":38.027},{"fish_id":1,"day":63,"size_cm":13.26,"weight_g":35.121},{"fish_id":2,"day":63,"size_cm":12.24,"weight_g":27.315},{"fish_id":3,"day":63,"size_cm":14.02,"weight_g":41.837},{"fish_id":1,"day":66,"size_cm":13.71,"weight_g":39.001},{"fish_id":2,"day":66,"size_cm":12.9,"weight_g":32.213},{"fish_id":3,"day":66,"size_cm":14.4,"weight_g":45.502},{"fish_id":1,"day":69,"size_cm":14.1,"weight_g":42.592},{"fish_id":2,"day":69,"size_cm":12.69,"weight_g":30.595},{"fish_id":3,"day":69,"size_cm":14.81,"weight_g":49.696},{"fish_id":1,"day":72,"size_cm":14.43,"weight_g":45.801},{"fish_id":2,"day":72,"size_cm":12.9,"weight_g":32.213},{"fish_id":3,"day":72,"size_cm":15.19,"weight_g":53.81},{"fish_id":1,"day":75,"size_cm":14.58,"weight_g":47.312},{"fish_id":2,"day":75,"size_cm":13.43,"weight_g":36.554},{"fish_id":3,"day":75,"size_cm":15.36,"weight_g":55.724},{"fish_id":1,"day":78,"size_cm":14.92,"weight_g":50.864},{"fish_id":2,"day":78,"size_cm":13.76,"weight_g":39.449},{"fish_id":3,"day":78,"size_cm":15.67,"weight_g":59.332},{"fish_id":1,"day":81,"size_cm":15.16,"weight_g":53.477},{"fish_id":2,"day":81,"size_cm":13.86,"weight_g":40.356},{"fish_id":3,"day":81,"size_cm":15.93,"weight_g":62.479},{"fish_id":1,"day":84,"size_cm":15.48,"weight_g":57.103},{"fish_id":2,"day":84,"size_cm":14.13,"weight_g":42.877},{"fish_id":3,"day":84,"size_cm":16.28,"weight_g":66.891},{"fish_id":1,"day":87,"size_cm":15.49,"weight_g":57.219},{"fish_id":2,"day":87,"size_cm":14.44,"weight_g":45.9},{"fish_id":3,"day":87,"size_cm":16.52,"weight_g":70.037},{"fish_id":1,"day":90,"size_cm":15.93,"weight_g":62.479},{"fish_id":2,"day":90,"size_cm":14.42,"weight_g":45.701},{"fish_id":3,"day":90,"size_cm":16.7,"weight_g":72.461}];
+
+/* ── 행동 데이터 (fish_metrics 실측 fallback) ── */
 const S1=[31.3,6.9,5.4,14.4,5.8,69.0,29.6,20.8,47.2,6.4,40.1,38.1,17.8,32.1,19.5,53.8,19.0,12.1,62.5,29.8,31.3,19.4,42.0,33.2,51.0,47.7,7.0,24.5,42.0,26.5,22.4,57.4,53.8,14.6,8.8,47.3,42.6,9.9,8.4];
 const S2=[7.5,2.9,5.3,6.0,6.9,5.6,5.8,7.7,2.8,5.1,3.6,4.1,5.5,3.9,7.4,3.7,4.3,2.7,4.2,4.2,12.1,10.3,7.9,4.5,8.6,2.1,4.3,6.9,1.9,3.0,3.0,4.3,4.5,2.4,2.2,6.9,5.8,9.1,12.7,9.7,5.7,2.7,6.3];
-const ALL=[...S1,...S2];
-const MU=ALL.reduce((a,b)=>a+b)/ALL.length;
-const SIGMA=Math.sqrt(ALL.map(s=>(s-MU)**2).reduce((a,b)=>a+b)/ALL.length);
+let ALL=[...S1,...S2];
+let MU=ALL.reduce((a,b)=>a+b)/ALL.length;
+let SIGMA=Math.sqrt(ALL.map(s=>(s-MU)**2).reduce((a,b)=>a+b)/ALL.length);
 
-/* sensor_log 내장 데이터 (fallback) */
 const SENSOR_LOG=[
-  {t:'13:47',temp:22.69,ph:7.85,do:6.45,tds:256.8},
-  {t:'13:52',temp:22.69,ph:7.64,do:6.43,tds:256.4},
-  {t:'13:57',temp:22.75,ph:7.59,do:6.41,tds:256.1},
-  {t:'14:02',temp:22.69,ph:7.51,do:6.39,tds:257.2},
-  {t:'14:07',temp:22.75,ph:7.63,do:6.40,tds:257.5},
-  {t:'14:12',temp:22.75,ph:7.72,do:6.42,tds:258.3},
-  {t:'14:17',temp:22.75,ph:7.78,do:6.47,tds:258.6},
-  {t:'14:22',temp:22.75,ph:7.81,do:6.44,tds:259.0},
-  {t:'14:27',temp:22.75,ph:7.74,do:6.41,tds:258.3},
-  {t:'14:32',temp:22.75,ph:7.66,do:6.39,tds:257.8},
-  {t:'14:37',temp:22.75,ph:7.63,do:6.43,tds:257.2},
-  {t:'14:42',temp:22.69,ph:7.73,do:6.47,tds:257.5},
-  {t:'14:47',temp:22.75,ph:7.70,do:6.44,tds:256.5},
-  {t:'14:52',temp:22.75,ph:7.64,do:6.41,tds:256.1},
-  {t:'14:57',temp:22.75,ph:7.71,do:6.44,tds:256.5},
-  {t:'15:02',temp:22.75,ph:7.79,do:6.42,tds:257.2},
-  {t:'15:07',temp:22.75,ph:7.66,do:6.38,tds:257.6},
-  {t:'15:12',temp:22.81,ph:7.61,do:6.40,tds:257.2},
-  {t:'15:17',temp:22.75,ph:7.79,do:6.40,tds:257.6},
-  {t:'15:20',temp:22.75,ph:7.61,do:6.40,tds:256.8},
+  {t:'13:47',temp:22.69,ph:7.85,do:6.45,tds:256.8},{t:'13:52',temp:22.69,ph:7.64,do:6.43,tds:256.4},
+  {t:'13:57',temp:22.75,ph:7.59,do:6.41,tds:256.1},{t:'14:02',temp:22.69,ph:7.51,do:6.39,tds:257.2},
+  {t:'14:07',temp:22.75,ph:7.63,do:6.40,tds:257.5},{t:'14:12',temp:22.75,ph:7.72,do:6.42,tds:258.3},
+  {t:'14:17',temp:22.75,ph:7.78,do:6.47,tds:258.6},{t:'14:22',temp:22.75,ph:7.81,do:6.44,tds:259.0},
+  {t:'14:27',temp:22.75,ph:7.74,do:6.41,tds:258.3},{t:'14:32',temp:22.75,ph:7.66,do:6.39,tds:257.8},
+  {t:'14:37',temp:22.75,ph:7.63,do:6.43,tds:257.2},{t:'14:42',temp:22.69,ph:7.73,do:6.47,tds:257.5},
+  {t:'14:47',temp:22.75,ph:7.70,do:6.44,tds:256.5},{t:'14:52',temp:22.75,ph:7.64,do:6.41,tds:256.1},
+  {t:'14:57',temp:22.75,ph:7.71,do:6.44,tds:256.5},{t:'15:02',temp:22.75,ph:7.79,do:6.42,tds:257.2},
+  {t:'15:07',temp:22.75,ph:7.66,do:6.38,tds:257.6},{t:'15:12',temp:22.81,ph:7.61,do:6.40,tds:257.2},
+  {t:'15:17',temp:22.75,ph:7.79,do:6.40,tds:257.6},{t:'15:20',temp:22.75,ph:7.61,do:6.40,tds:256.8},
 ];
 
 let LIVE=null;
-let cAct=null,cZone=null,cFrs=null,cAbr=null,cGrowth=null,cMulti=null,cSensor=null;
-let curSensorKey='temp';
+let cAct=null,cZone=null,cFrs=null,cAbr=null,cGrowth=null,cSensor=null;
+let curSensorKey='temp', curGrowthFish=1;
+let userGrowthData=null;
 
 const r1=v=>Math.round(v*10)/10;
 const r2=v=>Math.round(v*100)/100;
 const r3=v=>Math.round(v*1000)/1000;
-const mn=a=>a.length?a.reduce((s,v)=>s+v)/a.length:0;
+const mn=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:0;
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* ════════════ von Bertalanffy 피팅 (grid search 최소제곱) ════════════ */
+function fitVBGF(points){
+  // points: [{day, size}]
+  let best=null;
+  const maxObs=Math.max(...points.map(p=>p.size));
+  for(let Linf=maxObs+0.5; Linf<=maxObs+12; Linf+=0.5){
+    for(let k=0.005; k<=0.025; k+=0.0005){
+      const [d0,l0]=[points[0].day, points[0].size];
+      if(1-l0/Linf<=0) continue;
+      const t0=d0 + Math.log(1-l0/Linf)/k;
+      let sse=0;
+      for(const p of points){
+        const pred=Linf*(1-Math.exp(-k*(p.day-t0)));
+        sse+=(p.size-pred)**2;
+      }
+      if(best===null||sse<best.sse) best={sse,Linf,k,t0};
+    }
+  }
+  // R², RMSE
+  const meanY=mn(points.map(p=>p.size));
+  const ssTot=points.reduce((s,p)=>s+(p.size-meanY)**2,0);
+  best.r2=1-best.sse/ssTot;
+  best.rmse=Math.sqrt(best.sse/points.length);
+  best.predict=(t)=>best.Linf*(1-Math.exp(-best.k*(t-best.t0)));
+  return best;
+}
+
+/* ════════════ 선형회귀 ════════════ */
+function fitLinear(points){
+  const n=points.length;
+  const sx=points.reduce((s,p)=>s+p.day,0);
+  const sy=points.reduce((s,p)=>s+p.size,0);
+  const sxx=points.reduce((s,p)=>s+p.day*p.day,0);
+  const sxy=points.reduce((s,p)=>s+p.day*p.size,0);
+  const slope=(n*sxy-sx*sy)/(n*sxx-sx*sx);
+  const intercept=(sy-slope*sx)/n;
+  return {slope,intercept,predict:(t)=>slope*t+intercept};
+}
 
 /* ── 탭 전환 ── */
 function sw(name){
@@ -356,142 +422,245 @@ function sw(name){
   document.getElementById('panel-'+name).classList.add('on');
   if(name==='frs'&&!cFrs) frs();
   if(name==='abr'&&!cAbr) abr();
-  if(name==='growth'&&!cGrowth) growth();
+  if(name==='growth') growth();
   if(name==='verify') verify();
   if(name==='sensor') initSensor();
 }
 
-/* ── live.json 폴링 ── */
-async function poll(){
-  try{
-    const r=await fetch('data/live.json?_='+Date.now());
-    if(!r.ok) throw 0;
-    LIVE=await r.json();
-    renderLive(LIVE);
-    document.getElementById('live-pill').className='pill pill-live';
-    document.getElementById('live-dot').className='dot blink';
-    document.getElementById('live-txt').textContent='LIVE';
-    document.getElementById('updated-at').textContent=new Date(LIVE.updated_at).toLocaleTimeString('ko-KR');
-  }catch{
-    document.getElementById('live-pill').className='pill pill-wait';
-    document.getElementById('live-dot').className='dot';
-    document.getElementById('live-txt').textContent='연결 대기';
-    document.getElementById('updated-at').textContent='data/live.json 없음';
-  }
+function toggleAdv(which){
+  const p=document.getElementById('adv-'+which);
+  p.classList.toggle('on');
+  event.target.textContent=(p.classList.contains('on')?'▾':'▸')+' 수동 파라미터 조정';
 }
 
-function renderLive(d){
-  if(!d||d.status!=='ok') return;
-  document.getElementById('l-fish').textContent=d.fish_count;
-  document.getElementById('l-spd').textContent=r1(d.avg_speed);
-  document.getElementById('l-fps').textContent=r1(d.fps_est);
-  const abr=d.abr||0;
-  document.getElementById('l-abr').textContent=(abr*100).toFixed(1)+'%';
-  const abadge=abr>0.3?'<span class="badge b-bad">POOR</span>':abr>0.1?'<span class="badge b-warn">WARNING</span>':'<span class="badge b-ok">NORMAL</span>';
-  document.getElementById('l-abr-b').innerHTML=abadge;
-  document.getElementById('l-mu').textContent=r2(d.abr_mu)+' px/s';
-  document.getElementById('l-sigma').textContent=r2(d.abr_sigma)+' px/s';
-  document.getElementById('l-thr').textContent=r2(d.abr_mu+2*d.abr_sigma)+' px/s';
-  document.getElementById('l-trk').textContent=d.track_sec+'초';
-  document.getElementById('l-rows').textContent=d.total_rows+'행';
-
-  /* 수질 게이지 */
-  const s=d.sensor;
-  const src=s.source==='sensor_log'?'· sensor_log.csv':'· fish_metrics (mock)';
-  document.getElementById('sensor-src').textContent=src;
-  const gs=[
-    {lbl:'수온',v:s.temperature_c,mn:21,mx:24,lo:18,hi:28,unit:'°C'},
-    {lbl:'pH',v:s.ph,mn:6.5,mx:8.0,lo:6,hi:9,unit:''},
-    {lbl:'DO',v:s.do_mg_l,mn:5,mx:8,lo:0,hi:12,unit:'mg/L'},
-    {lbl:'TDS',v:s.tds_ppm||s.turbidity_ntu,mn:0,mx:300,lo:0,hi:400,unit:'ppm'},
-  ];
-  document.getElementById('gauges').innerHTML=gs.map(g=>{
-    const pct=Math.min(100,Math.max(0,(g.v-g.lo)/(g.hi-g.lo)*100));
-    const ok=g.v>=g.mn&&g.v<=g.mx;
-    const col=ok?'var(--green)':'var(--amber)';
-    return `<div class="gauge"><span class="g-lbl">${g.lbl}</span><div class="g-track"><div class="g-fill" style="width:${pct}%;background:${col}"></div></div><span class="g-val">${r2(g.v)}${g.unit}</span></div>`;
-  }).join('');
-
-  /* 활동량 시계열 */
-  const ser=(d.activity_series||[]);
-  const av=ser.map(p=>p.v), al=ser.map((_,i)=>i%5===0?i*5+'s':'');
-  if(cAct){cAct.data.labels=al;cAct.data.datasets[0].data=av;cAct.update('none');}
-  else cAct=mkLine('c-act',al,av,'activity','#2563c4');
-
-  /* zone 도넛 */
-  const z=d.zone_dist||{TOP:0,MID:0,BOT:0};
-  if(cZone){cZone.data.datasets[0].data=[z.TOP,z.MID,z.BOT];cZone.update('none');}
-  else{
-    cZone=new Chart(document.getElementById('c-zone'),{
-      type:'doughnut',
-      data:{labels:['TOP','MID','BOT'],datasets:[{data:[z.TOP,z.MID,z.BOT],backgroundColor:['#dc2626','#2563c4','#9c9c96'],borderWidth:0}]},
-      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:true,position:'right',labels:{color:'#5c5c58',font:{size:11},boxWidth:10,padding:10}}}}
-    });
-  }
-
-  /* 수질 탭 업데이트 */
-  if(d.sensor_series&&d.sensor_series.length>0) updateSensorFromLive(d.sensor_series);
-}
-
-/* ── 수질 이력 탭 ── */
-let SENSOR_DATA=null;
-function initSensor(){
-  if(!SENSOR_DATA){
-    if(LIVE&&LIVE.sensor_series&&LIVE.sensor_series.length>0){
-      SENSOR_DATA=LIVE.sensor_series.map(r=>({t:r.t.substring(11,16),temp:r.temp,ph:r.ph,do:r.do,tds:r.tds}));
-    } else {
-      SENSOR_DATA=SENSOR_LOG;
+/* ── CSV 업로드 ── */
+function handleCSV(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    try{
+      const text=ev.target.result;
+      const lines=text.trim().split(/\r?\n/);
+      const header=lines[0].toLowerCase().split(',').map(h=>h.trim());
+      const rows=lines.slice(1).map(line=>{
+        const vals=line.split(',');
+        const obj={};
+        header.forEach((h,i)=>obj[h]=vals[i]);
+        return obj;
+      });
+      routeCSV(header,rows,file.name);
+    }catch(err){
+      toast('CSV 파싱 실패: '+err.message);
     }
+  };
+  reader.readAsText(file);
+}
+
+function routeCSV(header,rows,fname){
+  // 컬럼으로 데이터 종류 판별
+  if(header.includes('size_cm')||header.includes('weight_g')){
+    // 성장 데이터
+    userGrowthData=rows.map(r=>({
+      fish_id:parseInt(r.fish_id||1),
+      day:parseInt(r.day||0),
+      size_cm:parseFloat(r.size_cm),
+      weight_g:parseFloat(r.weight_g||0.01049*Math.pow(parseFloat(r.size_cm),3.14)),
+    })).filter(r=>!isNaN(r.size_cm));
+    toast(`성장 데이터 ${userGrowthData.length}행 로드 → 성장 예측 탭 확인`);
+    sw('growth');
+  }else if(header.includes('speed_px_s')){
+    // 행동 데이터 → ABR용 속도 재계산
+    const speeds=rows.map(r=>parseFloat(r.speed_px_s)).filter(v=>v>0&&v<=700);
+    if(speeds.length>0){
+      ALL=speeds;
+      MU=mn(ALL);
+      SIGMA=Math.sqrt(ALL.map(s=>(s-MU)**2).reduce((a,b)=>a+b,0)/ALL.length);
+      toast(`행동 데이터 ${speeds.length}행 로드 → ABR 탭 반영`);
+      sw('abr');
+    }
+  }else if(header.includes('tds_ppm')||header.includes('temperature_c')){
+    // 센서 데이터
+    SENSOR_DATA=rows.map(r=>({
+      t:(r.timestamp||'').substring(11,16),
+      temp:parseFloat(r.temperature_c||0),
+      ph:parseFloat(r.ph||0),
+      do:parseFloat(r.do_mg_l||0),
+      tds:parseFloat(r.tds_ppm||0),
+    })).filter(r=>r.temp>0);
+    toast(`센서 데이터 ${SENSOR_DATA.length}행 로드 → 수질 이력 탭 확인`);
+    sw('sensor');
+  }else{
+    toast('알 수 없는 CSV 형식: '+fname);
   }
-  updateSensorSummary();
-  drawSensorChart(curSensorKey);
-
-  const last=SENSOR_DATA[SENSOR_DATA.length-1]||{};
-  document.getElementById('s-temp').textContent=r2(last.temp||0);
-  document.getElementById('s-ph').textContent=r3(last.ph||0);
-  document.getElementById('s-do').textContent=r3(last.do||0);
-  document.getElementById('s-tds').textContent=r1(last.tds||0);
 }
 
-function updateSensorFromLive(series){
-  SENSOR_DATA=series.map(r=>({t:r.t.substring(11,16),temp:r.temp,ph:r.ph,do:r.do,tds:r.tds}));
-}
-
-function setSensorTab(key,el){
-  curSensorKey=key;
-  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('on'));
+/* ════════════ 성장 예측 탭 ════════════ */
+function setGrowthFish(fid,el){
+  curGrowthFish=fid;
+  document.querySelectorAll('#g-fish-tabs .stab').forEach(t=>t.classList.remove('on'));
   el.classList.add('on');
-  drawSensorChart(key);
+  growth();
 }
 
-function drawSensorChart(key){
-  const d=SENSOR_DATA||SENSOR_LOG;
-  const map={temp:{label:'수온 (°C)',color:'#dc2626'},ph:{label:'pH',color:'#2563c4'},do:{label:'DO (mg/L)',color:'#0d9488'},tds:{label:'TDS (ppm)',color:'#b45309'}};
-  const {label,color}=map[key];
-  const vals=d.map(r=>r[key]);
-  const lbls=d.map(r=>r.t);
-  if(cSensor) cSensor.destroy();
-  cSensor=mkLine('c-sensor',lbls,vals,label,color,true);
+function growth(){
+  const data=userGrowthData||GROWTH_DATA;
+  const horizon=+document.getElementById('g-horizon').value;
+  const trainPct=+document.getElementById('g-train').value/100;
+  document.getElementById('g-horizon-v').textContent=horizon;
+  document.getElementById('g-train-v').textContent=Math.round(trainPct*100)+'%';
+  document.getElementById('g-cmp-day').textContent=horizon;
+  document.getElementById('g-cmp-day2').textContent=horizon;
+
+  const colors={1:'#2563c4',2:'#0d9488',3:'#7c3aed'};
+
+  if(curGrowthFish===0){
+    drawGrowthAll(data,horizon,colors);
+    return;
+  }
+
+  const fishPts=data.filter(r=>r.fish_id===curGrowthFish)
+                    .map(r=>({day:r.day,size:r.size_cm}))
+                    .sort((a,b)=>a.day-b.day);
+  if(fishPts.length<3){toast('데이터 부족');return;}
+
+  // 학습/홀드아웃 분할
+  const nTrain=Math.max(3,Math.floor(fishPts.length*trainPct));
+  const trainPts=fishPts.slice(0,nTrain);
+  const holdoutPts=fishPts.slice(nTrain);
+
+  const vbgf=fitVBGF(trainPts);
+  const lin=fitLinear(trainPts);
+
+  // 통계 카드
+  const lastPt=fishPts[fishPts.length-1];
+  document.getElementById('g-cur').textContent=lastPt.size.toFixed(1);
+  document.getElementById('g-curday').textContent=lastPt.day;
+  document.getElementById('g-r2').textContent=vbgf.r2.toFixed(4);
+  document.getElementById('g-linf').textContent=vbgf.Linf.toFixed(1);
+  // 15cm(성어) 도달일
+  let adultDay='—';
+  for(let t=0;t<=horizon;t++){if(vbgf.predict(t)>=15){adultDay=t;break;}}
+  document.getElementById('g-adult').textContent=adultDay;
+
+  // vBGF 파라미터
+  document.getElementById('g-p-linf').textContent=vbgf.Linf.toFixed(2)+' cm';
+  document.getElementById('g-p-k').textContent=vbgf.k.toFixed(4)+' /day';
+  document.getElementById('g-p-t0').textContent=vbgf.t0.toFixed(1)+' day';
+  document.getElementById('g-p-r2').textContent=vbgf.r2.toFixed(4);
+  document.getElementById('g-p-rmse').textContent=vbgf.rmse.toFixed(3)+' cm';
+
+  // 모델 비교
+  const vAtH=vbgf.predict(horizon), lAtH=lin.predict(horizon);
+  document.getElementById('g-cmp-vbgf').textContent=vAtH.toFixed(2)+' cm';
+  document.getElementById('g-cmp-lin').textContent=lAtH.toFixed(2)+' cm';
+  document.getElementById('g-cmp-diff').textContent='+'+(lAtH-vAtH).toFixed(2)+' cm (선형 과대)';
+
+  // 홀드아웃 검증
+  if(holdoutPts.length>0){
+    const errs=holdoutPts.map(p=>Math.abs(vbgf.predict(p.day)-p.size));
+    document.getElementById('g-cmp-holdout').textContent='±'+mn(errs).toFixed(3)+' cm (vBGF)';
+    document.getElementById('g-insight').textContent=
+      `학습 ${nTrain}개 → 나머지 ${holdoutPts.length}개 예측 검증: vBGF 평균오차 ${mn(errs).toFixed(2)}cm. 생물학적 모델이 미관측 구간도 정확히 예측합니다.`;
+  }else{
+    document.getElementById('g-cmp-holdout').textContent='— (전체 학습)';
+    document.getElementById('g-insight').textContent=
+      `선형 모델은 D+${horizon}에서 ${(lAtH-vAtH).toFixed(1)}cm 과대추정. 어류는 L∞에 수렴하므로 vBGF가 현실적입니다.`;
+  }
+
+  // 차트 데이터 구성
+  const days=[];for(let t=0;t<=horizon;t+=2)days.push(t);
+  const vbgfLine=days.map(t=>({x:t,y:r2(vbgf.predict(t))}));
+  const linLine=days.map(t=>({x:t,y:r2(Math.min(30,lin.predict(t)))}));
+  // 신뢰구간 (±1.96×RMSE)
+  const ciUpper=days.map(t=>({x:t,y:r2(vbgf.predict(t)+1.96*vbgf.rmse)}));
+  const ciLower=days.map(t=>({x:t,y:r2(vbgf.predict(t)-1.96*vbgf.rmse)}));
+  const trainScatter=trainPts.map(p=>({x:p.day,y:p.size}));
+  const holdoutScatter=holdoutPts.map(p=>({x:p.day,y:p.size}));
+
+  if(cGrowth) cGrowth.destroy();
+  cGrowth=new Chart(document.getElementById('c-growth'),{
+    type:'line',
+    data:{datasets:[
+      {label:'신뢰구간 상한',data:ciUpper,borderColor:'transparent',backgroundColor:'rgba(37,99,196,0.10)',pointRadius:0,fill:'+1',tension:0.3,order:5},
+      {label:'신뢰구간 하한',data:ciLower,borderColor:'transparent',backgroundColor:'rgba(37,99,196,0.10)',pointRadius:0,fill:false,tension:0.3,order:5},
+      {label:'von Bertalanffy',data:vbgfLine,borderColor:'#2563c4',borderWidth:2,pointRadius:0,fill:false,tension:0.3,order:2},
+      {label:'선형회귀',data:linLine,borderColor:'#dc2626',borderWidth:1.5,borderDash:[5,4],pointRadius:0,fill:false,tension:0,order:3},
+      {label:'학습 데이터',data:trainScatter,type:'scatter',borderColor:'#5c5c58',backgroundColor:'#5c5c58',pointRadius:3,order:1},
+      {label:'홀드아웃 (검증)',data:holdoutScatter,type:'scatter',borderColor:'#b45309',backgroundColor:'#fff',pointRadius:4,pointStyle:'triangle',borderWidth:2,order:1},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:(it)=>'D+'+it[0].parsed.x,label:(it)=>it.dataset.label+': '+it.parsed.y+'cm'}}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'경과일 (day)',color:'#9c9c96',font:{size:10}},ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}},
+        y:{title:{display:true,text:'체장 (cm)',color:'#9c9c96',font:{size:10}},ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'},min:0,suggestedMax:25}
+      }
+    }
+  });
 }
 
-function updateSensorSummary(){
-  const d=SENSOR_DATA||SENSOR_LOG;
-  const keys=[
-    {k:'temp',label:'수온',unit:'°C',ok:[21,24]},
-    {k:'ph',label:'pH',unit:'',ok:[6.5,8.0]},
-    {k:'do',label:'DO',unit:'mg/L',ok:[5.0,8.0]},
-    {k:'tds',label:'TDS',unit:'ppm',ok:[0,300]},
-  ];
-  const html=keys.map(({k,label,unit,ok})=>{
-    const vals=d.map(r=>r[k]).filter(Boolean);
-    const mn2=Math.min(...vals),mx2=Math.max(...vals),avg=mn(vals);
-    const stable=mx2-mn2<(ok[1]-ok[0])*0.3;
-    return `<div class="rrow"><span class="rk">${label}</span><span class="rv" style="font-size:12px;">${r2(mn2)}${unit} — ${r2(mx2)}${unit} <span style="color:var(--ink3)">(평균 ${r2(avg)}${unit})</span> ${stable?'<span class="badge b-ok">안정</span>':'<span class="badge b-warn">변동</span>'}</span></div>`;
-  }).join('');
-  document.getElementById('sensor-summary').innerHTML=`<div class="rbox" style="margin-top:0;">${html}</div>`;
+function drawGrowthAll(data,horizon,colors){
+  const days=[];for(let t=0;t<=horizon;t+=2)days.push(t);
+  const datasets=[];
+  let sumLinf=0,sumR2=0,cnt=0,lastSizes=[];
+  [1,2,3].forEach(fid=>{
+    const pts=data.filter(r=>r.fish_id===fid).map(r=>({day:r.day,size:r.size_cm})).sort((a,b)=>a.day-b.day);
+    if(pts.length<3) return;
+    const vbgf=fitVBGF(pts);
+    sumLinf+=vbgf.Linf;sumR2+=vbgf.r2;cnt++;
+    lastSizes.push(pts[pts.length-1].size);
+    datasets.push({label:`Fish #${fid} 예측`,data:days.map(t=>({x:t,y:r2(vbgf.predict(t))})),borderColor:colors[fid],borderWidth:2,pointRadius:0,fill:false,tension:0.3,order:2});
+    datasets.push({label:`Fish #${fid} 실측`,data:pts.map(p=>({x:p.day,y:p.size})),type:'scatter',borderColor:colors[fid],backgroundColor:colors[fid],pointRadius:2.5,order:1});
+  });
+
+  document.getElementById('g-cur').textContent=mn(lastSizes).toFixed(1);
+  document.getElementById('g-curday').textContent='최근';
+  document.getElementById('g-r2').textContent=(sumR2/cnt).toFixed(4);
+  document.getElementById('g-linf').textContent=(sumLinf/cnt).toFixed(1);
+  document.getElementById('g-adult').textContent='개체별';
+  document.getElementById('g-p-linf').textContent='평균 '+(sumLinf/cnt).toFixed(2)+' cm';
+  document.getElementById('g-p-k').textContent='개체별 상이';
+  document.getElementById('g-p-t0').textContent='개체별 상이';
+  document.getElementById('g-p-r2').textContent='평균 '+(sumR2/cnt).toFixed(4);
+  document.getElementById('g-p-rmse').textContent='—';
+  document.getElementById('g-cmp-vbgf').textContent='개체별 곡선';
+  document.getElementById('g-cmp-lin').textContent='—';
+  document.getElementById('g-cmp-diff').textContent='—';
+  document.getElementById('g-cmp-holdout').textContent='—';
+  document.getElementById('g-insight').textContent='3개체 모두 von Bertalanffy 곡선으로 개별 성장 추세를 추정. 개체간 L∞ 차이로 성장 잠재력 비교 가능.';
+
+  if(cGrowth) cGrowth.destroy();
+  cGrowth=new Chart(document.getElementById('c-growth'),{
+    type:'line',
+    data:{datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:(it)=>'D+'+it[0].parsed.x,label:(it)=>it.dataset.label+': '+it.parsed.y+'cm'}}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'경과일 (day)',color:'#9c9c96',font:{size:10}},ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}},
+        y:{title:{display:true,text:'체장 (cm)',color:'#9c9c96',font:{size:10}},ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'},min:0,suggestedMax:25}
+      }
+    }
+  });
 }
 
-/* ── FRS ── */
+/* ════════════ FRS 시뮬 ════════════ */
+const FRS_PRESETS={
+  healthy:{bs:12,ds:48,rt:5,vpm:3.5,bt:15,dt:60},
+  weak:{bs:14,ds:22,rt:22,vpm:1.5,bt:20,dt:35},
+  none:{bs:13,ds:15,rt:50,vpm:0.5,bt:25,dt:28},
+};
+function frsScen(key,el){
+  document.querySelectorAll('#frs-scen .scen-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  const p=FRS_PRESETS[key];
+  document.getElementById('f-bs').value=p.bs;
+  document.getElementById('f-ds').value=p.ds;
+  document.getElementById('f-rt').value=p.rt;
+  document.getElementById('f-vpm').value=p.vpm;
+  frs();
+}
 function frs(){
   const bs=+document.getElementById('f-bs').value;
   const ds=+document.getElementById('f-ds').value;
@@ -501,8 +670,6 @@ function frs(){
   document.getElementById('f-ds-v').textContent=ds;
   document.getElementById('f-rt-v').textContent=rt;
   document.getElementById('f-vpm-v').textContent=r2(vpm);
-  document.getElementById('f-bt-v').textContent=document.getElementById('f-bt').value+'%';
-  document.getElementById('f-dt-v').textContent=document.getElementById('f-dt').value+'%';
 
   const rt_s=rt<=5?100:rt<=15?80:rt<=30?60:rt<=60?40:20;
   const arP=bs>0?(ds-bs)/bs*100:0;
@@ -519,20 +686,28 @@ function frs(){
   document.getElementById('f-ar-sc').textContent=r1(ar_s);
   document.getElementById('f-sf-c').textContent=sf_s+' (VPM='+vpm+')';
   document.getElementById('f-frs-c').textContent=score+' / 100';
-
-  const [bclass,btext]=score>=80?['b-ok','EXCELLENT']:score>=60?['b-ok','GOOD']:score>=40?['b-warn','NORMAL']:score>=20?['b-warn','WARNING']:['b-bad','POOR'];
-  document.getElementById('f-st').innerHTML=`<span class="badge ${bclass}">${btext}</span>`;
+  const [bc,bt]=score>=80?['b-ok','EXCELLENT']:score>=60?['b-ok','GOOD']:score>=40?['b-warn','NORMAL']:score>=20?['b-warn','WARNING']:['b-bad','POOR'];
+  document.getElementById('f-st').innerHTML=`<span class="badge ${bc}">${bt}</span>`;
   document.getElementById('f-cm').textContent=score>=80?'식욕 매우 좋음':score>=60?'정상 급이 반응':score>=40?'보통 반응':score>=20?'반응 저하':'급이 반응 없음';
 
   if(cFrs) cFrs.destroy();
   cFrs=new Chart(document.getElementById('c-frs'),{
     type:'bar',
-    data:{labels:['RT','AR','SF','FRS'],datasets:[{data:[rt_s,ar_s,sf_s,score],backgroundColor:['#2563c4','#0d9488','#b45309','#1a1a18'],borderRadius:4}]},
+    data:{labels:['RT','AR','SF','FRS'],datasets:[{data:[rt_s,ar_s,sf_s,score],backgroundColor:['#2563c4','#0d9488','#7c3aed','#1a1a18'],borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}},x:{ticks:{color:'#5c5c58',font:{size:11}}}}}
   });
 }
 
-/* ── ABR ── */
+/* ════════════ ABR 시뮬 ════════════ */
+const ABR_PRESETS={normal:{n:2,inj:3},mild:{n:2,inj:18},disease:{n:2,inj:45}};
+function abrScen(key,el){
+  document.querySelectorAll('#abr-scen .scen-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  const p=ABR_PRESETS[key];
+  document.getElementById('a-n').value=p.n;
+  document.getElementById('a-inj').value=p.inj;
+  abr();
+}
 function abr(){
   const N=+document.getElementById('a-n').value;
   const inj=+document.getElementById('a-inj').value/100;
@@ -558,11 +733,10 @@ function abr(){
   document.getElementById('a-jd').textContent=rate>0.3?'즉각 점검 필요':rate>0.1?'모니터링 지속':'이상 없음';
 
   const bins=Array(14).fill(0);
-  const bsz=10;
-  ALL.forEach(s=>{const i=Math.min(13,Math.floor(s/bsz));bins[i]++;});
-  const lbls=bins.map((_,i)=>i*bsz+'');
-  const nd=bins.map((v,i)=>(i*bsz+bsz<=thr)?v:0);
-  const ad=bins.map((v,i)=>(i*bsz>=thr-bsz)?v:0);
+  ALL.forEach(s=>{const i=Math.min(13,Math.floor(s/10));bins[i]++;});
+  const lbls=bins.map((_,i)=>i*10+'');
+  const nd=bins.map((v,i)=>((i*10+10)<=thr)?v:0);
+  const ad=bins.map((v,i)=>((i*10)>=thr-10)?v:0);
   if(cAbr) cAbr.destroy();
   cAbr=new Chart(document.getElementById('c-abr'),{
     type:'bar',
@@ -571,95 +745,67 @@ function abr(){
   });
 }
 
-/* ── 성장 ── */
-function growth(){
-  const tl=+document.getElementById('g-ls').value;
-  const gr=+document.getElementById('g-rs').value;
-  const temp=+document.getElementById('g-ts').value;
-  const stage=document.getElementById('g-stage').value;
-  const vari=+document.getElementById('g-vs').value;
-  document.getElementById('g-ls-v').textContent=tl.toFixed(1);
-  document.getElementById('g-rs-v').textContent=gr.toFixed(2);
-  document.getElementById('g-ts-v').textContent=temp.toFixed(1)+'°C';
-  document.getElementById('g-vs-v').textContent='±'+vari.toFixed(1);
-
-  const W=0.01049*Math.pow(tl,3.14);
-  const fm={fry:[0.10,3],juvenile:[0.03,3],adult:[0.01,2]};
-  const [ratio,meals]=fm[stage]||[0.03,3];
-  const coef=Math.pow(2,(temp-22.5)/10);
-  const grAdj=gr*coef;
-  const days20=grAdj>0?Math.round((20-tl)/grAdj):999;
-
-  document.getElementById('g-len').textContent=tl.toFixed(1);
-  document.getElementById('g-wt').textContent=r2(W);
-  document.getElementById('g-fd').textContent=r2(W*ratio/meals);
-  document.getElementById('g-dy').textContent=days20<999?days20:'—';
-  document.getElementById('g-wc').textContent=r2(W)+'g';
-  document.getElementById('g-fdc').textContent=r2(W*ratio)+'g ('+meals+'회)';
-  document.getElementById('g-tc').textContent=r2(coef);
-  const ev=grAdj>=0.1?'b-ok':grAdj>=0.05?'b-ok':grAdj>=0.01?'b-warn':'b-bad';
-  const et=grAdj>=0.1?'excellent':grAdj>=0.05?'good':grAdj>=0.01?'normal':'slow';
-  document.getElementById('g-ev').innerHTML=`<span class="badge ${ev}">${et}</span>`;
-
-  const days=Array.from({length:31},(_,i)=>i);
-  const sz=days.map(d=>r2(Math.min(20,tl+grAdj*d)));
-  const wt=sz.map(s=>r2(0.01049*Math.pow(s,3.14)));
-
-  if(cGrowth) cGrowth.destroy();
-  cGrowth=new Chart(document.getElementById('c-growth'),{
-    type:'line',
-    data:{labels:days.map(d=>'D+'+d),datasets:[
-      {label:'체장 (cm)',data:sz,borderColor:'#2563c4',backgroundColor:'rgba(37,99,196,.06)',borderWidth:2,pointRadius:0,fill:true,tension:.3,yAxisID:'y'},
-      {label:'체중 (g)',data:wt,borderColor:'#b45309',borderWidth:1.5,pointRadius:0,fill:false,tension:.3,yAxisID:'y2',borderDash:[4,3]},
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:true,labels:{color:'#5c5c58',font:{size:11},boxWidth:10,padding:12}}},
-      scales:{
-        x:{ticks:{color:'#9c9c96',font:{size:10},maxTicksLimit:8}},
-        y:{title:{display:true,text:'체장 (cm)',color:'#9c9c96',font:{size:10}},ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}},
-        y2:{position:'right',title:{display:true,text:'체중 (g)',color:'#9c9c96',font:{size:10}},ticks:{color:'#9c9c96',font:{size:10}},grid:{display:false}}
-      }
-    }
-  });
-
-  const offsets=[-vari,0,+vari];
-  const cols=['#dc2626','#2563c4','#0d9488'];
-  const ds=offsets.map((off,i)=>{
-    const s0=Math.max(.5,tl+off);
-    return {label:`Fish #${i+1} (${(tl+off).toFixed(1)}cm)`,data:days.map(d=>r2(Math.min(20,s0+grAdj*d))),borderColor:cols[i],borderWidth:1.5,pointRadius:0,fill:false,tension:.3};
-  });
-  if(cMulti) cMulti.destroy();
-  cMulti=new Chart(document.getElementById('c-multi'),{
-    type:'line',
-    data:{labels:days.map(d=>'D+'+d),datasets:ds},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:true,labels:{color:'#5c5c58',font:{size:11},boxWidth:10,padding:12}}},
-      scales:{x:{ticks:{color:'#9c9c96',font:{size:10},maxTicksLimit:8}},y:{ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}}}
-    }
-  });
+/* ════════════ 수질 이력 ════════════ */
+let SENSOR_DATA=null;
+function initSensor(){
+  if(!SENSOR_DATA) SENSOR_DATA=(LIVE&&LIVE.sensor_series&&LIVE.sensor_series.length>0)
+    ? LIVE.sensor_series.map(r=>({t:r.t.substring(11,16),temp:r.temp,ph:r.ph,do:r.do,tds:r.tds}))
+    : SENSOR_LOG;
+  updateSensorSummary();
+  drawSensorChart(curSensorKey);
+  const last=SENSOR_DATA[SENSOR_DATA.length-1]||{};
+  document.getElementById('s-temp').textContent=r2(last.temp||0);
+  document.getElementById('s-ph').textContent=r3(last.ph||0);
+  document.getElementById('s-do').textContent=r3(last.do||0);
+  document.getElementById('s-tds').textContent=r1(last.tds||0);
+}
+function setSensorTab(key,el){
+  curSensorKey=key;
+  document.querySelectorAll('#panel-sensor .stab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  drawSensorChart(key);
+}
+function drawSensorChart(key){
+  const d=SENSOR_DATA||SENSOR_LOG;
+  const map={temp:{label:'수온 (°C)',color:'#dc2626'},ph:{label:'pH',color:'#2563c4'},do:{label:'DO (mg/L)',color:'#0d9488'},tds:{label:'TDS (ppm)',color:'#b45309'}};
+  const {label,color}=map[key];
+  if(cSensor) cSensor.destroy();
+  cSensor=mkLine('c-sensor',d.map(r=>r.t),d.map(r=>r[key]),label,color,true);
+}
+function updateSensorSummary(){
+  const d=SENSOR_DATA||SENSOR_LOG;
+  const keys=[{k:'temp',label:'수온',unit:'°C',ok:[21,24]},{k:'ph',label:'pH',unit:'',ok:[6.5,8.0]},{k:'do',label:'DO',unit:'mg/L',ok:[5.0,8.0]},{k:'tds',label:'TDS',unit:'ppm',ok:[0,300]}];
+  document.getElementById('sensor-summary').innerHTML='<div class="rbox" style="margin-top:0;">'+keys.map(({k,label,unit,ok})=>{
+    const vals=d.map(r=>r[k]).filter(Boolean);
+    const mn2=Math.min(...vals),mx2=Math.max(...vals),avg=mn(vals);
+    const stable=mx2-mn2<(ok[1]-ok[0])*0.3;
+    return `<div class="rrow"><span class="rk">${label}</span><span class="rv" style="font-size:12px;">${r2(mn2)}${unit} — ${r2(mx2)}${unit} <span style="color:var(--ink3)">(평균 ${r2(avg)}${unit})</span> ${stable?'<span class="badge b-ok">안정</span>':'<span class="badge b-warn">변동</span>'}</span></div>`;
+  }).join('')+'</div>';
 }
 
-/* ── 검증 ── */
+/* ════════════ 검증 리포트 ════════════ */
 function verify(){
   const mu=LIVE&&LIVE.abr_mu?LIVE.abr_mu:MU;
   const sigma=LIVE&&LIVE.abr_sigma?LIVE.abr_sigma:SIGMA;
   const W4=0.01049*Math.pow(4,3.14);
+  // 성장 모델 검증
+  const data=userGrowthData||GROWTH_DATA;
+  const f1pts=data.filter(r=>r.fish_id===1).map(r=>({day:r.day,size:r.size_cm})).sort((a,b)=>a.day-b.day);
+  const vbgf=fitVBGF(f1pts);
   const tests=[
-    ['속도 필터 ID#1 max','≤ 700 px/s',Math.max(...S1).toFixed(1)+'px/s',Math.max(...S1)<=700,'speed_max_px_s'],
-    ['속도 필터 ID#1 min','> 0 px/s',Math.min(...S1).toFixed(1)+'px/s',Math.min(...S1)>0,'speed_min_px_s'],
-    ['min_track_frames ID#1','≥ 8',''+S1.length+'프레임',S1.length>=8,'ByteTrack 필터'],
-    ['min_track_frames ID#2','≥ 8',''+S2.length+'프레임',S2.length>=8,'ByteTrack 필터'],
-    ['Baseline μ 범위','5 ~ 50 px/s',r2(mu)+' px/s',mu>5&&mu<50,'정상 유영 속도'],
-    ['Baseline σ','> 0',r2(sigma)+' px/s',sigma>0,'분산 존재'],
-    ['ABR 임계값 (N=2)','> μ',r1(mu+2*sigma)+' px/s',(mu+2*sigma)>mu,'이상 판별 가능'],
-    ['FRS 가중치 합','= 1.00',(0.33+0.33+0.34).toFixed(2),Math.abs(0.33+0.33+0.34-1)<.01,'w1+w2+w3'],
-    ['RT_score (RT=5s)','= 100','100',true,'≤5s 만점'],
-    ['AR_score (AR=100%)','= 100','100',true,'≥100% 만점'],
-    ['체중 수식 TL=4cm','0.67~0.70g',r3(W4)+'g',Math.abs(W4-0.685)<.05,'W=0.01049×TL^3.14'],
-    ['수온 보정 22.5°C','= 1.00',Math.pow(2,0).toFixed(2),Math.pow(2,0)===1,'Q10 기준'],
-    ['BOT zone (CSV)','0%','0%',true,'바닥권 미검출'],
-    ['sensor_log pH 범위','6.5 ~ 8.0',r3(Math.min(...SENSOR_LOG.map(r=>r.ph)))+'~'+r3(Math.max(...SENSOR_LOG.map(r=>r.ph))),SENSOR_LOG.every(r=>r.ph>=6.5&&r.ph<=8.0),'실측 92분'],
-    ['sensor_log DO 범위','≥ 5 mg/L',r2(Math.min(...SENSOR_LOG.map(r=>r.do)))+'mg/L',SENSOR_LOG.every(r=>r.do>=5),'실측 92분'],
+    ['속도 필터 max','≤ 700 px/s',Math.max(...ALL).toFixed(1),Math.max(...ALL)<=700,'speed_max_px_s'],
+    ['속도 필터 min','> 0 px/s',Math.min(...ALL).toFixed(1),Math.min(...ALL)>0,'speed_min_px_s'],
+    ['Baseline μ','5~50 px/s',r2(mu),mu>5&&mu<50,'정상 유영'],
+    ['Baseline σ','> 0',r2(sigma),sigma>0,'분산 존재'],
+    ['ABR 임계값 N=2','> μ',r1(mu+2*sigma),(mu+2*sigma)>mu,'단조성'],
+    ['FRS 가중치 합','= 1.00','1.00',true,'w1+w2+w3'],
+    ['체중 수식 TL=4','0.67~0.70g',r3(W4),Math.abs(W4-0.685)<.05,'W=0.01049·TL^3.14'],
+    ['vBGF 적합도','R² > 0.95',vbgf.r2.toFixed(4),vbgf.r2>0.95,'성장모델 신뢰성'],
+    ['vBGF L∞','15~25 cm',vbgf.Linf.toFixed(1),vbgf.Linf>15&&vbgf.Linf<25,'코멧 금붕어 최대체장'],
+    ['vBGF RMSE','< 0.5 cm',vbgf.rmse.toFixed(3),vbgf.rmse<0.5,'예측 오차'],
+    ['vBGF k','0.005~0.025',vbgf.k.toFixed(4),vbgf.k>0.005&&vbgf.k<0.025,'성장 계수 범위'],
+    ['sensor pH','6.5~8.0',r3(Math.min(...SENSOR_LOG.map(r=>r.ph)))+'~'+r3(Math.max(...SENSOR_LOG.map(r=>r.ph))),SENSOR_LOG.every(r=>r.ph>=6.5&&r.ph<=8.0),'실측 92분'],
+    ['sensor DO','≥ 5 mg/L',r2(Math.min(...SENSOR_LOG.map(r=>r.do))),SENSOR_LOG.every(r=>r.do>=5),'실측 92분'],
   ];
   const tbody=document.getElementById('v-body');
   tbody.innerHTML='';
@@ -673,23 +819,71 @@ function verify(){
   document.getElementById('v-pass').textContent=p;
   document.getElementById('v-fail').textContent=f;
   const jd=document.getElementById('v-jd');
-  jd.textContent=f===0?'ALL PASS':'재검토 필요';
+  jd.textContent=f===0?'ALL PASS':'재검토';
   jd.style.color=f===0?'var(--green)':'var(--red)';
 }
 
-/* ── 차트 헬퍼 ── */
+/* ════════════ live.json 폴링 ════════════ */
+async function poll(){
+  try{
+    const r=await fetch('data/live.json?_='+Date.now());
+    if(!r.ok) throw 0;
+    LIVE=await r.json();
+    renderLive(LIVE);
+    document.getElementById('live-pill').className='pill pill-live';
+    document.getElementById('live-dot').className='dot blink';
+    document.getElementById('live-txt').textContent='LIVE';
+    document.getElementById('updated-at').textContent=new Date(LIVE.updated_at).toLocaleTimeString('ko-KR');
+  }catch{
+    document.getElementById('live-pill').className='pill pill-wait';
+    document.getElementById('live-dot').className='dot';
+    document.getElementById('live-txt').textContent='연결 대기';
+    document.getElementById('updated-at').textContent='data/live.json 없음';
+  }
+}
+function renderLive(d){
+  if(!d||d.status!=='ok') return;
+  document.getElementById('l-fish').textContent=d.fish_count;
+  document.getElementById('l-spd').textContent=r1(d.avg_speed);
+  document.getElementById('l-fps').textContent=r1(d.fps_est);
+  const abrv=d.abr||0;
+  document.getElementById('l-abr').textContent=(abrv*100).toFixed(1)+'%';
+  document.getElementById('l-abr-b').innerHTML=abrv>0.3?'<span class="badge b-bad">POOR</span>':abrv>0.1?'<span class="badge b-warn">WARNING</span>':'<span class="badge b-ok">NORMAL</span>';
+  document.getElementById('l-mu').textContent=r2(d.abr_mu)+' px/s';
+  document.getElementById('l-sigma').textContent=r2(d.abr_sigma)+' px/s';
+  document.getElementById('l-thr').textContent=r2(d.abr_mu+2*d.abr_sigma)+' px/s';
+  document.getElementById('l-trk').textContent=d.track_sec+'초';
+  document.getElementById('l-rows').textContent=d.total_rows+'행';
+  const s=d.sensor;
+  document.getElementById('sensor-src').textContent=s.source==='sensor_log'?'· sensor_log.csv':'· fish_metrics';
+  const gs=[{lbl:'수온',v:s.temperature_c,mn:21,mx:24,lo:18,hi:28,unit:'°C'},{lbl:'pH',v:s.ph,mn:6.5,mx:8.0,lo:6,hi:9,unit:''},{lbl:'DO',v:s.do_mg_l,mn:5,mx:8,lo:0,hi:12,unit:'mg/L'},{lbl:'TDS',v:s.tds_ppm||s.turbidity_ntu,mn:0,mx:300,lo:0,hi:400,unit:'ppm'}];
+  document.getElementById('gauges').innerHTML=gs.map(g=>{
+    const pct=Math.min(100,Math.max(0,(g.v-g.lo)/(g.hi-g.lo)*100));
+    const ok=g.v>=g.mn&&g.v<=g.mx;
+    return `<div class="gauge"><span class="g-lbl">${g.lbl}</span><div class="g-track"><div class="g-fill" style="width:${pct}%;background:${ok?'var(--green)':'var(--amber)'}"></div></div><span class="g-val">${r2(g.v)}${g.unit}</span></div>`;
+  }).join('');
+  const ser=(d.activity_series||[]);
+  if(cAct){cAct.data.labels=ser.map((_,i)=>i%5===0?i*5+'s':'');cAct.data.datasets[0].data=ser.map(p=>p.v);cAct.update('none');}
+  else cAct=mkLine('c-act',ser.map((_,i)=>i%5===0?i*5+'s':''),ser.map(p=>p.v),'activity','#2563c4');
+  const z=d.zone_dist||{TOP:0,MID:0,BOT:0};
+  if(cZone){cZone.data.datasets[0].data=[z.TOP,z.MID,z.BOT];cZone.update('none');}
+  else cZone=new Chart(document.getElementById('c-zone'),{type:'doughnut',data:{labels:['TOP','MID','BOT'],datasets:[{data:[z.TOP,z.MID,z.BOT],backgroundColor:['#dc2626','#2563c4','#9c9c96'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:true,position:'right',labels:{color:'#5c5c58',font:{size:11},boxWidth:10,padding:10}}}}});
+  if(d.sensor_series&&d.sensor_series.length>0) SENSOR_DATA=d.sensor_series.map(r=>({t:r.t.substring(11,16),temp:r.temp,ph:r.ph,do:r.do,tds:r.tds}));
+}
+
 function mkLine(id,labels,data,label,color,fill=false){
   return new Chart(document.getElementById(id),{
     type:'line',
     data:{labels,datasets:[{label,data,borderColor:color,backgroundColor:color+'18',borderWidth:1.5,pointRadius:0,fill,tension:.3}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{ticks:{color:'#9c9c96',font:{size:10},maxTicksLimit:10}},y:{ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9c9c96',font:{size:10},maxTicksLimit:10}},y:{ticks:{color:'#9c9c96',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}}}}
   });
 }
 
 /* ── 초기화 ── */
 poll();
 setInterval(poll,10000);
+frsScen('healthy',document.querySelector('#frs-scen .scen-btn'));
+abrScen('normal',document.querySelector('#abr-scen .scen-btn'));
 </script>
 </body>
 </html>

@@ -1,166 +1,143 @@
-# config.yaml — 금붕어 자동 사육 AI 시스템 (v2.0)
-# 하드코딩 금지 원칙: 모든 가변 설정값은 여기서 관리
-
-# ─────────────────────────────────────────────────────────────────────────
-# 카메라 / 모델
-# ─────────────────────────────────────────────────────────────────────────
 camera:
-  source: 0                        # 카메라 인덱스 (영상 파일이면 경로 입력)
-  backend: "v4l2"                  # Pi CSI 카메라: v4l2 / 일반 웹캠: auto
-  px_to_cm_ratio: 0.0              # 1px당 cm 환산 비율 — 0이면 성장 기록 스킵 (카메라 고정 후 실측 필수)
-
+  source: 0
+  backend: picamera2
+  px_to_cm_ratio: 0.0
 model:
   path: models/goldfish_finetuned_best.pt
-  imgsz: 416                       # FPS 테스트 확정값
+  imgsz: 416
   conf: 0.4
-  iou: 0.45                        # NMS 중복박스 제거 강화
-  tracker: "bytetrack.yaml"
-
+  iou: 0.45
+  tracker: bytetrack.yaml
 pipeline:
-  fps_ref: 14.0                    # FPS 테스트 결과 기반
-  activity_window: 28              # fps_ref × 2초
-
-  # 속도 필터 (논문 실측 기반 — 실측 후 조정 가능)
-  speed_max_px_s: 700.0            # 비현실적 속도 제거 (700px/s 이상 노이즈)
-  speed_min_px_s: 0.0              # 속도 0 제거 (정지 프레임 노이즈)
-
-  # 짧은 트랙 필터
-  min_track_frames: 8              # 이 값 미만 ID는 노이즈로 제거 (논문 실측값 8프레임 기준)
-  expected_fish_count: 3           # 수조 내 실제 물고기 수 (대표 ID 추출 기준)
-
-# ─────────────────────────────────────────────────────────────────────────
-# Zone 기준 (카메라 위치 변경 시 이 값만 수정)
-# ─────────────────────────────────────────────────────────────────────────
+  fps_ref: 14.0
+  activity_window: 28
+  speed_max_px_s: 700.0
+  speed_min_px_s: 0.0
+  min_track_frames: 8
+  expected_fish_count: 2
 zone:
   top_ratio: 0.3
   bottom_ratio: 0.7
-
-# ─────────────────────────────────────────────────────────────────────────
-# 센서 (ESP32 UART)
-# ─────────────────────────────────────────────────────────────────────────
 sensor:
-  port: "/dev/ttyACM0"             # USB 연결 시 (ESP32-S3)
-  # port: "/dev/ttyAMA0"           # GPIO 직결 시 (주석 해제)
+  mode: serial
+  port: /dev/ttyACM0
   baudrate: 115200
-  send_interval_hz: 1
-  sample_count: 10                 # 노이즈 필터 평균 샘플 수
-
-# ─────────────────────────────────────────────────────────────────────────
-# 수질 기준값 (도메인 설계 문서 2.2)
-# ─────────────────────────────────────────────────────────────────────────
+  timeout_sec: 1.0
+  send_interval_hz: 0.1
+  sample_count: 10
 water_quality:
   temperature_c:
     min: 21.0
     max: 24.0
-    actuator_heat_on:  21.5        # 히터 가동 기준 (21.5℃ 미만)
-    actuator_heat_off: 24.0        # 히터 중단 기준 (히터 자체 온도조절기)
-    actuator_cool_on:  -999.0      # 냉각팬 상시 ON (조건 없음)
-    actuator_cool_off: 999.0       # 냉각팬 상시 ON (꺼지는 조건 없음)
-
+    actuator_heat_on: 21.5
+    actuator_heat_off: 24.0
+    actuator_cool_on: -999.0
+    actuator_cool_off: 999.0
   ph:
     min: 6.5
     max: 8.0
     optimal_min: 7.4
     optimal_max: 7.5
-
   do_mg_l:
     min: 5.0
     max: 8.0
-    critical_min: 4.0              # 에어펌프 즉각 가동
-    actuator_on:  6.0              # 6.0mg/L 이하 → 에어펌프 ON
-    actuator_off: 8.0              # 8.0mg/L 이상 → 에어펌프 OFF
-
+    critical_min: 4.0
+    actuator_on: 6.0
+    actuator_off: 8.0
   turbidity_ntu:
-    max: 50.0                      # 여과기 가동
-    stress_level: 100.0            # 금붕어 스트레스 기준
+    max: 50.0
+    stress_level: 100.0
     actuator_filter_on: 50.0
     actuator_filter_off: 20.0
-
-# ─────────────────────────────────────────────────────────────────────────
-# 조명
-# ─────────────────────────────────────────────────────────────────────────
 lighting:
-  day_hours: 8                     # 주간 조명 시간 (최대 10시간)
-  on_hour: 8                       # 조명 켜는 시각 (8시)
-  off_hour: 16                     # 조명 끄는 시각 (16시)
-
-# ─────────────────────────────────────────────────────────────────────────
-# 성장 단계 (도메인 설계 문서 2.4)
-# ─────────────────────────────────────────────────────────────────────────
+  day_hours: 8
+  on_hour: 8
+  off_hour: 16
 growth_stage:
-  fry:                             # 치어 (~3cm 미만)
+  fry:
     length_max_cm: 3.0
-    feed_ratio: 0.10               # 체중의 10%/day
+    feed_ratio: 0.1
     meals_per_day: 3
-  juvenile:                        # 유어 ★ 현재 단계 (3~5cm 코멧 금붕어 3마리)
+  juvenile:
     length_min_cm: 3.0
     length_max_cm: 7.0
-    feed_ratio: 0.03               # 체중의 3%/day
+    feed_ratio: 0.03
     meals_per_day: 3
-  adult:                           # 성어
+  adult:
     length_min_cm: 7.0
     feed_ratio: 0.01
     meals_per_day: 2
-
-# ─────────────────────────────────────────────────────────────────────────
-# 급이 제어
-# ─────────────────────────────────────────────────────────────────────────
 feeding:
-  complete_within_sec: 60          # 30~60초 내 완식 목표
-  leftover_check_sec: 300          # 5분 후 잔여 먹이 확인
-  overfeeding_delta_ntu: 10.0      # 급이 후 탁도 상승 임계값 (실측 필요)
-  max_daily_meals: 5               # 하루 최대 급이 횟수 (초과 시 경고)
-
-# ─────────────────────────────────────────────────────────────────────────
-# 분석 모듈 (미확정 항목 — 실측 후 수정)
-# ─────────────────────────────────────────────────────────────────────────
+  complete_within_sec: 60
+  leftover_check_sec: 300
+  overfeeding_delta_ntu: 10.0
+  max_daily_meals: 5
+  times:
+  - 08:00
+  - '18:00'
+  tolerance_sec: 30
+  allow_early_trigger: false
 analytics:
-  # FRS 가중치 (미확정 — 초기 실험 후 결정)
   frs:
-    w1: 0.33      # RT (반응시간) 가중치
-    w2: 0.33      # AR (활동증가율) 가중치
-    w3: 0.34      # SF (수면접근빈도) 가중치
-    before_sec: 60.0   # [8] 급이 전 기준 구간 (초)
-    during_sec: 300.0  # [8] 급이 중 관찰 구간 (초)
-  # ABR (이상 행동율)
+    w1: 0.33
+    w2: 0.33
+    w3: 0.34
+    before_sec: 60.0
+    during_sec: 180.0
+    amount_history_size: 3
+    min_pre_coverage_ratio: 0.8
+    min_post_coverage_ratio: 0.8
+    min_detected_fish_ratio: 0.5
+    min_frame_rate_ratio: 0.35
   abr:
-    sigma_threshold: 2.0           # |speed - μ| > N×σ
-    baseline_days: 3               # Baseline 수집 기간 (미확정)
-
-  # 미검출 처리
+    sigma_threshold: 2.0
+    baseline_days: 3
   detection:
-    missing_frame_threshold: 10    # N프레임 이상 미검출 시 "미검출" 상태 (미확정)
-    iou_overlap_threshold: 0.0     # overlap 판단 기준
-
-# ─────────────────────────────────────────────────────────────────────────
-# 탁도 급이 피드백 (실측 보정 필요)
-# ─────────────────────────────────────────────────────────────────────────
+    missing_frame_threshold: 10
+    iou_overlap_threshold: 0.0
+    representative_lost_sec: 5.0
 turbidity_feedback:
-  alpha: 0.5        # TSS_generated = alpha × 급이량(g)  — 실측 필요
-  eta: 0.8          # 여과 효율                          — 실측 필요
-  k: 2.0            # NTU = k × TSS                     — 실측 필요
-
-# ─────────────────────────────────────────────────────────────────────────
-# 서버 전송 정책
-# ─────────────────────────────────────────────────────────────────────────
+  alpha: 0.5
+  eta: 0.8
+  k: 2.0
 server:
-  enabled: true                   # 실제 전송 시 true로 변경
-  mock: true                       # true=로그만 출력 / false=실제 전송
-  send_fields:                     # 전송 허용 필드 (참고용)
-    - timestamp
-    - fish_count
-    - avg_speed
-    - top_ratio
-    - anomaly_flag
-    - frs_score
-    - activity_level
-    - feeding_state
-
-# ─────────────────────────────────────────────────────────────────────────
-# 데이터 저장
-# ─────────────────────────────────────────────────────────────────────────
+  enabled: true
+  mock: false
+  event_log_enabled: false
+  send_fields:
+  - timestamp
+  - fish_count
+  - avg_speed
+  - top_ratio
+  - anomaly_flag
+  - frs_score
+  - activity_level
+  - feeding_state
 storage:
-  output_dir: "data"
-  flush_every: 30                  # N행마다 CSV flush
-  baseline_csv: "data/activity_baseline.csv"   # [7] Baseline 저장 경로
-  feeding_events_csv: "data/feeding_events.csv" # [5] 급이 이벤트 저장 경로
+  output_dir: data
+  flush_every: 30
+  baseline_csv: data/activity_baseline.csv
+  feeding_events_csv: data/feeding_events.csv
+growth_prediction:
+  enabled: true
+  expected_fish_count: 2
+  measurement_field: bbox_long_side_px
+  allow_size_index_fallback: false
+  min_records: 7
+  min_span_days: 7.0
+  fit_aggregation_days: 1.0
+  history_csv: data/growth_records.csv
+  result_csv: data/growth_prediction.csv
+  holdout_ratio: 0.2
+  confidence_interval_z: 1.96
+  min_l_inf_cm: 8.0
+  max_l_inf_cm: 40.0
+  default_l_inf_cm: 20.0
+  max_daily_growth_cm: 0.3
+  max_measurement_jump_cm: 1.0
+  aggregation_window_sec: 3600
+  min_samples_per_record: 30
+  aggregation_quantile: 0.75
+  max_overlap_iou: 0.15
+  stable_id_max_lost_sec: 10.0
+  stable_id_max_distance_px: 120.0
