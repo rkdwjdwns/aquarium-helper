@@ -405,3 +405,131 @@ class EventLog(models.Model):
 
     def __str__(self):
         return f"[{self.level}] {self.event_type} — {self.tank.name} {self.created_at:%Y-%m-%d %H:%M}"
+
+# ──────────────────────────────────────────────
+# 어항 상태 진단 코드 백과사전
+# ──────────────────────────────────────────────
+
+class StateCode(models.Model):
+    """수온/DO/pH/탁도 등 어항 상태를 설명하는 진단 코드"""
+
+    CATEGORY_CHOICES = [
+        ('TEMP', '수온'),
+        ('PH', 'pH'),
+        ('DO', '용존산소'),
+        ('TURBIDITY', '탁도'),
+        ('BEHAVIOR', '행동'),
+        ('SYSTEM', '시스템'),
+    ]
+
+    LEVEL_CHOICES = [
+        ('INFO', '정보'),
+        ('WARNING', '주의'),
+        ('DANGER', '위험'),
+    ]
+
+    code = models.CharField(max_length=30, unique=True)
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES
+    )
+
+    level = models.CharField(
+        max_length=10,
+        choices=LEVEL_CHOICES,
+        default='WARNING'
+    )
+
+    title = models.CharField(max_length=100)
+
+    description = models.TextField(blank=True)
+
+    causes = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="발생 가능한 원인 목록"
+    )
+
+    effects = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="물고기에게 미칠 수 있는 영향 목록"
+    )
+
+    actions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="사용자 조치 방법 목록"
+    )
+
+    prevention = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="예방 방법 목록"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = 'monitoring'
+        ordering = ['category', 'code']
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
+class TankStateEvent(models.Model):
+    """특정 어항에서 실제 발생한 상태 코드 기록"""
+
+    tank = models.ForeignKey(
+        Tank,
+        on_delete=models.CASCADE,
+        related_name='state_events'
+    )
+
+    state_code = models.ForeignKey(
+        StateCode,
+        on_delete=models.PROTECT,
+        related_name='events'
+    )
+
+    current_value = models.FloatField(
+        null=True,
+        blank=True
+    )
+
+    evidence = models.JSONField(
+        default=dict,
+        blank=True
+    )
+
+    is_resolved = models.BooleanField(default=False)
+
+    detected_at = models.DateTimeField(auto_now_add=True)
+
+    resolved_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        app_label = 'monitoring'
+        ordering = ['-detected_at']
+
+        indexes = [
+            models.Index(
+                fields=['tank', 'is_resolved']
+            ),
+            models.Index(
+                fields=['tank', 'state_code', 'is_resolved']
+            ),
+        ]
+
+    def __str__(self):
+        status = "해결" if self.is_resolved else "발생중"
+
+        return (
+            f"[{self.tank.name}] "
+            f"{self.state_code.code} - {status}"
+        )
