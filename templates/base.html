@@ -1,281 +1,206 @@
 <!DOCTYPE html>
-<html lang="ko" class="h-full">
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Fish Manager - 어항 도우미</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>어항 도우미</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#30375f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="어항 도우미">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+        media="print" onload="this.media='all'">
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:"Pretendard",-apple-system,BlinkMacSystemFont,sans-serif;background:#edf2f6;color:#252d3b;margin:0;padding:0}
+    [x-cloak]{display:none!important}
 
-    {# ── CDN 사전 연결 (페이지 로딩 단축) ── #}
-    <link rel="preconnect" href="https://cdn.tailwindcss.com">
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
-    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    .topbar{
+      position:fixed;top:0;left:0;right:0;height:86px;z-index:1000;
+      background:#30375f;display:flex;align-items:center;
+      justify-content:space-between;padding:0 38px;color:#fff;
+    }
+    .topbar-brand{
+      color:#fff;text-decoration:none;font-size:24px;font-weight:900;
+      letter-spacing:-1.5px;text-shadow:0 2px 3px rgba(0,0,0,.35);
+    }
+    .topbar-right{display:flex;align-items:center;gap:18px;font-size:16px}
+    .user-pill{
+      display:flex;align-items:center;gap:8px;
+      border:1.5px solid #fff;border-radius:28px;padding:7px 13px 7px 10px;
+    }
+    .user-circle{
+      width:32px;height:32px;border-radius:50%;
+      display:grid;place-items:center;
+      background:#f5f8ff;color:#2f68e7;font-size:14px;font-weight:900;
+    }
+    .logout-btn{
+      border:0;background:none;color:#fff;font-size:16px;cursor:pointer;
+      display:flex;align-items:center;gap:7px;
+    }
+    .chat-fab{
+      position:fixed;right:38px;bottom:30px;width:58px;height:58px;
+      border:5px solid #eef2fb;border-radius:50%;background:#7399eb;
+      box-shadow:0 10px 24px rgba(0,0,0,.20);cursor:pointer;z-index:1200;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .chat-panel{
+      position:fixed;inset:auto 36px 100px auto;margin:0;
+      width:380px;height:600px;padding:0;border:0;border-radius:28px;
+      overflow:hidden;background:#f7faff;
+      box-shadow:0 20px 45px rgba(0,0,0,.25);
+      font-family:"Pretendard",Arial,sans-serif;
+      transform:translateX(150%);transition:transform .4s cubic-bezier(.4,0,.2,1);
+      z-index:1100;
+    }
+    .chat-panel.open{transform:translateX(0)}
+    #side-chat-window{scroll-behavior:smooth}
+    .chat-msg{white-space:pre-line;word-break:break-word}
 
-    {# ── PWA 설정 ── #}
-    <link rel="manifest" href="/static/manifest.json">
-    <meta name="theme-color" content="#2563EB">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="어항 도우미">
-    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="/static/icons/icon-152.png">
-    <link rel="apple-touch-icon" sizes="144x144" href="/static/icons/icon-144.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
-
-    {# ── Tailwind (렌더 블로킹 불가피 — preconnect로 최소화) ── #}
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    {# ── Alpine.js (defer: DOM 파싱 완료 후 실행) ── #}
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-
-    {# ── Pretendard 폰트 (비차단 로딩 — 렌더링 지연 없음) ── #}
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
-          media="print" onload="this.media='all'">
-    <noscript>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-    </noscript>
-
-    <style>
-        body { font-family: "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif; background-color: #F8FAFC; }
-        [x-cloak] { display: none !important; }
-        .active-stable:active { transform: scale(0.98); }
-        #chatbot-sidebar {
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(15px);
-            background-color: rgba(255, 255, 255, 0.97);
-            width: 380px; height: 600px;
-            position: fixed; bottom: 100px; right: 30px;
-            border-radius: 2.5rem;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
-            z-index: 70;
-        }
-        @media (max-width: 768px) {
-            #chatbot-sidebar { width: 100%; height: 80vh; right: 0; bottom: 0; border-radius: 2.5rem 2.5rem 0 0; }
-        }
-        #side-chat-window { scroll-behavior: smooth; }
-        .chat-msg { white-space: pre-line; word-break: break-word; }
-    </style>
+    @media(max-width:700px){
+      .topbar{padding:0 18px}
+      .topbar-right{gap:10px;font-size:14px}
+      .chat-panel{width:100%;height:80vh;right:0;bottom:0;border-radius:2.5rem 2.5rem 0 0;inset:auto 0 0 0}
+      .chat-fab{right:20px;bottom:20px}
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
 </head>
-<body class="flex flex-col min-h-screen">
+<body>
 
-    <nav class="bg-white border-b sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex justify-between items-center">
-            <a href="/" class="text-base sm:text-xl font-bold text-blue-600 shrink-0">🐠 어항 도우미</a>
-            <div class="flex items-center gap-2 sm:gap-4 min-w-0">
-                {% if user.is_authenticated %}
-                <a href="{% url 'chatbot:chat_page' %}"
-                   class="text-xs font-bold text-blue-500 hover:text-blue-700 transition-colors">
-                    채팅 내역
-                </a>
-                <span class="text-xs sm:text-sm font-bold truncate max-w-[80px] sm:max-w-none">{{ user.nickname|default:user.username }}님</span>
-                <form action="{% url 'accounts:logout' %}" method="post">
-                    {% csrf_token %}
-                    <button type="submit" class="text-xs text-red-500 font-bold whitespace-nowrap">로그아웃</button>
-                </form>
-                {% else %}
-                <a href="{% url 'accounts:login' %}" class="text-sm font-bold">로그인</a>
-                {% endif %}
-            </div>
-        </div>
-    </nav>
-
-    {# ── 토스트 메시지 ── #}
-    {% if messages %}
-    <div id="toast-container" class="fixed top-16 right-4 z-[100] flex flex-col gap-1.5">
-        {% for msg in messages %}
-        <div class="toast-msg px-4 py-2 rounded-xl text-xs font-bold shadow-md
-            {% if msg.tags == 'success' %}bg-emerald-500 text-white
-            {% elif msg.tags == 'error' %}bg-red-500 text-white
-            {% else %}bg-blue-500 text-white{% endif %}">
-            {{ msg }}
-        </div>
-        {% endfor %}
+<header class="topbar">
+  <a class="topbar-brand" href="/">어항 도우미</a>
+  <div class="topbar-right">
+    {% if user.is_authenticated %}
+    <div class="user-pill">
+      <div class="user-circle">{{ user.nickname|default:user.username|first }}</div>
+      <span>{{ user.nickname|default:user.username }} 님</span>
     </div>
-    <script>
-        setTimeout(() => {
-            const c = document.getElementById('toast-container');
-            if (c) { c.style.transition = 'opacity 0.4s'; c.style.opacity = '0'; setTimeout(() => c.remove(), 400); }
-        }, 2500);
-    </script>
+    <form action="{% url 'accounts:logout' %}" method="post" style="margin:0">
+      {% csrf_token %}
+      <button type="submit" class="logout-btn">로그아웃 <span style="font-size:24px">⇥</span></button>
+    </form>
+    {% else %}
+    <a href="{% url 'accounts:login' %}" style="color:#fff;text-decoration:none;font-weight:700">로그인</a>
     {% endif %}
+  </div>
+</header>
 
-    {# ── 메인 콘텐츠 ── #}
-    <main class="flex-grow container mx-auto px-3 sm:px-4 py-4 sm:py-10 max-w-6xl">
-        {% block content %}{% endblock %}
-    </main>
+{% if messages %}
+<div style="position:fixed;top:96px;right:18px;z-index:2000;display:flex;flex-direction:column;gap:6px">
+  {% for msg in messages %}
+  <div style="padding:10px 18px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.12);
+    {% if msg.tags == 'success' %}background:#10b981;color:#fff
+    {% elif msg.tags == 'error' %}background:#ef4444;color:#fff
+    {% else %}background:#3b82f6;color:#fff{% endif %}">{{ msg }}</div>
+  {% endfor %}
+</div>
+<script>setTimeout(()=>{document.querySelectorAll('[style*="position:fixed"][style*="top:96px"]').forEach(el=>{el.style.opacity='0';el.style.transition='opacity .4s';setTimeout(()=>el.remove(),400)})},2500)</script>
+{% endif %}
 
-    {# ── 플로팅 챗봇 버튼 ── #}
-    <button onclick="toggleChat()"
-            class="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 w-14 h-14 sm:w-16 sm:h-16 bg-blue-600 rounded-full shadow-2xl flex items-center justify-center text-2xl sm:text-3xl z-[45] hover:scale-110 transition-all border-4 border-white">
-        🤖
-    </button>
+<main style="padding-top:86px">
+  {% block content %}{% endblock %}
+</main>
 
-    {# ── 플로팅 챗봇 패널 ── #}
-    <div id="chatbot-sidebar" style="transform: translateX(150%);" class="flex flex-col">
+<!-- 챗봇 FAB -->
+<button class="chat-fab" onclick="toggleChat()" aria-label="챗봇 열기">
+  <svg width="31" height="31" viewBox="0 0 24 24" fill="none">
+    <path d="M21 11.5C21 16.2 16.97 20 12 20C10.65 20 9.38 19.72 8.23 19.22L3.5 20.5L4.79 16.64C3.67 15.2 3 13.42 3 11.5C3 6.81 7.03 3 12 3C16.97 3 21 6.81 21 11.5Z"
+      stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="8.5" cy="11.5" r="1" fill="#111827"/>
+    <circle cx="12" cy="11.5" r="1" fill="#111827"/>
+    <circle cx="15.5" cy="11.5" r="1" fill="#111827"/>
+  </svg>
+</button>
 
-        {# 헤더 #}
-        <div class="p-5 bg-gradient-to-r from-blue-600 to-cyan-500 flex justify-between items-center text-white rounded-t-[2.5rem]">
-            <div>
-                <h2 class="font-black text-sm">어항 도우미</h2>
-                <p class="text-[10px] opacity-80">물고기 추천 · 수질 설정 · 관리법</p>
-            </div>
-            <div class="flex items-center gap-3">
-                {% if user.is_authenticated %}
-                <a href="{% url 'chatbot:chat_page' %}"
-                   class="text-[10px] font-bold text-white/70 hover:text-white transition-colors">
-                    내역 보기
-                </a>
-                {% endif %}
-                <button onclick="toggleChat()" class="text-2xl leading-none">&times;</button>
-            </div>
-        </div>
-
-        {# 빠른 질문 버튼 #}
-        <div id="quick-chips" class="flex gap-2 px-4 pt-3 pb-1 flex-wrap">
-            <button onclick="quickSend('초보자에게 맞는 물고기 추천해줘')"
-                    class="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors whitespace-nowrap">
-                물고기 추천
-            </button>
-            <button onclick="quickSend('금붕어 적정 수온과 pH 알려줘')"
-                    class="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors whitespace-nowrap">
-                금붕어 수질
-            </button>
-            <button onclick="quickSend('처음 어항 세팅하는 방법 알려줘')"
-                    class="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors whitespace-nowrap">
-                어항 세팅
-            </button>
-            <button onclick="quickSend('물고기 먹이 양과 횟수 알려줘')"
-                    class="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors whitespace-nowrap">
-                급이 방법
-            </button>
-        </div>
-
-        {# 메시지 영역 #}
-        <div id="side-chat-window" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#F8FBFF]">
-            <div class="flex justify-start">
-                <div class="bg-white border border-slate-100 text-slate-600 px-4 py-3 rounded-2xl rounded-tl-none text-sm font-medium shadow-sm max-w-[85%] chat-msg">어항 관련 무엇이든 물어보세요.
-물고기 추천, 수질 설정, 관리법을 안내해 드립니다.</div>
-            </div>
-        </div>
-
-        {# 입력창 #}
-        <div class="p-4 bg-white border-t border-slate-50 rounded-b-[2.5rem]">
-            <div class="flex items-end gap-2 bg-slate-50 rounded-2xl px-4 py-2.5">
-                <textarea id="side-user-input"
-                          rows="1"
-                          class="flex-1 bg-transparent text-sm font-medium text-slate-700 placeholder-slate-300 resize-none focus:outline-none leading-relaxed"
-                          style="max-height:80px;"
-                          placeholder="질문을 입력하세요..."
-                          onkeydown="handleSideKey(event)"
-                          oninput="sideAutoResize(this)"></textarea>
-                <button id="side-send-btn"
-                        onclick="sendSideMessage()"
-                        class="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-40">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
+<!-- 챗봇 패널 -->
+<div id="chatPanel" class="chat-panel">
+  <header style="height:76px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(120deg,#2879ed,#12b5c8);color:#fff">
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <strong style="font-size:14px;font-weight:900">어항 도우미</strong>
+      <span style="font-size:10px;opacity:.8">물고기 추천 · 수질 설정 · 관리법</span>
     </div>
+    <div style="display:flex;align-items:center;gap:18px">
+      {% if user.is_authenticated %}
+      <a href="{% url 'chatbot:chat_page' %}" style="color:#fff;text-decoration:none;font-size:12px">내역 보기</a>
+      {% endif %}
+      <button onclick="toggleChat()" style="border:0;background:transparent;color:#fff;font-size:25px;cursor:pointer">×</button>
+    </div>
+  </header>
 
-    {# ── JS (body 끝에 배치 — 렌더링 블로킹 없음) ── #}
-    <script>
-        const SIDE_CSRF = '{{ csrf_token }}';
+  <div id="side-chat-window" style="height:456px;padding:18px;overflow-y:auto;background:#f6f9fd">
+    <div style="max-width:92%;padding:15px 17px;background:#fff;border-radius:5px 17px 17px 17px;color:#546073;font-size:14px;line-height:1.55;box-shadow:0 2px 7px rgba(0,0,0,.08)" class="chat-msg">
+      어항 관련 무엇이든 물어보세요.<br>물고기 추천, 수질 설정, 관리법을 안내해 드립니다.
+    </div>
+  </div>
 
-        function toggleChat() {
-            const s    = document.getElementById('chatbot-sidebar');
-            const open = s.style.transform === 'translateX(0px)';
-            s.style.transform = open ? 'translateX(150%)' : 'translateX(0px)';
-        }
+  <div style="padding:10px 15px;display:flex;align-items:center;gap:8px;background:#fff;border-top:1px solid #f0f2f5">
+    <textarea id="side-user-input" rows="1"
+      style="flex:1;height:44px;padding:10px 16px;border:0;border-radius:24px;background:#f7f9fc;color:#333;font-size:13px;outline:none;resize:none;max-height:80px;font-family:inherit"
+      placeholder="질문을 입력하세요..."
+      onkeydown="handleSideKey(event)" oninput="sideAutoResize(this)"></textarea>
+    <button id="side-send-btn" onclick="sendSideMessage()"
+      style="width:36px;height:36px;flex:none;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#3474e9;cursor:pointer">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" fill="#fff"/>
+      </svg>
+    </button>
+  </div>
+</div>
 
-        function quickSend(text) {
-            document.getElementById('side-user-input').value = text;
-            sendSideMessage();
-            document.getElementById('quick-chips')?.remove();
-        }
+<script>
+const SIDE_CSRF = '{{ csrf_token }}';
 
-        async function sendSideMessage() {
-            const input   = document.getElementById('side-user-input');
-            const message = input.value.trim();
-            if (!message) return;
+function toggleChat(){
+  const p = document.getElementById('chatPanel');
+  p.classList.toggle('open');
+}
 
-            const btn = document.getElementById('side-send-btn');
-            btn.disabled = true;
-            input.value  = '';
-            sideAutoResize(input);
+async function sendSideMessage(){
+  const input = document.getElementById('side-user-input');
+  const message = input.value.trim();
+  if(!message) return;
+  const btn = document.getElementById('side-send-btn');
+  btn.disabled = true;
+  input.value = '';
+  sideAutoResize(input);
+  const win = document.getElementById('side-chat-window');
+  win.innerHTML += `<div style="display:flex;justify-content:flex-end;margin:12px 0"><div style="background:#2f69ef;color:#fff;padding:12px 16px;border-radius:18px 18px 4px 18px;font-size:14px;max-width:85%" class="chat-msg">${message}</div></div>`;
+  win.scrollTop = win.scrollHeight;
+  const lid = 'load-'+Date.now();
+  win.innerHTML += `<div id="${lid}" style="display:flex;margin:8px 0"><div style="background:#fff;border:1px solid #e8ecf1;padding:12px 16px;border-radius:4px 18px 18px 18px"><span>···</span></div></div>`;
+  win.scrollTop = win.scrollHeight;
+  try{
+    const res = await fetch('/chatbot/ask/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':SIDE_CSRF},body:JSON.stringify({message})});
+    const data = await res.json();
+    document.getElementById(lid)?.remove();
+    const reply = data.reply || data.response || '응답을 받지 못했습니다.';
+    win.innerHTML += `<div style="display:flex;margin:8px 0"><div style="background:#fff;border:1px solid #e8ecf1;color:#546073;padding:12px 16px;border-radius:4px 18px 18px 18px;font-size:14px;max-width:85%" class="chat-msg">${reply}</div></div>`;
+  }catch{
+    document.getElementById(lid)?.remove();
+    win.innerHTML += `<div style="padding:10px;color:#ef4444;font-size:13px">서버 연결에 실패했습니다.</div>`;
+  }
+  btn.disabled = false;
+  win.scrollTop = win.scrollHeight;
+}
 
-            const win = document.getElementById('side-chat-window');
-            win.innerHTML += `
-                <div class="flex justify-end">
-                    <div class="bg-blue-600 text-white px-4 py-3 rounded-2xl rounded-tr-none text-sm font-medium max-w-[85%] chat-msg">${message}</div>
-                </div>`;
-            win.scrollTop = win.scrollHeight;
+function handleSideKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendSideMessage()}}
+function sideAutoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,80)+'px'}
 
-            const lid = 'loading-' + Date.now();
-            win.innerHTML += `
-                <div id="${lid}" class="flex justify-start">
-                    <div class="bg-white border border-slate-100 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm">
-                        <div class="flex gap-1.5">
-                            <span class="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style="animation-delay:0ms"></span>
-                            <span class="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style="animation-delay:150ms"></span>
-                            <span class="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style="animation-delay:300ms"></span>
-                        </div>
-                    </div>
-                </div>`;
-            win.scrollTop = win.scrollHeight;
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/static/service-worker.js')
+      .then(r=>console.log('[PWA] SW:',r.scope)).catch(e=>console.warn('[PWA]',e));
+  });
+}
+window.addEventListener('beforeinstallprompt',e=>e.preventDefault());
+</script>
 
-            try {
-                const res  = await fetch('/chatbot/ask/', {
-                    method:  'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': SIDE_CSRF },
-                    body:    JSON.stringify({ message }),
-                });
-                const data = await res.json();
-                document.getElementById(lid)?.remove();
-                const reply = data.reply || data.response || '응답을 받지 못했습니다.';
-                win.innerHTML += `
-                    <div class="flex justify-start">
-                        <div class="bg-white border border-slate-100 text-slate-700 px-4 py-3 rounded-2xl rounded-tl-none text-sm font-medium shadow-sm max-w-[85%] chat-msg">${reply}</div>
-                    </div>`;
-            } catch(e) {
-                document.getElementById(lid)?.remove();
-                win.innerHTML += `
-                    <div class="flex justify-start">
-                        <div class="bg-red-50 text-red-400 px-4 py-3 rounded-2xl text-sm font-medium max-w-[85%]">서버 연결에 실패했습니다.</div>
-                    </div>`;
-            }
-
-            btn.disabled  = false;
-            win.scrollTop = win.scrollHeight;
-        }
-
-        function handleSideKey(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendSideMessage();
-            }
-        }
-
-        function sideAutoResize(el) {
-            el.style.height = 'auto';
-            el.style.height = Math.min(el.scrollHeight, 80) + 'px';
-        }
-    </script>
-
-    {# ── PWA 서비스 워커 ── #}
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/service-worker.js')
-                    .then(reg => console.log('[PWA] SW 등록:', reg.scope))
-                    .catch(err => console.warn('[PWA] SW 실패:', err));
-            });
-        }
-        window.addEventListener('beforeinstallprompt', e => e.preventDefault());
-    </script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

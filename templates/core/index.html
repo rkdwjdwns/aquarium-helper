@@ -1,78 +1,118 @@
 {% extends 'base.html' %}
+{% block extra_css %}
+<style>
+  .section-header{
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid #202020;padding-bottom:18px;
+  }
+  .section-title{
+    display:flex;align-items:center;gap:18px;
+    font-size:29px;font-weight:900;letter-spacing:-1.4px;
+  }
+  .list-icon{font-size:34px;color:#050505}
+  .edit-btn{
+    min-width:103px;height:43px;border:0;border-radius:13px;
+    background:#536ae8;color:#fff;font-size:15px;font-weight:800;
+    cursor:pointer;box-shadow:0 4px 7px rgba(0,0,0,.2);
+  }
+  .cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(500px,550px));
+    gap:28px;padding:40px 32px 0;align-items:start;
+  }
+  .tank-card{
+    min-height:323px;background:#fff;border-radius:30px;
+    padding:27px 38px 26px;box-shadow:0 10px 13px rgba(0,0,0,.25);
+  }
+  .card-head{
+    display:flex;align-items:flex-start;justify-content:space-between;
+    margin-bottom:31px;
+  }
+  .tank-name{font-size:30px;font-weight:900;letter-spacing:-1.7px}
+  .tank-code{margin-top:8px;color:#45bfff;font-size:14px;font-weight:900}
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-bottom:23px}
+  .metric{
+    height:126px;border-radius:31px;background:#ececec;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .metric-label{margin-bottom:25px;color:#737373;font-size:16px;font-weight:800}
+  .metric-value{color:#000;font-size:36px;line-height:1;font-weight:900}
+  .card-actions{display:grid;grid-template-columns:1fr 1fr;gap:39px}
+  .card-btn{
+    height:56px;border:0;border-radius:30px;
+    color:#fff;font-size:17px;font-weight:900;cursor:pointer;
+  }
+  .manage-btn{background:#263f50}
+  .report-btn{background:#2c9df3}
+  .empty-state{padding:45px 32px;color:#7b8390;font-size:16px}
+  @media(max-width:700px){
+    main>div{padding:0 18px}
+    .section-title{font-size:24px}
+    .cards{grid-template-columns:1fr;padding:28px 0 0}
+    .tank-card{padding:24px 20px}
+    .metrics{gap:10px}
+    .card-actions{gap:12px}
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="py-4">
-    <div class="flex justify-between items-end mb-6 sm:mb-8 px-1 sm:px-2">
+<div style="padding:99px 6.2vw 120px">
+
+  <div class="section-header">
+    <h1 class="section-title">
+      <span class="list-icon">☷</span>
+      내 관리 어항
+    </h1>
+    <a href="{% url 'monitoring:tank_list' %}">
+      <button class="edit-btn">☷　편집</button>
+    </a>
+  </div>
+
+  <section class="cards">
+    {% for item in tank_data %}
+    <article class="tank-card">
+      <div class="card-head">
         <div>
-            <h2 class="text-xl sm:text-3xl font-black text-gray-800 tracking-tighter">🐠 실시간 내 어항</h2>
-            <p class="text-slate-400 font-bold text-xs sm:text-sm mt-1">우리 물고기들의 환경을 감시 중입니다.</p>
+          <h2 class="tank-name">{{ item.tank.name }}</h2>
+          <span class="tank-code">
+            {% if item.d_day <= 0 %}환수 D+{{ item.d_day|slice:"1:" }}
+            {% else %}환수 D-{{ item.d_day }}{% endif %}
+          </span>
         </div>
-        {% if user.is_authenticated %}
-        <a href="{% url 'monitoring:tank_list' %}" class="bg-white border border-slate-100 text-slate-500 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl font-black text-xs hover:bg-slate-50 shadow-sm transition-all">⚙️ 편집</a>
-        {% endif %}
-    </div>
+      </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        <a href="{% url 'monitoring:dashboard_default' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-50 hover:border-blue-200 transition-all">
-            <span class="text-3xl mb-2 block">📊</span>
-            <span class="font-black text-slate-700 text-sm">제어판</span>
-        </a>
-        <a href="{% url 'reports:report_list' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-50 hover:border-purple-200 transition-all">
-            <span class="text-3xl mb-2 block">🤖</span>
-            <span class="font-black text-slate-700 text-sm">AI 리포트</span>
-        </a>
-        <a href="{% url 'monitoring:camera_view' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-50 hover:border-blue-200 transition-all">
-            <span class="text-3xl mb-2 block">📷</span>
-            <span class="font-black text-slate-700 text-sm">카메라</span>
-        </a>
-        <a href="{% url 'monitoring:logs' %}" class="bg-white p-6 rounded-[2rem] shadow-sm text-center border border-slate-50 hover:border-blue-200 transition-all">
-            <span class="text-3xl mb-2 block">📝</span>
-            <span class="font-black text-slate-700 text-sm">실시간 로그</span>
-        </a>
-    </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-10">
-        {% for item in tank_data %}
-        <div class="bg-white p-6 sm:p-10 rounded-[3rem] shadow-xl border border-white hover:border-blue-100 transition-all group">
-            <div class="flex justify-between items-start mb-5 sm:mb-8">
-                <div>
-                    <h3 class="font-black text-xl sm:text-3xl text-gray-800 group-hover:text-blue-600 transition-colors">{{ item.tank.name }}</h3>
-                </div>
-                {% if item.d_day is not None %}
-                <span class="text-sm font-black {% if item.d_day <= 0 %}text-red-500 animate-bounce{% else %}text-blue-400{% endif %}">환수 D-{{ item.d_day }}</span>
-                {% endif %}
-            </div>
-
-            <div class="grid grid-cols-3 gap-3 mb-5 sm:mb-8">
-                <div class="bg-slate-50 p-3 sm:p-6 rounded-[2rem] text-center border border-slate-100">
-                    <span class="block text-[10px] text-slate-400 font-black mb-1">PH</span>
-                    <span class="text-xl sm:text-2xl font-black text-slate-800">{{ item.latest.ph|floatformat:2|default:"--" }}</span>
-                </div>
-                <div class="bg-slate-50 p-3 sm:p-6 rounded-[2rem] text-center border border-slate-100">
-                    <span class="block text-[10px] text-slate-400 font-black mb-1">탁도</span>
-                    <span class="text-xl sm:text-2xl font-black text-slate-800">{{ item.latest.turbidity|floatformat:2|default:"0.00" }}</span>
-                </div>
-                <div class="bg-slate-50 p-3 sm:p-6 rounded-[2rem] text-center border border-slate-100">
-                    <span class="block text-[10px] text-slate-400 font-black mb-1">수질</span>
-                    <span class="text-xl sm:text-2xl font-black text-blue-500">{{ item.latest.water_quality_score|default:"100" }}</span>
-                </div>
-            </div>
-
-            <div class="flex gap-3">
-                <a href="{% url 'monitoring:dashboard' item.tank.id %}" class="flex-1 bg-slate-900 text-white py-3 sm:py-4 rounded-[1.5rem] text-center font-black text-xs sm:text-sm hover:bg-slate-800 transition-all">제어판 입장</a>
-                <a href="{% url 'reports:report_list' %}" class="flex-1 bg-blue-500 text-white py-3 sm:py-4 rounded-[1.5rem] text-center font-black text-xs sm:text-sm hover:bg-blue-600 transition-all">AI 리포트</a>
-            </div>
+      <div class="metrics">
+        <div class="metric">
+          <span class="metric-label">PH</span>
+          <strong class="metric-value">{{ item.latest.ph|floatformat:2|default:"--" }}</strong>
         </div>
-        {% empty %}
-        <div class="col-span-full py-20 text-center bg-white rounded-[2.8rem] border-4 border-dashed border-slate-100">
-            {% if is_guest %}
-                <p class="text-slate-400 font-black text-xl mb-6">로그인 후 스마트한 어항 관리를 시작하세요! 🐠</p>
-                <a href="{% url 'accounts:login' %}" class="inline-block bg-blue-600 text-white px-10 py-4 rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all">지금 로그인하기</a>
-            {% else %}
-                <p class="text-slate-400 font-black text-xl mb-4">아직 등록된 어항이 없습니다. 🐠</p>
-                <a href="{% url 'monitoring:tank_list' %}" class="inline-block bg-blue-600 text-white px-10 py-4 rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all">첫 어항 등록하기</a>
-            {% endif %}
+        <div class="metric">
+          <span class="metric-label">탁도</span>
+          <strong class="metric-value">{{ item.latest.turbidity|floatformat:2|default:"--" }}</strong>
         </div>
-        {% endfor %}
-    </div>
+        <div class="metric">
+          <span class="metric-label">수질</span>
+          <strong class="metric-value">{{ item.latest.water_quality_score|default:"--" }}</strong>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <a href="{% url 'monitoring:dashboard' item.tank.id %}" style="text-decoration:none">
+          <button class="card-btn manage-btn" style="width:100%">어항 관리하기</button>
+        </a>
+        <a href="{% url 'reports:report_list' %}" style="text-decoration:none">
+          <button class="card-btn report-btn" style="width:100%">AI 리포트 생성</button>
+        </a>
+      </div>
+    </article>
+    {% empty %}
+    <p class="empty-state">
+      등록된 어항이 없습니다.
+      <a href="{% url 'monitoring:add_tank' %}" style="color:#536ae8;font-weight:800">어항 추가하기</a>
+    </p>
+    {% endfor %}
+  </section>
+
 </div>
 {% endblock %}
