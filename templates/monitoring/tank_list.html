@@ -1,70 +1,143 @@
 {% extends 'base.html' %}
+{% block extra_css %}
+<style>
+  .section-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #202020;padding-bottom:18px}
+  .section-title{display:flex;align-items:center;gap:15px;font-size:29px;font-weight:900;letter-spacing:-1.4px}
+  .edit-actions{display:flex;gap:16px}
+  .outline-btn{height:47px;min-width:118px;border:2px solid #555;background:#fff;border-radius:4px;font-size:16px;cursor:pointer;font-weight:700}
+  .add-btn{color:#4169e1;border-color:#4169e1}
+  .delete-btn{color:#ff3d3d;border-color:#ff3d3d}
+  .table-wrap{margin:48px 0 0;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 5px 6px rgba(0,0,0,.2)}
+  table{width:100%;border-collapse:collapse}
+  thead{background:#eef0f2}
+  th,td{height:64px;text-align:left;font-size:16px;padding:0 18px}
+  th{font-weight:900;color:#111}
+  td{color:#777;font-weight:700;border-bottom:1px solid #f3f4f6}
+  .row-check,.all-check{appearance:none;width:20px;height:20px;border:1px solid #999;border-radius:6px;background:#fff;cursor:pointer;position:relative}
+  .row-check:checked,.all-check:checked{background:#536ae8;border-color:#536ae8}
+  .row-check:checked::after,.all-check:checked::after{content:"✓";position:absolute;left:3px;top:-3px;color:#fff;font-size:15px;font-weight:900}
+  .settings-btn{border:1px solid #c2c2c2;border-radius:23px;background:#fff;padding:8px 15px;color:#555;font-size:13px;cursor:pointer}
+  .empty-row td{text-align:center;padding:36px;color:#8b919b}
+
+  /* 등록 모달 */
+  .modal-backdrop{position:fixed;inset:0;z-index:1500;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:20px}
+  .modal-backdrop.open{display:flex}
+  .register-card{width:570px;max-width:calc(100vw - 40px);background:#fff;border-radius:30px;overflow:hidden;box-shadow:0 28px 55px rgba(0,0,0,.34)}
+  .register-head{height:92px;background:linear-gradient(120deg,#2877ec,#12b5c8);display:flex;align-items:center;gap:22px;padding:0 30px;color:#fff}
+  .logo-box{width:72px;height:54px;border-radius:14px;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.17);display:grid;place-items:center;font-size:19px;font-weight:900;color:#fff}
+  .register-body{padding:28px 32px 30px}
+  .reg-field{margin-bottom:17px}
+  .reg-label{display:block;color:#4d8ee7;font-size:17px;font-weight:900;margin-bottom:9px}
+  .reg-input{width:100%;height:52px;border:1px solid #bababa;border-radius:12px;background:#f8fbff;padding:0 16px;font-size:15px;color:#3a4452;outline:none;font-family:inherit}
+  .half-row{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .register-actions{display:flex;gap:20px;margin-top:24px}
+  .reg-cancel{width:165px;height:64px;border:0;border-radius:15px;background:#d7e6f5;color:#8b8b8b;font-size:18px;font-weight:900;cursor:pointer}
+  .reg-save{flex:1;height:64px;border:0;border-radius:15px;background:linear-gradient(120deg,#2d65ec,#10a9bf);color:#fff;font-size:18px;font-weight:900;cursor:pointer}
+
+  @media(max-width:768px){.half-row{grid-template-columns:1fr}.register-card{width:95vw}.register-body{padding:24px 18px}}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="py-8" x-data="{ selectedTanks: [] }">
-    <div class="flex justify-between items-end mb-8 px-4">
-        <div>
-            <h2 class="text-3xl font-black text-gray-800 tracking-tight">⚙️ 어항 편집센터</h2>
-            <p class="text-slate-400 font-bold text-sm mt-1">어항을 추가하거나 삭제, 수정하세요.</p>
-        </div>
-        <div class="flex gap-2">
-            <button @click="if(selectedTanks.length > 0 && confirm('정말 삭제하시겠습니까?')) document.getElementById('delete-form').submit()"
-                    :class="selectedTanks.length > 0 ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-100 text-slate-300 cursor-not-allowed'"
-                    class="px-5 py-3 rounded-2xl font-black text-xs transition-all"
-                    :disabled="selectedTanks.length === 0">
-                선택 삭제 <span x-show="selectedTanks.length > 0" x-text="selectedTanks.length"></span>
-            </button>
-            <a href="{% url 'monitoring:add_tank' %}" class="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg text-xs hover:bg-blue-700 transition-all">
-                + 어항 추가
-            </a>
-        </div>
-    </div>
+<div style="padding:40px 5vw 120px">
 
-    <form id="delete-form" action="{% url 'monitoring:delete_tanks' %}" method="POST" class="hidden">
+  <div class="section-header">
+    <h1 class="section-title"><span style="font-size:34px">☷</span> 어항 편집</h1>
+    <div class="edit-actions">
+      <button class="outline-btn add-btn" onclick="openModal()">＋ 추가</button>
+      <form method="post" action="{% url 'monitoring:delete_tanks' %}" id="deleteForm" style="margin:0">
         {% csrf_token %}
-        <template x-for="id in selectedTanks" :key="id">
-            <input type="hidden" name="tank_ids" :value="id">
-        </template>
-    </form>
-
-    <div class="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100 mx-4">
-        <table class="w-full text-left">
-            <thead class="bg-slate-50 border-b border-slate-100">
-                <tr>
-                    <th class="p-6 w-16 text-center">
-                        <input type="checkbox" @change="if($el.checked) { selectedTanks = [{% for tank in tanks %}'{{ tank.id }}',{% endfor %}] } else { selectedTanks = [] }" class="w-5 h-5 rounded-lg border-slate-300">
-                    </th>
-                    <th class="p-6 font-black text-slate-500 text-sm">어항 이름</th>
-                    <th class="p-6 font-black text-slate-500 text-sm">어종</th>
-                    <th class="p-6 font-black text-slate-500 text-sm text-center">관리</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for tank in tanks %}
-                <tr class="border-b border-slate-50 hover:bg-blue-50/30 transition-colors">
-                    <td class="p-6 text-center">
-                        <input type="checkbox" value="{{ tank.id }}" x-model="selectedTanks" class="w-5 h-5 rounded-lg border-slate-300 text-blue-600">
-                    </td>
-                    <td class="p-6 font-bold text-gray-800">{{ tank.name }}</td>
-                    <td class="p-6 text-slate-500 font-medium">{{ tank.fish_species|default:"-" }}</td>
-                    <td class="p-6 text-center">
-                        <div class="flex justify-center gap-2">
-                            <a href="{% url 'monitoring:edit_tank' tank.id %}" class="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl font-black text-xs hover:bg-slate-200 transition-all">수정</a>
-                            <a href="{% url 'monitoring:delete_tank' tank.id %}" onclick="return confirm('이 어항을 삭제할까요?')" class="bg-red-50 text-red-500 px-4 py-2 rounded-xl font-black text-xs hover:bg-red-100 transition-all">삭제</a>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="p-20 text-center">
-                        <div class="text-5xl mb-4">🐠</div>
-                        <p class="text-slate-400 font-bold text-lg">등록된 어항이 없습니다.</p>
-                        <p class="text-slate-300 text-sm mt-1">새 어항을 추가하여 모니터링을 시작해보세요!</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <button type="button" class="outline-btn delete-btn" onclick="confirmDelete()">🗑 삭제</button>
+      </form>
     </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:60px;text-align:center"><input class="all-check" id="allCheck" type="checkbox" onchange="toggleAll(this)"></th>
+          <th>어항 이름</th>
+          <th>어종</th>
+          <th style="text-align:center">관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tank in tanks %}
+        <tr>
+          <td style="text-align:center">
+            <input class="row-check" type="checkbox" name="tank_ids" value="{{ tank.id }}" form="deleteForm">
+          </td>
+          <td>{{ tank.name }}</td>
+          <td>{{ tank.fish_species|default:"—" }}</td>
+          <td style="text-align:center">
+            <a href="{% url 'monitoring:tank_settings' tank.id %}">
+              <button class="settings-btn">⚙ 설정</button>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr class="empty-row"><td colspan="4">등록된 어항이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
 </div>
+
+<!-- 어항 등록 모달 -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <section class="register-card">
+    <div class="register-head">
+      <div class="logo-box">FISH</div>
+      <div>
+        <h2 style="font-size:19px;font-weight:900;letter-spacing:-1.5px">새 어항 등록</h2>
+        <p style="font-size:12px;margin-top:7px;opacity:.9">Fish Tank Assistant</p>
+      </div>
+    </div>
+    <div class="register-body">
+      <form method="post" action="{% url 'monitoring:add_tank' %}">
+        {% csrf_token %}
+        <div class="reg-field">
+          <label class="reg-label">어항 이름</label>
+          <input name="name" class="reg-input" type="text" placeholder="예: 거실 구피항" required>
+        </div>
+        <div class="reg-field">
+          <label class="reg-label">주 물고기 종</label>
+          <input name="fish_species" class="reg-input" type="text" placeholder="예: 구피, 코메트">
+        </div>
+        <div class="half-row">
+          <div class="reg-field">
+            <label class="reg-label">목표 온도 (°C)</label>
+            <input name="target_temp" class="reg-input" type="number" step="0.1" placeholder="26.0">
+          </div>
+          <div class="reg-field">
+            <label class="reg-label">환수 주기 (일)</label>
+            <input name="water_change_period" class="reg-input" type="number" min="1" placeholder="7">
+          </div>
+        </div>
+        <div class="register-actions">
+          <button type="button" class="reg-cancel" onclick="closeModal()">취소</button>
+          <button type="submit" class="reg-save">어항 등록하기</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openModal(){ document.getElementById('modalBackdrop').classList.add('open') }
+function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open') }
+document.getElementById('modalBackdrop').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal() })
+
+function toggleAll(el){ document.querySelectorAll('.row-check').forEach(c => c.checked = el.checked) }
+
+function confirmDelete(){
+  const checked = [...document.querySelectorAll('.row-check:checked')];
+  if(!checked.length){ alert('삭제할 어항을 선택해 주세요.'); return; }
+  if(confirm('선택한 어항을 삭제하시겠습니까?')){ document.getElementById('deleteForm').submit() }
+}
+</script>
 {% endblock %}

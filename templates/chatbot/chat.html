@@ -1,364 +1,180 @@
 {% extends 'base.html' %}
+{% block extra_css %}
+<style>
+  .layout{
+    min-height:calc(100vh - 86px);
+    padding:40px 4vw 48px;
+    display:grid;
+    grid-template-columns:300px minmax(0,1fr);
+    gap:28px;
+  }
+  .panel{background:#fff;border-radius:26px;box-shadow:0 4px 13px rgba(0,0,0,.06);overflow:hidden}
+
+  /* 히스토리 패널 */
+  .history-head{padding:24px 20px 18px;border-bottom:1px solid #e6ebf1}
+  .history-title{font-size:17px;font-weight:900;color:#9da8b7;margin-bottom:16px}
+  .new-chat-btn{width:100%;height:52px;border:0;border-radius:14px;background:linear-gradient(120deg,#2f69ef,#347bf1);color:#fff;font-size:15px;font-weight:900;cursor:pointer;margin-bottom:12px}
+  .history-list{padding:14px;overflow-y:auto;max-height:calc(100vh - 320px)}
+  .date-label{font-size:12px;color:#a4aebe;margin:12px 10px 8px;font-weight:700}
+  .history-item{display:block;text-decoration:none;color:inherit;padding:14px;border-radius:12px;margin-bottom:6px}
+  .history-item:hover{background:#f4f7fb}
+  .history-question{font-size:14px;font-weight:900;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .history-meta{display:flex;justify-content:space-between;font-size:11px;color:#a2adbc}
+
+  /* 채팅 영역 */
+  .chat-header{height:76px;padding:0 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e6ebf1}
+  .chat-title{font-size:17px;font-weight:900}
+  .chat-messages{padding:24px 28px;overflow-y:auto;height:calc(100vh - 86px - 40px - 76px - 80px - 96px);display:flex;flex-direction:column;gap:16px}
+  .msg-row{display:flex;gap:12px;align-items:flex-start}
+  .msg-row.user{flex-direction:row-reverse}
+  .msg-avatar{width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:18px;background:#f0f4ff}
+  .msg-bubble{max-width:72%;padding:14px 18px;border-radius:4px 18px 18px 18px;font-size:14px;line-height:1.6;white-space:pre-line;word-break:break-word}
+  .msg-row.user .msg-bubble{background:#2f69ef;color:#fff;border-radius:18px 18px 4px 18px}
+  .msg-row.ai .msg-bubble{background:#f4f7fb;color:#3a4452}
+  .msg-time{font-size:10px;color:#a2adbc;margin-top:6px;align-self:flex-end}
+  .chat-input{padding:18px 24px;border-top:1px solid #e6ebf1;display:flex;gap:12px;align-items:flex-end}
+  .chat-textarea{flex:1;min-height:48px;max-height:120px;padding:12px 18px;border:1.5px solid #dde1ea;border-radius:16px;resize:none;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
+  .chat-textarea:focus{border-color:#2f69ef}
+  .send-btn{width:48px;height:48px;flex:none;border:0;border-radius:50%;background:#2f69ef;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+  @media(max-width:900px){
+    .layout{grid-template-columns:1fr;padding:24px 18px}
+    .panel:first-child{display:none}
+    .chat-messages{height:calc(100vh - 86px - 280px)}
+  }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="layout">
 
-<div class="flex gap-4 py-6" style="height: calc(100vh - 7rem);">
-
-    {# ── 왼쪽: 대화 내역 목록 ── #}
-    <div class="flex flex-col w-56 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden flex-shrink-0">
-        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-50">
-            <span class="text-xs font-black text-slate-400 uppercase tracking-widest">대화 내역</span>
-            <button onclick="clearHistory()"
-                    class="text-[10px] font-black text-slate-300 hover:text-red-400 transition-colors">
-                전체 삭제
-            </button>
+  <!-- 히스토리 패널 -->
+  <aside class="panel">
+    <div class="history-head">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <span class="history-title">대화 내역</span>
+        <form method="post" action="{% url 'chatbot:clear' %}">
+          {% csrf_token %}
+          <button type="submit" style="border:0;background:none;color:#9da8b7;font-size:12px;cursor:pointer">전체 삭제</button>
+        </form>
+      </div>
+      <a href="{% url 'chatbot:chat_page' %}"><button class="new-chat-btn">+ 새 대화</button></a>
+    </div>
+    <div class="history-list">
+      {% regroup messages by created_at|date:"Y년 m월 d일" as message_groups %}
+      {% for group in message_groups %}
+      <div class="date-label">{{ group.grouper }}</div>
+      {% for msg in group.list %}
+      <a class="history-item" href="#">
+        <div class="history-question">{{ msg.message|truncatechars:32 }}</div>
+        <div class="history-meta">
+          <span>{{ msg.created_at|date:"H:i" }}</span>
         </div>
+      </a>
+      {% endfor %}
+      {% empty %}
+      <p style="text-align:center;padding:32px;color:#a2adbc;font-size:14px">대화 내역이 없습니다.</p>
+      {% endfor %}
+    </div>
+  </aside>
 
-        <div id="history-list" class="flex-1 overflow-y-auto px-3 py-3 space-y-1">
-            <p class="text-[11px] text-slate-300 font-bold text-center py-8">불러오는 중...</p>
-        </div>
+  <!-- 채팅 영역 -->
+  <section class="panel" style="display:flex;flex-direction:column">
+    <div class="chat-header">
+      <span class="chat-title">🐟 어항 도우미 AI</span>
+      <span style="font-size:12px;color:#a2adbc">물고기 · 수질 · 관리법 전문</span>
     </div>
 
-    {# ── 오른쪽: 채팅 창 ── #}
-    <div class="flex-1 flex flex-col bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-w-0">
-
-        {# 채팅 헤더 #}
-        <div class="flex items-center justify-between px-8 py-5 border-b border-slate-50">
-            <div>
-                <h2 class="text-lg font-black text-slate-800">어항 도우미</h2>
-                <p class="text-[10px] text-slate-400 font-bold">어항 세팅 · 물고기 추천 · 수질 관리</p>
-            </div>
-            <button onclick="clearHistory()"
-                    class="md:hidden text-[10px] font-black text-slate-300 hover:text-red-400">
-                내역 삭제
-            </button>
+    <div class="chat-messages" id="chatMessages">
+      <!-- AI 웰컴 메시지 -->
+      <div class="msg-row ai">
+        <div class="msg-avatar">🤖</div>
+        <div>
+          <div class="msg-bubble">안녕하세요! 어항 관련 무엇이든 물어보세요.<br>물고기 추천, 수질 설정, 관리법을 안내해 드립니다.</div>
+          <div class="msg-time">AI 어시스턴트</div>
         </div>
+      </div>
 
-        {# 메시지 영역 #}
-        <div id="chat-messages" class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-
-            {# 웰컴 메시지 #}
-            <div id="welcome-msg" class="flex justify-start">
-                <div class="max-w-sm bg-slate-50 rounded-[1.5rem] rounded-tl-sm px-5 py-4">
-                    <p class="text-sm font-bold text-slate-700 leading-relaxed">
-                        어항 관련 무엇이든 물어보세요.<br>
-                        물고기 추천, 수질 설정, 장비 선택 등 도움을 드립니다.
-                    </p>
-                </div>
-            </div>
-
-            {# 빠른 질문 버튼 #}
-            <div id="quick-btns" class="flex flex-wrap gap-2">
-                <button onclick="quickAsk('초보자에게 맞는 물고기 추천해줘')"
-                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
-                    물고기 추천
-                </button>
-                <button onclick="quickAsk('금붕어 적정 수온과 pH 알려줘')"
-                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
-                    금붕어 수질
-                </button>
-                <button onclick="quickAsk('처음 어항 세팅하는 방법 알려줘')"
-                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
-                    어항 세팅
-                </button>
-                <button onclick="quickAsk('여과기 종류와 선택 기준 알려줘')"
-                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
-                    여과기 선택
-                </button>
-                <button onclick="quickAsk('물고기 먹이 양과 횟수 알려줘')"
-                        class="text-[11px] font-bold text-blue-500 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors">
-                    급이 방법
-                </button>
-            </div>
+      {% for msg in messages %}
+      <!-- 사용자 -->
+      <div class="msg-row user">
+        <div class="msg-avatar" style="background:#2f69ef;color:#fff">{{ request.user.nickname|default:request.user.username|first }}</div>
+        <div>
+          <div class="msg-bubble">{{ msg.message }}</div>
+          <div class="msg-time" style="text-align:right">{{ msg.created_at|date:"H:i" }}</div>
         </div>
-
-        {# 입력 영역 #}
-        <div class="px-6 py-4 border-t border-slate-50">
-            <div class="flex items-end gap-3 bg-slate-50 rounded-[1.5rem] px-4 py-3">
-                {# 이미지 첨부 #}
-                <label class="cursor-pointer text-slate-400 hover:text-blue-500 transition-colors flex-shrink-0 mb-1">
-                    <input type="file" id="image-input" accept="image/*" class="hidden" onchange="previewImage(this)">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                    </svg>
-                </label>
-
-                <textarea id="chat-input"
-                          placeholder="어항에 대해 궁금한 점을 물어보세요..."
-                          rows="1"
-                          class="flex-1 bg-transparent text-sm font-medium text-slate-700 placeholder-slate-300 resize-none focus:outline-none leading-relaxed"
-                          style="max-height: 120px;"
-                          onkeydown="handleKey(event)"
-                          oninput="autoResize(this)"></textarea>
-
-                <button id="send-btn"
-                        onclick="sendMessage()"
-                        class="flex-shrink-0 w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-40 mb-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z"/>
-                    </svg>
-                </button>
-            </div>
-
-            {# 이미지 미리보기 #}
-            <div id="image-preview" class="hidden mt-2 flex items-center gap-2 px-2">
-                <img id="preview-img" class="w-12 h-12 rounded-xl object-cover">
-                <button onclick="removeImage()" class="text-[10px] font-bold text-red-400 hover:text-red-500">제거</button>
-            </div>
+      </div>
+      <!-- AI 응답 -->
+      <div class="msg-row ai">
+        <div class="msg-avatar">🤖</div>
+        <div>
+          <div class="msg-bubble">{{ msg.response }}</div>
+          <div class="msg-time">{{ msg.created_at|date:"H:i" }}</div>
         </div>
+      </div>
+      {% endfor %}
     </div>
+
+    <div class="chat-input">
+      <textarea id="chatInput" class="chat-textarea" rows="1" placeholder="질문을 입력하세요..."
+        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" onclick="sendMsg()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" fill="#fff"/>
+        </svg>
+      </button>
+    </div>
+  </section>
+
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
 const CSRF = '{{ csrf_token }}';
-let isLoading = false;
-let currentHistoryId = null;
+const win  = document.getElementById('chatMessages');
+win.scrollTop = win.scrollHeight;
 
-// ── 초기 로드 ──────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    loadHistory();
-});
+function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px' }
+function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMsg() } }
 
-// ── 대화 내역 불러오기 ─────────────────────────
-async function loadHistory() {
-    try {
-        const res  = await fetch('/chatbot/history/');
-        const data = await res.json();
+async function sendMsg(){
+  const input   = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if(!message) return;
+  input.value = ''; autoResize(input);
 
-        const list = document.getElementById('history-list');
-        if (!data.history || data.history.length === 0) {
-            list.innerHTML = '<p class="text-[11px] text-slate-300 font-bold text-center py-8">대화 내역 없음</p>';
-            return;
-        }
+  win.innerHTML += `
+    <div class="msg-row user">
+      <div class="msg-avatar" style="background:#2f69ef;color:#fff">나</div>
+      <div><div class="msg-bubble">${message}</div></div>
+    </div>`;
+  win.scrollTop = win.scrollHeight;
 
-        // 날짜별 그룹핑
-        const groups = {};
-        data.history.forEach(m => {
-            const date = m.created_at.split(' ')[0];
-            if (!groups[date]) groups[date] = [];
-            groups[date].push(m);
-        });
+  const lid = 'load-'+Date.now();
+  win.innerHTML += `
+    <div id="${lid}" class="msg-row ai">
+      <div class="msg-avatar">🤖</div>
+      <div><div class="msg-bubble" style="color:#a2adbc">···</div></div>
+    </div>`;
+  win.scrollTop = win.scrollHeight;
 
-        let html = '';
-        Object.entries(groups).reverse().forEach(([date, msgs]) => {
-            html += `<p class="text-[9px] font-black text-slate-300 uppercase px-3 pt-3 pb-1">${date}</p>`;
-            msgs.reverse().forEach(m => {
-                const preview = m.message.length > 20 ? m.message.slice(0, 20) + '...' : m.message;
-                html += `
-                <div class="flex items-center gap-1 group rounded-xl hover:bg-slate-50 transition-colors"
-                     id="hist-${m.id}">
-                    <button onclick="loadConversation(${m.id})"
-                            class="flex-1 text-left px-3 py-2.5">
-                        <p class="text-[12px] font-bold text-slate-600 group-hover:text-slate-800 truncate">${preview}</p>
-                        <p class="text-[10px] text-slate-300 font-bold mt-0.5">${m.created_at.split(' ')[1]}</p>
-                    </button>
-                    <button onclick="deleteOne(${m.id}, event)"
-                            class="opacity-0 group-hover:opacity-100 transition-opacity pr-2 text-slate-300 hover:text-red-400 text-xs font-bold flex-shrink-0">
-                        ✕
-                    </button>
-                </div>`;
-            });
-        });
-
-        list.innerHTML = html;
-
-    } catch(e) {
-        console.error('[HISTORY]', e);
-    }
-}
-
-// ── 특정 대화 불러오기 ─────────────────────────
-async function loadConversation(id) {
-    try {
-        const res  = await fetch('/chatbot/history/');
-        const data = await res.json();
-
-        const msg = data.history.find(m => m.id === id);
-        if (!msg) return;
-
-        // 기존 메시지 초기화
-        const container = document.getElementById('chat-messages');
-        container.innerHTML = '';
-
-        appendMessage('user', msg.message);
-        appendMessage('bot',  msg.response);
-
-        // 선택 표시
-        document.querySelectorAll('[id^="hist-"]').forEach(el => el.classList.remove('bg-blue-50'));
-        document.getElementById(`hist-${id}`)?.classList.add('bg-blue-50');
-
-        currentHistoryId = id;
-        scrollToBottom();
-
-    } catch(e) {
-        console.error('[LOAD_CONV]', e);
-    }
-}
-
-// ── 메시지 전송 ────────────────────────────────
-async function sendMessage() {
-    const input   = document.getElementById('chat-input');
-    const message = input.value.trim();
-    const imgFile = document.getElementById('image-input').files[0];
-
-    if (!message && !imgFile) return;
-    if (isLoading) return;
-
-    // 웰컴/빠른질문 숨기기
-    document.getElementById('welcome-msg')?.remove();
-    document.getElementById('quick-btns')?.remove();
-
-    isLoading = true;
-    document.getElementById('send-btn').disabled = true;
-    input.value = '';
-    autoResize(input);
-
-    appendMessage('user', message || '(사진 분석)');
-    const loadingEl = appendLoading();
-    scrollToBottom();
-
-    try {
-        let body, headers = { 'X-CSRFToken': CSRF };
-
-        if (imgFile) {
-            const fd = new FormData();
-            fd.append('message', message);
-            fd.append('image', imgFile);
-            body = fd;
-        } else {
-            body    = JSON.stringify({ message });
-            headers['Content-Type'] = 'application/json';
-        }
-
-        const res  = await fetch('/chatbot/ask/', { method: 'POST', headers, body });
-        const data = await res.json();
-
-        loadingEl.remove();
-
-        if (data.status === 'success') {
-            appendMessage('bot', data.reply || data.response);
-            removeImage();
-            loadHistory();   // 내역 갱신
-        } else {
-            appendMessage('bot', '오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-        }
-
-    } catch(e) {
-        loadingEl.remove();
-        appendMessage('bot', '서버 연결에 실패했습니다.');
-    } finally {
-        isLoading = false;
-        document.getElementById('send-btn').disabled = false;
-        scrollToBottom();
-    }
-}
-
-function quickAsk(text) {
-    document.getElementById('chat-input').value = text;
-    sendMessage();
-}
-
-// ── 메시지 렌더링 ──────────────────────────────
-function appendMessage(role, text) {
-    const container = document.getElementById('chat-messages');
-    const isUser    = role === 'user';
-
-    const wrapper = document.createElement('div');
-    wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
-
-    const bubble = document.createElement('div');
-    bubble.className = isUser
-        ? 'max-w-xs lg:max-w-md bg-blue-600 text-white rounded-[1.5rem] rounded-tr-sm px-5 py-3'
-        : 'max-w-xs lg:max-w-md bg-slate-50 text-slate-700 rounded-[1.5rem] rounded-tl-sm px-5 py-4';
-
-    // 줄바꿈 처리
-    const p = document.createElement('p');
-    p.className = 'text-sm font-medium leading-relaxed whitespace-pre-line';
-    p.textContent = text;
-    bubble.appendChild(p);
-
-    wrapper.appendChild(bubble);
-    container.appendChild(wrapper);
-    return wrapper;
-}
-
-function appendLoading() {
-    const container = document.getElementById('chat-messages');
-    const wrapper   = document.createElement('div');
-    wrapper.className = 'flex justify-start';
-    wrapper.innerHTML = `
-        <div class="bg-slate-50 rounded-[1.5rem] rounded-tl-sm px-5 py-4">
-            <div class="flex gap-1.5 items-center h-5">
-                <span class="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style="animation-delay:0ms"></span>
-                <span class="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style="animation-delay:150ms"></span>
-                <span class="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style="animation-delay:300ms"></span>
-            </div>
-        </div>`;
-    container.appendChild(wrapper);
-    return wrapper;
-}
-
-// ── 개별 삭제 ──────────────────────────────────
-async function deleteOne(id, e) {
-    e.stopPropagation();
-    try {
-        await fetch(`/chatbot/delete/${id}/`, {
-            method: 'POST',
-            headers: { 'X-CSRFToken': CSRF }
-        });
-        document.getElementById(`hist-${id}`)?.remove();
-
-        // 내역이 비면 안내 문구 표시
-        const list = document.getElementById('history-list');
-        if (list.querySelectorAll('[id^="hist-"]').length === 0) {
-            list.innerHTML = '<p class="text-[11px] text-slate-300 font-bold text-center py-8">대화 내역 없음</p>';
-        }
-    } catch(e) {
-        console.error('[DELETE]', e);
-    }
-}
-
-// ── 내역 전체 삭제 ─────────────────────────────
-async function clearHistory() {
-    if (!confirm('대화 내역을 모두 삭제할까요?')) return;
-    try {
-        await fetch('/chatbot/clear/', { method: 'POST', headers: { 'X-CSRFToken': CSRF } });
-        document.getElementById('history-list').innerHTML =
-            '<p class="text-[11px] text-slate-300 font-bold text-center py-8">대화 내역 없음</p>';
-        location.reload();
-    } catch(e) {}
-}
-
-// ── 유틸 ───────────────────────────────────────
-function scrollToBottom() {
-    const el = document.getElementById('chat-messages');
-    el.scrollTop = el.scrollHeight;
-}
-
-function handleKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-}
-
-function autoResize(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-}
-
-function previewImage(input) {
-    if (!input.files[0]) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-        document.getElementById('preview-img').src = e.target.result;
-        document.getElementById('image-preview').classList.remove('hidden');
-    };
-    reader.readAsDataURL(input.files[0]);
-}
-
-function removeImage() {
-    document.getElementById('image-input').value = '';
-    document.getElementById('image-preview').classList.add('hidden');
+  try{
+    const res  = await fetch('/chatbot/ask/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({message})});
+    const data = await res.json();
+    document.getElementById(lid)?.remove();
+    const reply = data.reply || data.response || '응답을 받지 못했습니다.';
+    const now   = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+    win.innerHTML += `
+      <div class="msg-row ai">
+        <div class="msg-avatar">🤖</div>
+        <div><div class="msg-bubble">${reply}</div><div class="msg-time">${now}</div></div>
+      </div>`;
+  }catch{
+    document.getElementById(lid)?.remove();
+    win.innerHTML += `<div class="msg-row ai"><div class="msg-avatar">🤖</div><div><div class="msg-bubble" style="color:#ef4444">서버 연결 실패</div></div></div>`;
+  }
+  win.scrollTop = win.scrollHeight;
 }
 </script>
 {% endblock %}

@@ -1,156 +1,100 @@
 {% extends 'base.html' %}
+{% block extra_css %}
+<style>
+  .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+  .page-title{font-size:34px;font-weight:900;letter-spacing:-1.8px}
+  .back-btn{min-width:95px;height:44px;border:1px solid #c9ced6;border-radius:14px;background:#fff;color:#333;font-size:15px;cursor:pointer;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+  .history-card{background:#fff;border-radius:32px;min-height:600px;padding:18px 34px 40px;box-shadow:0 5px 14px rgba(0,0,0,.08)}
+  .filter-row{display:flex;gap:12px;padding:16px 0;border-bottom:1px solid #f0f2f5;margin-bottom:12px;flex-wrap:wrap}
+  .filter-btn{height:36px;padding:0 18px;border-radius:20px;border:1.5px solid #dde1ea;background:#fff;font-size:13px;font-weight:700;cursor:pointer;color:#555}
+  .filter-btn.active{background:#30375f;color:#fff;border-color:#30375f}
+  .history-list{display:flex;flex-direction:column;gap:7px}
+  .history-item{min-height:42px;display:grid;grid-template-columns:110px 1fr 80px;align-items:center;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600}
+  .history-item.INFO{background:#f0f4ff;color:#2c4a8c}
+  .history-item.WARNING{background:#fff3df;color:#7a4a00}
+  .history-item.DANGER{background:#fdebec;color:#7b2628}
+  .history-type{font-weight:900;display:flex;align-items:center;gap:5px}
+  .history-time{font-size:11px;opacity:.7;text-align:right}
+  .empty-msg{text-align:center;padding:60px;color:#9ca3af;font-size:15px}
+  .pagination{display:flex;gap:8px;justify-content:center;margin-top:28px}
+  .page-btn{width:38px;height:38px;border-radius:10px;border:1px solid #dde1ea;background:#fff;cursor:pointer;font-weight:700;font-size:14px}
+  .page-btn.active{background:#30375f;color:#fff;border-color:#30375f}
+  @media(max-width:600px){.history-item{grid-template-columns:90px 1fr}.history-time{display:none}}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-6xl mx-auto py-10 px-4">
+<div style="padding:40px 5vw 120px">
 
-    {# ── 헤더 ── #}
-    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
-        <div>
-            <h2 class="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-                <span>📜</span> 실시간 이벤트 로그
-            </h2>
-            <p class="text-gray-500 text-sm mt-2 font-medium">어항의 모든 상태 변화와 AI 진단 기록을 확인합니다.</p>
-        </div>
-        <button onclick="location.reload()"
-                class="bg-white border-2 border-gray-100 text-gray-700 px-5 py-2.5 rounded-2xl text-sm font-bold hover:bg-gray-50 hover:border-blue-200 transition-all shadow-sm flex items-center gap-2 w-fit">
-            🔄 새로고침
-        </button>
-    </div>
+  <div class="page-head">
+    <h1 class="page-title">조치 내역</h1>
+    <a class="back-btn" href="{% url 'monitoring:dashboard_default' %}">← 돌아가기</a>
+  </div>
 
-    {# ── 필터 바 ── #}
-    <div class="flex flex-col gap-3 mb-6">
-        {# 어항 필터 #}
-        <div class="flex flex-wrap gap-2 items-center">
-            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">어항</span>
-            <a href="?{% if level %}level={{ level }}{% endif %}"
-               class="px-3 py-1.5 rounded-xl text-xs font-black transition
-               {% if not tank_id %}bg-blue-600 text-white{% else %}bg-white text-gray-400 border border-gray-100 hover:bg-gray-50{% endif %}">
-                전체
-            </a>
-            {% for tank in user_tanks %}
-            <a href="?tank_id={{ tank.id }}{% if level %}&level={{ level }}{% endif %}"
-               class="px-3 py-1.5 rounded-xl text-xs font-black transition
-               {% if tank_id == tank.id|stringformat:'s' %}bg-blue-600 text-white{% else %}bg-white text-gray-400 border border-gray-100 hover:bg-gray-50{% endif %}">
-                {{ tank.name }}
-            </a>
-            {% endfor %}
-        </div>
-        {# 레벨 필터 #}
-        <div class="flex flex-wrap gap-2 items-center">
-            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">레벨</span>
-            <a href="?{% if tank_id %}tank_id={{ tank_id }}{% endif %}"
-               class="px-3 py-1.5 rounded-xl text-xs font-black transition
-               {% if not level %}bg-slate-700 text-white{% else %}bg-white text-gray-400 border border-gray-100{% endif %}">
-                전체
-            </a>
-            <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=INFO"
-               class="px-3 py-1.5 rounded-xl text-xs font-black transition
-               {% if level == 'INFO' %}bg-blue-500 text-white{% else %}bg-blue-50 text-blue-500{% endif %}">
-                정보
-            </a>
-            <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=WARNING"
-               class="px-3 py-1.5 rounded-xl text-xs font-black transition
-               {% if level == 'WARNING' %}bg-orange-500 text-white{% else %}bg-orange-50 text-orange-500{% endif %}">
-                경고
-            </a>
-            <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=DANGER"
-               class="px-3 py-1.5 rounded-xl text-xs font-black transition
-               {% if level == 'DANGER' %}bg-red-500 text-white{% else %}bg-red-50 text-red-500{% endif %}">
-                위험
-            </a>
-        </div>
-    </div>
-
-    {# ── 로그 (모바일: 카드, 데스크탑: 테이블) ── #}
-    <div class="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden mb-8">
-
-        {# 데스크탑 테이블 #}
-        <div class="hidden sm:block overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead class="bg-gray-50/80 border-b border-gray-100">
-                    <tr>
-                        <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">발생 시간</th>
-                        <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">어항</th>
-                        <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">레벨</th>
-                        <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">메시지</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-50">
-                    {% for log in page_obj %}
-                    <tr class="hover:bg-blue-50/30 transition-colors
-                        {% if log.level == 'DANGER' %}bg-red-50/20{% elif log.level == 'WARNING' %}bg-orange-50/20{% endif %}">
-                        <td class="px-6 py-4 text-sm text-gray-400 font-mono whitespace-nowrap">{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
-                        <td class="px-6 py-4"><span class="bg-gray-100 text-gray-700 text-xs font-black px-3 py-1 rounded-lg">{{ log.tank.name|default:"기본 수조" }}</span></td>
-                        <td class="px-6 py-4">
-                            {% if log.level == 'DANGER' %}<span class="px-3 py-1.5 bg-red-100 text-red-600 text-[10px] font-black rounded-xl border border-red-200">⛔ 위험</span>
-                            {% elif log.level == 'WARNING' %}<span class="px-3 py-1.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-xl border border-orange-200">⚠️ 경고</span>
-                            {% else %}<span class="px-3 py-1.5 bg-blue-100 text-blue-600 text-[10px] font-black rounded-xl border border-blue-200">ℹ️ 정보</span>{% endif %}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-600 font-bold leading-relaxed">{{ log.message }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4" class="px-8 py-20 text-center"><div class="text-5xl mb-4">🏜️</div><p class="text-gray-400 font-black">기록된 로그가 없습니다.</p></td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        {# 모바일 카드 #}
-        <div class="sm:hidden divide-y divide-gray-50">
-            {% for log in page_obj %}
-            <div class="p-4 {% if log.level == 'DANGER' %}bg-red-50/30{% elif log.level == 'WARNING' %}bg-orange-50/30{% endif %}">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center gap-2">
-                        {% if log.level == 'DANGER' %}<span class="px-2.5 py-1 bg-red-100 text-red-600 text-[10px] font-black rounded-lg">⛔ 위험</span>
-                        {% elif log.level == 'WARNING' %}<span class="px-2.5 py-1 bg-orange-100 text-orange-600 text-[10px] font-black rounded-lg">⚠️ 경고</span>
-                        {% else %}<span class="px-2.5 py-1 bg-blue-100 text-blue-600 text-[10px] font-black rounded-lg">ℹ️ 정보</span>{% endif %}
-                        <span class="bg-gray-100 text-gray-600 text-[10px] font-black px-2.5 py-1 rounded-lg">{{ log.tank.name|default:"기본 수조" }}</span>
-                    </div>
-                    <span class="text-[10px] text-gray-400 font-mono">{{ log.created_at|date:"m/d H:i" }}</span>
-                </div>
-                <p class="text-sm text-gray-700 font-bold leading-relaxed">{{ log.message }}</p>
-            </div>
-            {% empty %}
-            <div class="py-16 text-center"><div class="text-5xl mb-4">🏜️</div><p class="text-gray-400 font-black">기록된 로그가 없습니다.</p></div>
-            {% endfor %}
-        </div>
-    </div>
-
-    {# ── 페이지네이션 ── #}
-    {% if page_obj.has_other_pages %}
-    <div class="flex justify-center items-center gap-2">
-
-        {# 이전 #}
-        {% if page_obj.has_previous %}
-        <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}page={{ page_obj.previous_page_number }}"
-           class="px-5 py-2.5 bg-white border border-gray-100 rounded-xl text-xs font-black text-gray-500 hover:bg-gray-50 transition">
-            ← 이전
-        </a>
-        {% endif %}
-
-        {# 페이지 번호 #}
-        {% for num in page_obj.paginator.page_range %}
-            {% if page_obj.number == num %}
-            <span class="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-100">
-                {{ num }}
-            </span>
-            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-            <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}page={{ num }}"
-               class="px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-xs font-black text-gray-500 hover:bg-gray-50 transition">
-                {{ num }}
-            </a>
-            {% endif %}
+  <div class="history-card">
+    <!-- 필터 -->
+    <div class="filter-row">
+      <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}">
+        <button class="filter-btn {% if not level %}active{% endif %}">전체</button>
+      </a>
+      <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=INFO">
+        <button class="filter-btn {% if level == 'INFO' %}active{% endif %}">ℹ 일반</button>
+      </a>
+      <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=WARNING">
+        <button class="filter-btn {% if level == 'WARNING' %}active{% endif %}">⚠ 경고</button>
+      </a>
+      <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=DANGER">
+        <button class="filter-btn {% if level == 'DANGER' %}active{% endif %}">🚨 위험</button>
+      </a>
+      {% if user_tanks %}
+      <select onchange="location.href='?tank_id='+this.value+'{% if level %}&level={{ level }}{% endif %}'"
+        style="height:36px;padding:0 12px;border-radius:20px;border:1.5px solid #dde1ea;font-size:13px;font-weight:700;color:#555;cursor:pointer;outline:none">
+        <option value="">전체 어항</option>
+        {% for t in user_tanks %}
+        <option value="{{ t.id }}" {% if t.id|stringformat:"s" == tank_id %}selected{% endif %}>{{ t.name }}</option>
         {% endfor %}
+      </select>
+      {% endif %}
+    </div>
 
-        {# 다음 #}
-        {% if page_obj.has_next %}
-        <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}page={{ page_obj.next_page_number }}"
-           class="px-5 py-2.5 bg-white border border-gray-100 rounded-xl text-xs font-black text-gray-500 hover:bg-gray-50 transition">
-            다음 →
-        </a>
-        {% endif %}
+    <!-- 로그 목록 -->
+    <div class="history-list">
+      {% for log in page_obj %}
+      <div class="history-item {{ log.level }}">
+        <span class="history-type">
+          {% if log.level == 'DANGER' %}🚨 위험
+          {% elif log.level == 'WARNING' %}⚠ 경고
+          {% else %}ℹ 일반{% endif %}
+        </span>
+        <span class="history-message">{{ log.message }}</span>
+        <span class="history-time">{{ log.created_at|date:"H:i:s" }}</span>
+      </div>
+      {% empty %}
+      <div class="empty-msg">기록된 조치 내역이 없습니다.</div>
+      {% endfor %}
+    </div>
 
+    <!-- 페이지네이션 -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if tank_id %}&tank_id={{ tank_id }}{% endif %}{% if level %}&level={{ level }}{% endif %}">
+        <button class="page-btn">‹</button>
+      </a>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+      <a href="?page={{ num }}{% if tank_id %}&tank_id={{ tank_id }}{% endif %}{% if level %}&level={{ level }}{% endif %}">
+        <button class="page-btn {% if page_obj.number == num %}active{% endif %}">{{ num }}</button>
+      </a>
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if tank_id %}&tank_id={{ tank_id }}{% endif %}{% if level %}&level={{ level }}{% endif %}">
+        <button class="page-btn">›</button>
+      </a>
+      {% endif %}
     </div>
     {% endif %}
 
+  </div>
 </div>
 {% endblock %}
