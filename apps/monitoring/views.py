@@ -457,3 +457,16 @@ def chat_api(request):
         return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+def fish_data_view(request):
+    """물고기 개체 데이터 페이지"""
+    tank_id    = request.GET.get('tank_id')
+    user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+    tank       = user_tanks.filter(id=tank_id).first() if tank_id else None
+    if not tank:
+        tank = user_tanks.first()
+    return render(request, 'monitoring/fish_data.html', {
+        'tank':       tank,
+        'user_tanks': user_tanks,
+    })
