@@ -6,7 +6,7 @@ import google.generativeai as genai
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, StreamingHttpResponse
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.views.decorators.http import require_POST
@@ -531,10 +531,10 @@ def analysis_view(request):
 @login_required
 def data_log_view(request):
     """데이터 로그 페이지 (EventLog 전체 조회)"""
-    tank_id           = request.GET.get('tank_id')
-    level             = request.GET.get('level', '')
-    sort              = request.GET.get('sort', 'desc')
-    user_tanks        = Tank.objects.filter(user=request.user).order_by('-id')
+    tank_id             = request.GET.get('tank_id')
+    level               = request.GET.get('level', '')
+    sort                = request.GET.get('sort', 'desc')
+    user_tanks          = Tank.objects.filter(user=request.user).order_by('-id')
     selected_tank = None
     if tank_id:
         try:
@@ -562,12 +562,11 @@ def data_log_view(request):
         'sort':          sort,
     })
 
+
 @login_required
 def video_feed(request):
     """실시간 카메라 스트리밍 뷰"""
     try:
-        # 라즈베리파이 등에서 보내오는 실시간 스트림 주소가 등록되어 있다면 리다이렉트 하거나 프록시 처리
-        # 예시로 스트리밍 제너레이터 혹은 MJPEG 응답을 반환합니다.
         return StreamingHttpResponse(
             gen_camera_frame(), 
             content_type='multipart/x-mixed-replace; boundary=frame'
@@ -576,9 +575,7 @@ def video_feed(request):
         return HttpResponse(f"Streaming Error: {e}", status=500)
 
 def gen_camera_frame():
-    # 실제 라즈베리파이 연결 방식에 맞게 구현체를 채워넣거나 
-    # 등록된 카메라 스트림 주소로 연결을 처리합니다.
     while True:
-        frame = b'' # 카메라 프레임 바이트 데이터
+        frame = b''
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
