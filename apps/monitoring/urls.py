@@ -23,7 +23,7 @@ urlpatterns = [
    # ── [3. 로그 및 카메라] ────────────────────────────────────────
     path('logs/',                     views.logs_view,        name='logs'),
     path('camera/',                   views.camera_view,      name='camera_view'),
-    path('video-feed/',               views.video_feed,       name='video_feed'),
+    path('video-feed/<int:tank_id>/', views.video_feed, name='video_feed'),
     
     # ── [4. 추가 페이지] ───────────────────────────────────────────
     path('fish-data/',                views.fish_data_view,   name='fish_data'),

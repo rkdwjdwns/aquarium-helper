@@ -564,7 +564,15 @@ def data_log_view(request):
 
 
 @login_required
-def video_feed(request):
+def video_feed(request, tank_id=None):
+    """실시간 카메라 스트리밍 뷰"""
+    try:
+        return StreamingHttpResponse(
+            gen_camera_frame(), 
+            content_type='multipart/x-mixed-replace; boundary=frame'
+        )
+    except Exception as e:
+        return HttpResponse(f"Streaming Error: {e}", status=500)def video_feed(request):
     """실시간 카메라 스트리밍 뷰"""
     try:
         return StreamingHttpResponse(
