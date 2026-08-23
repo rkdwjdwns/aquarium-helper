@@ -20,10 +20,11 @@ urlpatterns = [
     path('edit/<int:tank_id>/',      views.edit_tank,        name='edit_tank'),
     path('delete/<int:tank_id>/',    views.delete_tank,      name='delete_tank'),
 
-    # ── [3. 로그 및 카메라] ────────────────────────────────────────
-    path('logs/',                    views.logs_view,        name='logs'),
-    path('camera/',                  views.camera_view,      name='camera_view'),
-
+   # ── [3. 로그 및 카메라] ────────────────────────────────────────
+    path('logs/',                      views.logs_view,        name='logs'),
+    path('camera/',                    views.camera_view,      name='camera_view'),
+    path('video-feed/',                views.video_feed,       name='video_feed'),
+    
     # ── [4. 추가 페이지] ───────────────────────────────────────────
     path('fish-data/',               views.fish_data_view,   name='fish_data'),
     path('analysis/',                views.analysis_view,    name='analysis'),
