@@ -157,7 +157,7 @@ def remove_state_codes(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('monitoring', '0015_여기에_실제_파일명'),
+        ('monitoring', '0015_statecode_tankstateevent'),
     ]
 
     operations = [
