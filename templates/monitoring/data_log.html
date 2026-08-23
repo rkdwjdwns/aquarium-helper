@@ -72,7 +72,7 @@
   <div class="hide-on-collapse" style="padding:14px 14px 0">
     <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:12px 8px 6px;display:flex;justify-content:space-between"><span>어항 정보 확인</span><span>⌄</span></div>
     <ul class="s-menu">
-      <li><a href="{% if selected_tank %}{% url 'monitoring:dashboard' selected_tank.id %}{% else %}{% url 'monitoring:dashboard_default' %}{% endif %}">▱ 환경 정보 및 제어</a></li>
+      <li><a href="{% if selected_tank %}{% url 'monitoring:dashboard' selected_tank.id %}{% else %}{% url 'monitoring:dashboard' %}{% endif %}">▱ 환경 정보 및 제어</a></li>
       <li><a href="{% url 'monitoring:fish_data' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}">▱ 물고기 데이터</a></li>
       <li><a href="{% url 'monitoring:camera_view' %}">▱ 실시간 모니터링</a></li>
     </ul>
@@ -99,22 +99,28 @@
           <div class="log-title">데이터 로그</div>
           <div class="filter-row">
             <span class="filter-label">레벨 필터</span>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}sort={{ sort }}">
-              <button class="level-btn all {% if not level %}active{% endif %}">전체</button></a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=INFO&sort={{ sort }}">
-              <button class="level-btn info {% if level == 'INFO' %}active{% endif %}">INFO</button></a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=WARNING&sort={{ sort }}">
-              <button class="level-btn warning {% if level == 'WARNING' %}active{% endif %}">WARNING</button></a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=DANGER&sort={{ sort }}">
-              <button class="level-btn danger {% if level == 'DANGER' %}active{% endif %}">DANGER</button></a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}sort={{ sort }}" style="text-decoration:none;">
+              <button class="level-btn all {% if not level %}active{% endif %}">전체</button>
+            </a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=INFO&sort={{ sort }}" style="text-decoration:none;">
+              <button class="level-btn info {% if level == 'INFO' %}active{% endif %}">INFO</button>
+            </a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=WARNING&sort={{ sort }}" style="text-decoration:none;">
+              <button class="level-btn warning {% if level == 'WARNING' %}active{% endif %}">WARNING</button>
+            </a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=DANGER&sort={{ sort }}" style="text-decoration:none;">
+              <button class="level-btn danger {% if level == 'DANGER' %}active{% endif %}">DANGER</button>
+            </a>
           </div>
         </div>
         <div class="head-right">
           <div class="sort-toggle">
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=desc">
-              <button class="{% if sort != 'asc' %}active{% endif %}">최신순</button></a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=asc">
-              <button class="{% if sort == 'asc' %}active{% endif %}">오래된순</button></a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=desc" style="text-decoration:none;">
+              <button class="{% if sort != 'asc' %}active{% endif %}">최신순</button>
+            </a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=asc" style="text-decoration:none;">
+              <button class="{% if sort == 'asc' %}active{% endif %}">오래된순</button>
+            </a>
           </div>
           <button class="refresh-btn" onclick="location.reload()">⟳ 새로고침</button>
         </div>
@@ -145,15 +151,18 @@
       <div class="pagination">
         {% if page_obj.has_previous %}
         <a href="?page={{ page_obj.previous_page_number }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">
-          <button class="page-btn">‹</button></a>
+          <button class="page-btn">‹</button>
+        </a>
         {% endif %}
         {% for num in page_obj.paginator.page_range %}
         <a href="?page={{ num }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">
-          <button class="page-btn {% if page_obj.number == num %}active{% endif %}">{{ num }}</button></a>
+          <button class="page-btn {% if page_obj.number == num %}active{% endif %}">{{ num }}</button>
+        </a>
         {% endfor %}
         {% if page_obj.has_next %}
         <a href="?page={{ page_obj.next_page_number }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">
-          <button class="page-btn">›</button></a>
+          <button class="page-btn">›</button>
+        </a>
         {% endif %}
       </div>
       {% endif %}
@@ -166,10 +175,11 @@
 {% block extra_js %}
 <script>
 function toggleSb(){
-  const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');
-  const c=sb.classList.contains('collapsed');
-  document.getElementById('sbToggle').textContent=c?'›':'‹';
-  document.getElementById('mainContent').style.marginLeft=c?'44px':'var(--sw)';
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  const c = sb.classList.contains('collapsed');
+  document.getElementById('sbToggle').textContent = c ? '›' : '‹';
+  document.getElementById('mainContent').style.marginLeft = c ? '44px' : 'var(--sw)';
 }
 </script>
 {% endblock %}

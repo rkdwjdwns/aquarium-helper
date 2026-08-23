@@ -79,14 +79,14 @@
   <div class="hide-on-collapse" style="padding:14px 14px 0">
     <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:12px 8px 6px;display:flex;justify-content:space-between"><span>어항 정보 확인</span><span>⌄</span></div>
     <ul class="s-menu">
-      <li><a href="{% if tank %}{% url 'monitoring:dashboard' tank.id %}{% else %}{% url 'monitoring:dashboard_default' %}{% endif %}" class="">▱ 환경 정보 및 제어</a></li>
+      <li><a href="{% if tank %}{% url 'monitoring:dashboard' tank.id %}{% else %}{% url 'monitoring:dashboard' %}{% endif %}">▱ 환경 정보 및 제어</a></li>
       <li><a href="{% url 'monitoring:fish_data' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ 물고기 데이터</a></li>
       <li><a href="{% url 'monitoring:camera_view' %}" class="active">▱ 실시간 모니터링</a></li>
     </ul>
     <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:16px 8px 6px;display:flex;justify-content:space-between"><span>분석 내용 제공</span><span>⌄</span></div>
     <ul class="s-menu">
       <li><a href="{% url 'monitoring:analysis' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ AI기반 행동분석</a></li>
-      <li><a href="{% url 'reports:report_list' %}" class="">▱ 데이터 리포트</a></li>
+      <li><a href="{% url 'reports:report_list' %}">▱ 데이터 리포트</a></li>
       <li><a href="{% url 'monitoring:data_log' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ 데이터 로그</a></li>
     </ul>
   </div>
@@ -101,7 +101,7 @@
 <main id="mainContent">
   <div style="max-width:1120px;margin:0 auto">
 
-    <!-- 실시간 스트리밍 (백엔드 스트림 URL 연결) -->
+    <!-- 실시간 스트리밍 -->
     <div class="stream-wrap" id="streamWrap">
       <img id="streamVideo" src="{% url 'monitoring:video_feed' tank.id|default:1 %}" alt="Live Stream">
       <div class="stream-overlay">
@@ -242,100 +242,114 @@
 <script>
 const TANK_ID = {{ tank.id|default:1 }};
 
-// 사이드바
 function toggleSb(){
-  const sb=document.getElementById('sidebar');
+  const sb = document.getElementById('sidebar');
   sb.classList.toggle('collapsed');
-  const c=sb.classList.contains('collapsed');
-  document.getElementById('sbToggle').textContent=c?'›':'‹';
-  document.getElementById('mainContent').style.marginLeft=c?'44px':'var(--sw)';
+  const c = sb.classList.contains('collapsed');
+  document.getElementById('sbToggle').textContent = c ? '›' : '‹';
+  document.getElementById('mainContent').style.marginLeft = c ? '44px' : 'var(--sw)';
 }
 
-// 시간 표시
-setInterval(()=>document.getElementById('stream-time')&&(document.getElementById('stream-time').textContent=new Date().toLocaleTimeString('ko-KR')),1000);
+setInterval(() => {
+  const timeEl = document.getElementById('stream-time');
+  if (timeEl) timeEl.textContent = new Date().toLocaleTimeString('ko-KR');
+}, 1000);
 
-// 구역 오버레이
-let zoneOn=false;
+let zoneOn = false;
 function toggleZone(){
-  zoneOn=!zoneOn;
-  const btn=document.getElementById('zoneBtn');
-  let cv=document.getElementById('zoneCv');
+  zoneOn = !zoneOn;
+  const btn = document.getElementById('zoneBtn');
+  let cv = document.getElementById('zoneCv');
   if(zoneOn){
-    if(!cv){cv=document.createElement('canvas');cv.id='zoneCv';cv.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:.6;';document.getElementById('streamWrap').appendChild(cv);}
-    const w=cv.parentElement.offsetWidth,h=cv.parentElement.offsetHeight;
-    cv.width=w;cv.height=h;
-    const ctx=cv.getContext('2d');
-    [{label:'TOP',y:0,h:h/3,c:'rgba(239,68,68,.15)',b:'rgba(239,68,68,.6)'},{label:'MID',y:h/3,h:h/3,c:'rgba(59,130,246,.1)',b:'rgba(59,130,246,.5)'},{label:'BOT',y:h*2/3,h:h/3,c:'rgba(16,185,129,.1)',b:'rgba(16,185,129,.5)'}].forEach(z=>{
-      ctx.fillStyle=z.c;ctx.fillRect(0,z.y,w,z.h);
-      ctx.strokeStyle=z.b;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.strokeRect(2,z.y+2,w-4,z.h-4);
-      ctx.font='bold 13px sans-serif';ctx.fillStyle=z.b;ctx.setLineDash([]);ctx.fillText(z.label,14,z.y+22);
+    if(!cv){
+      cv = document.createElement('canvas');
+      cv.id = 'zoneCv';
+      cv.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:.6;';
+      document.getElementById('streamWrap').appendChild(cv);
+    }
+    const w = cv.parentElement.offsetWidth, h = cv.parentElement.offsetHeight;
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d');
+    [
+      {label:'TOP', y:0, h:h/3, c:'rgba(239,68,68,.15)', b:'rgba(239,68,68,.6)'},
+      {label:'MID', y:h/3, h:h/3, c:'rgba(59,130,246,.1)', b:'rgba(59,130,246,.5)'},
+      {label:'BOT', y:h*2/3, h:h/3, c:'rgba(16,185,129,.1)', b:'rgba(16,185,129,.5)'}
+    ].forEach(z => {
+      ctx.fillStyle = z.c; ctx.fillRect(0, z.y, w, z.h);
+      ctx.strokeStyle = z.b; ctx.lineWidth = 1.5; ctx.setLineDash([6,4]); ctx.strokeRect(2, z.y+2, w-4, z.h-4);
+      ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = z.b; ctx.setLineDash([]); ctx.fillText(z.label, 14, z.y+22);
     });
     btn.classList.add('active');
-  } else {cv?.remove();btn.classList.remove('active');}
+  } else {
+    if(cv) cv.remove();
+    btn.classList.remove('active');
+  }
 }
-function toggleFs(){const el=document.getElementById('streamWrap');if(!document.fullscreenElement)el.requestFullscreen?.();else document.exitFullscreen?.();}
 
-function f2(v){const n=parseFloat(v);return isNaN(n)?'--':n.toFixed(2);}
-async function sf(url){try{const r=await fetch(url);return r.ok?await r.json():null;}catch{return null;}}
+function toggleFs(){
+  const el = document.getElementById('streamWrap');
+  if(!document.fullscreenElement) el.requestFullscreen?.();
+  else document.exitFullscreen?.();
+}
 
-// 요약 데이터 API 연동
+function f2(v){const n = parseFloat(v); return isNaN(n) ? '--' : n.toFixed(2);}
+async function sf(url){try{const r = await fetch(url); return r.ok ? await r.json() : null;}catch{return null;}}
+
 async function fetchBeh(){
-  const d=await sf(`/monitoring/api/behavior/latest/?tank_id=${TANK_ID}`);
+  const d = await sf(`/monitoring/api/behavior/latest/?tank_id=${TANK_ID}`);
   if(!d) return;
-  const STATUS_KO={EXCELLENT:'매우 좋음',GOOD:'좋음',NORMAL:'정상',WARNING:'주의',POOR:'나쁨'};
-  const STATUS_C={EXCELLENT:'#10b981',GOOD:'#3b82f6',NORMAL:'#6b7280',WARNING:'#f59e0b',POOR:'#ef4444'};
+  const STATUS_KO = {EXCELLENT:'매우 좋음', GOOD:'좋음', NORMAL:'정상', WARNING:'주의', POOR:'나쁨'};
+  const STATUS_C = {EXCELLENT:'#10b981', GOOD:'#3b82f6', NORMAL:'#6b7280', WARNING:'#f59e0b', POOR:'#ef4444'};
   
   if(d.fish_count != null) document.getElementById('sumFishCount').textContent = d.fish_count + '마리';
   if(d.activity_level != null) document.getElementById('sumActivity').textContent = f2(d.activity_level);
   if(d.dominant_zone) document.getElementById('sumZone').textContent = d.dominant_zone;
   if(d.status){
-    const el=document.getElementById('sumStatus');
-    el.textContent=STATUS_KO[d.status]||d.status;
-    el.style.color=STATUS_C[d.status]||'#6b7280';
+    const el = document.getElementById('sumStatus');
+    el.textContent = STATUS_KO[d.status] || d.status;
+    el.style.color = STATUS_C[d.status] || '#6b7280';
   }
 }
 
-// FRS API 연동
 async function fetchFRS(){
-  const d=await sf(`/monitoring/api/frs/?tank_id=${TANK_ID}`);
+  const d = await sf(`/monitoring/api/frs/?tank_id=${TANK_ID}`);
   if(!d) return;
 
   if(d.score != null){
-    const score=Math.round(parseFloat(d.score));
-    document.getElementById('frsScore').textContent=score+' / 100';
-    const b=document.getElementById('frsBadge');
-    b.textContent=score>=80?'좋음':score>=40?'보통':'저조';
-    b.className='ai-badge '+(score>=80?'badge-good':score>=40?'badge-warn':'badge-danger');
+    const score = Math.round(parseFloat(d.score));
+    document.getElementById('frsScore').textContent = score + ' / 100';
+    const b = document.getElementById('frsBadge');
+    b.textContent = score >= 80 ? '좋음' : score >= 40 ? '보통' : '저조';
+    b.className = 'ai-badge ' + (score >= 80 ? 'badge-good' : score >= 40 ? 'badge-warn' : 'badge-danger');
   }
-  document.getElementById('frsLabel').textContent=d.status_label || d.status || '--';
-  document.getElementById('frsTime').textContent=d.recent_time || '--';
-  document.getElementById('frsInterval').textContent=d.interval_text || (d.pre_sec != null ? `전 ${d.pre_sec}s / 후 ${d.post_sec}s` : '--');
-  document.getElementById('frsAdvice').textContent=d.advice_label || '--';
-  document.getElementById('frsRt').textContent=d.first_surface_sec != null ? f2(d.first_surface_sec)+'초' : '--';
-  document.getElementById('frsAct').textContent=d.activity_increase_percent != null ? '+'+f2(d.activity_increase_percent)+'%' : '--';
-  document.getElementById('frsSurf').textContent=d.surface_ratio_percent != null ? f2(d.surface_ratio_percent)+'%' : '--';
-  document.getElementById('frsAvg').textContent=d.recent_avg_score != null ? f2(d.recent_avg_score)+'점' : '--';
+  document.getElementById('frsLabel').textContent = d.status_label || d.status || '--';
+  document.getElementById('frsTime').textContent = d.recent_time || '--';
+  document.getElementById('frsInterval').textContent = d.interval_text || (d.pre_sec != null ? `전 ${d.pre_sec}s / 후 ${d.post_sec}s` : '--');
+  document.getElementById('frsAdvice').textContent = d.advice_label || '--';
+  document.getElementById('frsRt').textContent = d.first_surface_sec != null ? f2(d.first_surface_sec) + '초' : '--';
+  document.getElementById('frsAct').textContent = d.activity_increase_percent != null ? '+' + f2(d.activity_increase_percent) + '%' : '--';
+  document.getElementById('frsSurf').textContent = d.surface_ratio_percent != null ? f2(d.surface_ratio_percent) + '%' : '--';
+  document.getElementById('frsAvg').textContent = d.recent_avg_score != null ? f2(d.recent_avg_score) + '점' : '--';
 }
 
-// ABR API 연동
 async function fetchABR(){
-  const d=await sf(`/monitoring/api/abr/?tank_id=${TANK_ID}`);
+  const d = await sf(`/monitoring/api/abr/?tank_id=${TANK_ID}`);
   if(!d) return;
 
-  const rate=parseFloat(d.abr_rate ?? d.tank_rate_percent);
+  const rate = parseFloat(d.abr_rate ?? d.tank_rate_percent);
   if(!isNaN(rate)){
-    document.getElementById('abrRate').textContent=rate.toFixed(1)+'%';
-    const b=document.getElementById('abrBadge');
-    b.textContent=rate<=10?'정상':rate<=30?'주의':'위험';
-    b.className='ai-badge '+(rate<=10?'badge-good':rate<=30?'badge-warn':'badge-danger');
+    document.getElementById('abrRate').textContent = rate.toFixed(1) + '%';
+    const b = document.getElementById('abrBadge');
+    b.textContent = rate <= 10 ? '정상' : rate <= 30 ? '주의' : '위험';
+    b.className = 'ai-badge ' + (rate <= 10 ? 'badge-good' : rate <= 30 ? 'badge-warn' : 'badge-danger');
   }
-  document.getElementById('abrCount').textContent=(d.anomaly_count ?? d.abnormal_count ?? '--')+' 회';
-  document.getElementById('abrRange').textContent=(d.threshold_low != null && d.threshold_high != null) ? f2(d.threshold_low)+'~'+f2(d.threshold_high) : '--';
+  document.getElementById('abrCount').textContent = (d.anomaly_count ?? d.abnormal_count ?? '--') + ' 회';
+  document.getElementById('abrRange').textContent = (d.threshold_low != null && d.threshold_high != null) ? f2(d.threshold_low) + '~' + f2(d.threshold_high) : '--';
   
   if(d.fish_list && Array.isArray(d.fish_list) && d.fish_list.length > 0){
-    const SC={정상:'#10b981',관찰:'#f59e0b',위험:'#ef4444'};
-    const BC={정상:'#10b981',관찰:'#f59e0b',위험:'#ef4444'};
-    document.getElementById('abrFishList').innerHTML=d.fish_list.map(f=>`
+    const SC = {정상:'#10b981', 관찰:'#f59e0b', 위험:'#ef4444'};
+    const BC = {정상:'#10b981', 관찰:'#f59e0b', 위험:'#ef4444'};
+    document.getElementById('abrFishList').innerHTML = d.fish_list.map(f => `
       <div class="fish-row">
         <span>Fish #${f.id}</span>
         <div style="flex:1;margin:0 12px">
@@ -344,70 +358,72 @@ async function fetchABR(){
         <span style="color:${SC[f.status]||'#536ae8'};min-width:48px;text-align:right">${f2(f.rate)}% ${f.status}</span>
       </div>`).join('');
   } else {
-    document.getElementById('abrFishList').innerHTML='<div style="color:#ccc;font-size:12px;text-align:center;padding:8px">데이터 없음</div>';
+    document.getElementById('abrFishList').innerHTML = '<div style="color:#ccc;font-size:12px;text-align:center;padding:8px">데이터 없음</div>';
   }
 }
 
-// 활동 패턴 API 연동
-let actChart=null;
+let actChart = null;
 async function fetchAct(){
-  const d=await sf(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
+  const d = await sf(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
   if(!d) return;
 
-  const raw=d.compared_to_baseline ?? d.baseline_delta_percent;
+  const raw = d.compared_to_baseline ?? d.baseline_delta_percent;
   if(raw != null){
-    const delta=parseFloat(raw);
-    const bel=document.getElementById('actBaseline');
-    bel.textContent=(delta>=0?'+':'')+f2(delta)+'%';
-    bel.style.color=delta>=0?'#10b981':'#ef4444';
-    const sb=document.getElementById('actBadge');
-    sb.textContent=Math.abs(delta)<=30?'정상':delta<-30?'활동저하':'과활동';
-    sb.className='ai-badge '+(Math.abs(delta)<=30?'badge-ok':delta<-30?'badge-danger':'badge-warn');
+    const delta = parseFloat(raw);
+    const bel = document.getElementById('actBaseline');
+    bel.textContent = (delta >= 0 ? '+' : '') + f2(delta) + '%';
+    bel.style.color = delta >= 0 ? '#10b981' : '#ef4444';
+    const sb = document.getElementById('actBadge');
+    sb.textContent = Math.abs(delta) <= 30 ? '정상' : delta < -30 ? '활동저하' : '과활동';
+    sb.className = 'ai-badge ' + (Math.abs(delta) <= 30 ? 'badge-ok' : delta < -30 ? 'badge-danger' : 'badge-warn');
   }
 
-  const val=d.current_hour_activity ?? d.tank_activity;
-  document.getElementById('actValue').textContent=val != null ? f2(val) : '--';
-  document.getElementById('actZone').textContent=d.main_zone || '--';
+  const val = d.current_hour_activity ?? d.tank_activity;
+  document.getElementById('actValue').textContent = val != null ? f2(val) : '--';
+  document.getElementById('actZone').textContent = d.main_zone || '--';
 
   if(d.series && Array.isArray(d.series)){
     if(!actChart){
-      actChart=new Chart(document.getElementById('actMiniChart').getContext('2d'),{
-        type:'line',data:{labels:d.series.map(s=>s.t),datasets:[{data:d.series.map(s=>s.v),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',borderWidth:2,pointRadius:2,tension:.4,fill:true}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:8},color:'#94a3b8'}},y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:8},color:'#94a3b8'}}},animation:{duration:200}}
+      actChart = new Chart(document.getElementById('actMiniChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: d.series.map(s => s.t),
+          datasets: [{data: d.series.map(s => s.v), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.08)', borderWidth: 2, pointRadius: 2, tension: .4, fill: true}]
+        },
+        options: {responsive: true, maintainAspectRatio: false, plugins: {legend: {display: false}}, scales: {x: {grid: {display: false}, ticks: {font: {size: 8}, color: '#94a3b8'}}, y: {grid: {color: 'rgba(0,0,0,.04)'}, ticks: {font: {size: 8}, color: '#94a3b8'}}}, animation: {duration: 200}}
       });
     } else {
-      actChart.data.labels=d.series.map(s=>s.t);
-      actChart.data.datasets[0].data=d.series.map(s=>s.v);
+      actChart.data.labels = d.series.map(s => s.t);
+      actChart.data.datasets[0].data = d.series.map(s => s.v);
       actChart.update();
     }
   }
 
   if(d.fish_list && Array.isArray(d.fish_list) && d.fish_list.length > 0){
-    const ZONE_C={MID:'#3b82f6',TOP:'#ef4444',BOT:'#10b981'};
-    document.getElementById('actFishList').innerHTML=d.fish_list.map(f=>`
+    const ZONE_C = {MID:'#3b82f6', TOP:'#ef4444', BOT:'#10b981'};
+    document.getElementById('actFishList').innerHTML = d.fish_list.map(f => `
       <div class="fish-row">
         <span style="min-width:56px">Fish #${f.id}</span>
         <span style="flex:1;text-align:right;color:#333">${f2(f.act)} px/s</span>
         <span style="margin-left:10px;font-size:11px;padding:2px 8px;border-radius:10px;background:#f0f4ff;color:${ZONE_C[f.zone]||'#536ae8'};min-width:40px;text-align:center">${f.zone}</span>
       </div>`).join('');
   } else {
-    document.getElementById('actFishList').innerHTML='<div style="color:#ccc;font-size:12px;text-align:center;padding:8px">데이터 없음</div>';
+    document.getElementById('actFishList').innerHTML = '<div style="color:#ccc;font-size:12px;text-align:center;padding:8px">데이터 없음</div>';
   }
 }
 
-// 성장 추정 API 연동
 async function fetchGrowth(){
-  const d=await sf(`/monitoring/api/growth/?tank_id=${TANK_ID}`);
+  const d = await sf(`/monitoring/api/growth/?tank_id=${TANK_ID}`);
   if(!d) return;
 
-  document.getElementById('growthAvg').textContent=d.avg_length != null ? f2(d.avg_length) : '--';
-  document.getElementById('growthRate').textContent=d.avg_rate != null ? '+'+f2(d.avg_rate)+' cm/day' : '--';
-  document.getElementById('growthStageBadge').textContent=d.stage || '--';
-  document.getElementById('growthCalib').textContent=d.calibration_status || '--';
+  document.getElementById('growthAvg').textContent = d.avg_length != null ? f2(d.avg_length) : '--';
+  document.getElementById('growthRate').textContent = d.avg_rate != null ? '+' + f2(d.avg_rate) + ' cm/day' : '--';
+  document.getElementById('growthStageBadge').textContent = d.stage || '--';
+  document.getElementById('growthCalib').textContent = d.calibration_status || '--';
 
   if(d.fish_list && Array.isArray(d.fish_list) && d.fish_list.length > 0){
-    const max=Math.max(...d.fish_list.map(f=>f.len||0),0.1);
-    document.getElementById('growthFishList').innerHTML=d.fish_list.map(f=>`
+    const max = Math.max(...d.fish_list.map(f => f.len || 0), 0.1);
+    document.getElementById('growthFishList').innerHTML = d.fish_list.map(f => `
       <div style="background:#f4f7fb;border-radius:10px;padding:8px 12px;margin-bottom:6px">
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;margin-bottom:5px">
           <span>Fish #${f.id}</span>
@@ -416,12 +432,12 @@ async function fetchGrowth(){
         <div class="fish-bar-wrap"><div class="fish-bar" style="width:${((f.len||0)/max*100).toFixed(1)}%;background:#10b981"></div></div>
       </div>`).join('');
   } else {
-    document.getElementById('growthFishList').innerHTML='<div style="color:#ccc;font-size:12px;text-align:center;padding:8px">데이터 없음</div>';
+    document.getElementById('growthFishList').innerHTML = '<div style="color:#ccc;font-size:12px;text-align:center;padding:8px">데이터 없음</div>';
   }
 }
 
-async function fetchAll(){await Promise.allSettled([fetchBeh(),fetchFRS(),fetchABR(),fetchGrowth()]);}
-fetchAll();fetchAct();
-setInterval(fetchAll,30000);setInterval(fetchAct,60000);
+async function fetchAll(){await Promise.allSettled([fetchBeh(), fetchFRS(), fetchABR(), fetchGrowth()]);}
+fetchAll(); fetchAct();
+setInterval(fetchAll, 30000); setInterval(fetchAct, 60000);
 </script>
 {% endblock %}
