@@ -562,7 +562,7 @@ def data_log_view(request):
         'sort':          sort,
     })
 
-    @login_required
+@login_required
 def video_feed(request):
     """실시간 카메라 스트리밍 뷰"""
     try:
