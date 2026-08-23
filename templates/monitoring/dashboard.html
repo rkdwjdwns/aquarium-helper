@@ -1,489 +1,336 @@
 {% extends 'base.html' %}
+{% block extra_css %}
+<style>
+  :root{--sw:330px}
+  .sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
+  .sidebar.collapsed{width:44px;overflow:hidden}
+  body.sb-collapsed main{margin-left:44px!important}
+  .tank-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .sidebar.collapsed .hide-on-collapse{display:none!important}
+  .sidebar.collapsed .tank-title-row{justify-content:center}
+  .sidebar.collapsed .tank-summary{padding:18px 7px;border-bottom:0}
+  .tank-summary{padding:22px 22px 18px;border-bottom:1px solid #e4e8ee}
+  .sidebar-toggle{width:30px;height:30px;flex:none;border:0;border-radius:8px;background:#f1f5fa;color:#596474;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .sidebar-toggle:hover{background:#dcecff;color:#2572e9}
+  .s-menu{list-style:none;padding:14px}
+  .s-menu a{display:flex;align-items:center;gap:14px;height:48px;padding:0 16px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:15px;margin-bottom:4px}
+  .s-menu a.active{background:#dcecff;color:#2572e9;font-weight:800}
+  .s-menu a:hover{background:#f1f5fa}
+  .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
+  .sidebar-bottom a{display:flex;align-items:center;text-decoration:none;white-space:nowrap;font-size:14px;font-weight:800}
+
+  main{margin-left:var(--sw);padding:40px 32px 80px;transition:margin-left .3s}
+
+  /* 센서 카드 */
+  .sensor-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:28px}
+  .sensor-card{background:#fff;border-radius:24px;padding:22px 20px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+  .sensor-label{font-size:12px;font-weight:800;color:#8090a5;text-transform:uppercase;margin-bottom:16px}
+  .sensor-value{font-size:36px;font-weight:900;letter-spacing:-1.5px;line-height:1}
+  .sensor-unit{font-size:14px;font-weight:700;color:#aab;margin-left:3px}
+  .sensor-badge{display:inline-block;margin-top:10px;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px}
+  .badge-ok{background:#e6f9f0;color:#1a7f5a}
+  .badge-warn{background:#fff3e0;color:#b75e00}
+  .badge-danger{background:#fdecea;color:#b71c1c}
+
+  /* 장치 제어 */
+  .device-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+  .device-card{background:#fff;border-radius:20px;padding:18px;box-shadow:0 4px 10px rgba(0,0,0,.07);text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s}
+  .device-card.on{border-color:#536ae8;box-shadow:0 4px 14px rgba(83,106,232,.25)}
+  .device-icon{font-size:28px;margin-bottom:8px}
+  .device-name{font-size:13px;font-weight:900;color:#333}
+  .device-state{font-size:11px;font-weight:800;margin-top:4px}
+  .device-card.on .device-state{color:#536ae8}
+  .device-card:not(.on) .device-state{color:#bbb}
+
+  /* 차트 */
+  .chart-card{background:#fff;border-radius:24px;padding:24px;box-shadow:0 4px 12px rgba(0,0,0,.08);margin-bottom:24px}
+  .chart-title{font-size:15px;font-weight:900;color:#333;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+  .chart-tabs{display:flex;gap:8px}
+  .chart-tab{font-size:11px;font-weight:800;padding:4px 12px;border-radius:14px;border:0;cursor:pointer;background:#f0f4ff;color:#536ae8}
+  .chart-tab.active{background:#536ae8;color:#fff}
+
+  /* 환수 */
+  .water-change-btn{width:100%;height:52px;border:0;border-radius:16px;font-size:16px;font-weight:900;cursor:pointer;margin-bottom:28px}
+  .wc-pending{background:#263f50;color:#fff}
+  .wc-done{background:#10b981;color:#fff}
+
+  /* 로그 */
+  .log-list{display:flex;flex-direction:column;gap:6px}
+  .log-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600}
+  .log-item.INFO{background:#f0f4ff;color:#2c4a8c}
+  .log-item.WARNING{background:#fff3df;color:#7a4a00}
+  .log-item.DANGER{background:#fdebec;color:#7b2628}
+  .log-dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .INFO .log-dot{background:#536ae8}
+  .WARNING .log-dot{background:#f59e0b}
+  .DANGER .log-dot{background:#ef4444}
+
+  @media(max-width:900px){
+    .sidebar{display:none}
+    main{margin-left:0!important;padding:24px 18px 80px}
+    .sensor-grid{grid-template-columns:repeat(2,1fr)}
+    .device-grid{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="py-6">
 
-    {# 어항 탭 #}
-    <div class="flex gap-2 overflow-x-auto pb-4 mb-6 px-4 no-scrollbar">
-        {% for t in user_tanks %}
-        <a href="{% url 'monitoring:dashboard' t.id %}"
-           class="px-6 py-3 rounded-2xl font-black text-sm whitespace-nowrap transition-all
-           {% if t.id == tank.id %}bg-blue-600 text-white shadow-lg shadow-blue-100
-           {% else %}bg-white text-slate-400 border border-slate-100 hover:bg-slate-50{% endif %}">
-            {{ t.name }}
-        </a>
+<!-- 사이드바 -->
+<aside class="sidebar" id="sidebar">
+  <div class="tank-summary">
+    <div class="tank-title-row">
+      <div class="hide-on-collapse" style="overflow:hidden;min-width:0">
+        <h2 style="font-size:19px;font-weight:900;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tank.name }}</h2>
+        <p style="color:#7e8997;font-size:13px">
+          {% if d_day <= 0 %}환수 D+{{ d_day|slice:"1:" }}{% else %}환수 D-{{ d_day }}{% endif %}
+        </p>
+      </div>
+      <button class="sidebar-toggle" onclick="toggleSb()" id="sbToggle">‹</button>
+    </div>
+    <div class="hide-on-collapse" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+      {% for t in user_tanks %}
+      <a href="{% url 'monitoring:dashboard' t.id %}" style="font-size:11px;padding:4px 10px;border-radius:16px;border:1px solid {% if t.id == tank.id %}#536ae8{% else %}#dde1ea{% endif %};background:{% if t.id == tank.id %}#e8f0ff{% else %}#fff{% endif %};color:{% if t.id == tank.id %}#536ae8{% else %}#555{% endif %};text-decoration:none;font-weight:700">{{ t.name }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  
+    <div class="hide-on-collapse" style="padding:14px 14px 0">
+    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:12px 8px 6px;display:flex;justify-content:space-between"><span>어항 정보 확인</span><span>⌄</span></div>
+    <ul class="s-menu">
+      <li><a href="{% if tank %}{% url 'monitoring:dashboard' tank.id %}{% else %}{% url 'monitoring:dashboard_default' %}{% endif %}" class="active">▱ 환경 정보 및 제어</a></li>
+      <li><a href="{% url 'monitoring:fish_data' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ 물고기 데이터</a></li>
+      <li><a href="{% url 'monitoring:camera_view' %}" class="">▱ 실시간 모니터링</a></li>
+    </ul>
+    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:16px 8px 6px;display:flex;justify-content:space-between"><span>분석 내용 제공</span><span>⌄</span></div>
+    <ul class="s-menu">
+      <li><a href="{% url 'monitoring:analysis' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ AI기반 행동분석</a></li>
+      <li><a href="{% url 'reports:report_list' %}" class="">▱ 데이터 리포트</a></li>
+      <li><a href="{% url 'monitoring:data_log' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ 데이터 로그</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-bottom hide-on-collapse">
+    <a href="{% url 'monitoring:tank_settings' tank.id %}" style="color:#5f6876">⚙ 설정</a>
+    <a href="{% url 'monitoring:logs' %}?tank_id={{ tank.id }}" style="color:#4776e6;font-size:12px">조치 내역 →</a>
+  </div>
+</aside>
+
+<main id="mainContent">
+  <div style="max-width:1100px;margin:0 auto">
+
+    <!-- 센서 카드 -->
+    <div class="sensor-grid">
+      <div class="sensor-card">
+        <div class="sensor-label">🌡️ 수온</div>
+        <div><span id="val-temp" class="sensor-value">{{ latest.temperature|floatformat:2|default:"--" }}</span><span class="sensor-unit">°C</span></div>
+        <span id="badge-temp" class="sensor-badge {% if latest.temperature %}{% if latest.temperature >= 21 and latest.temperature <= 24 %}badge-ok{% else %}badge-danger{% endif %}{% endif %}">
+          {% if latest.temperature %}{% if latest.temperature >= 21 and latest.temperature <= 24 %}● 적정{% else %}● 주의{% endif %}{% else %}미연결{% endif %}
+        </span>
+      </div>
+      <div class="sensor-card">
+        <div class="sensor-label">💧 pH</div>
+        <div><span id="val-ph" class="sensor-value">{{ latest.ph|floatformat:2|default:"--" }}</span></div>
+        <span id="badge-ph" class="sensor-badge {% if latest.ph %}{% if latest.ph >= 6.5 and latest.ph <= 8.0 %}badge-ok{% else %}badge-warn{% endif %}{% endif %}">
+          {% if latest.ph %}{% if latest.ph >= 6.5 and latest.ph <= 8.0 %}● 안정{% else %}● 확인필요{% endif %}{% else %}미연결{% endif %}
+        </span>
+      </div>
+      <div class="sensor-card">
+        <div class="sensor-label">🫧 DO</div>
+        <div><span id="val-do" class="sensor-value">{{ latest.dissolved_oxygen|floatformat:2|default:"--" }}</span><span class="sensor-unit">mg/L</span></div>
+        <span id="badge-do" class="sensor-badge {% if latest.dissolved_oxygen %}{% if latest.dissolved_oxygen >= 5 %}badge-ok{% else %}badge-danger{% endif %}{% endif %}">
+          {% if latest.dissolved_oxygen %}{% if latest.dissolved_oxygen >= 5 %}● 정상{% else %}● 부족{% endif %}{% else %}미연결{% endif %}
+        </span>
+      </div>
+      <div class="sensor-card">
+        <div class="sensor-label">🌫️ 탁도</div>
+        <div><span id="val-turb" class="sensor-value">{{ latest.turbidity|floatformat:2|default:"--" }}</span><span class="sensor-unit">NTU</span></div>
+        <span id="badge-turb" class="sensor-badge {% if latest.turbidity %}{% if latest.turbidity <= 50 %}badge-ok{% elif latest.turbidity <= 100 %}badge-warn{% else %}badge-danger{% endif %}{% endif %}">
+          {% if latest.turbidity %}{% if latest.turbidity <= 50 %}● 맑음{% elif latest.turbidity <= 100 %}● 탁함{% else %}● 위험{% endif %}{% else %}미연결{% endif %}
+        </span>
+      </div>
+      <div class="sensor-card">
+        <div class="sensor-label">📏 수위</div>
+        <div><span id="val-level" class="sensor-value">{{ latest.water_level|floatformat:2|default:"--" }}</span><span class="sensor-unit">%</span></div>
+        <span id="badge-level" class="sensor-badge {% if latest.water_level %}{% if latest.water_level >= 80 %}badge-ok{% elif latest.water_level >= 60 %}badge-warn{% else %}badge-danger{% endif %}{% endif %}">
+          {% if latest.water_level %}{% if latest.water_level >= 80 %}● 정상{% elif latest.water_level >= 60 %}● 낮음{% else %}● 부족{% endif %}{% else %}미연결{% endif %}
+        </span>
+      </div>
+      <div class="sensor-card" style="background:#e8f4ff">
+        <div class="sensor-label" style="color:#2879ed">🗑️ 환수</div>
+        <div class="sensor-value" style="font-size:30px">
+          {% if d_day < 0 %}<span style="color:#ef4444">D+{{ d_day|slice:"1:" }}</span>
+          {% else %}D-{{ d_day }}{% endif %}
+        </div>
+        <span class="sensor-badge {% if d_day <= 0 %}badge-danger{% elif d_day <= 2 %}badge-warn{% else %}badge-ok{% endif %}">
+          {% if d_day <= 0 %}● 환수필요{% elif d_day <= 2 %}● 곧환수{% else %}● 양호{% endif %}
+        </span>
+      </div>
+      <div class="sensor-card" style="grid-column:span 2">
+        <div class="sensor-label">⚙️ 수질 점수</div>
+        <div style="display:flex;align-items:center;gap:18px">
+          <span class="sensor-value" style="font-size:42px">{{ latest.water_quality_score|default:"--" }}</span>
+          <div style="flex:1;height:10px;background:#f0f2f5;border-radius:10px;overflow:hidden">
+            <div style="height:100%;border-radius:10px;background:{% if latest.water_quality_score >= 70 %}#10b981{% elif latest.water_quality_score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};width:{{ latest.water_quality_score|default:0 }}%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 트렌드 차트 -->
+    <div class="chart-card">
+      <div class="chart-title">
+        📈 수질 트렌드 (최근 12회)
+        <div class="chart-tabs">
+          <button class="chart-tab active" onclick="setChart('temp',this)">수온</button>
+          <button class="chart-tab" onclick="setChart('ph',this)">pH</button>
+          <button class="chart-tab" onclick="setChart('do',this)">DO</button>
+          <button class="chart-tab" onclick="setChart('turb',this)">탁도</button>
+        </div>
+      </div>
+      <div style="height:200px;position:relative"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <!-- 장치 제어 -->
+    <div class="chart-card">
+      <div class="chart-title">⚙️ 장치 제어</div>
+      <div class="device-grid">
+        <div class="device-card {% if heater_on %}on{% endif %}" onclick="toggleDevice('HEATER')">
+          <div class="device-icon">🔥</div>
+          <div class="device-name">히터</div>
+          <div class="device-state">{% if heater_on %}ON{% else %}OFF{% endif %}</div>
+        </div>
+        <div class="device-card {% if cooling_on %}on{% endif %}" onclick="toggleDevice('COOLING')">
+          <div class="device-icon">❄️</div>
+          <div class="device-name">냉각팬</div>
+          <div class="device-state">{% if cooling_on %}ON{% else %}OFF{% endif %}</div>
+        </div>
+        <div class="device-card {% if air_pump_on %}on{% endif %}" onclick="toggleDevice('AIR_PUMP')">
+          <div class="device-icon">🫧</div>
+          <div class="device-name">에어펌프</div>
+          <div class="device-state">{% if air_pump_on %}ON{% else %}OFF{% endif %}</div>
+        </div>
+        <div class="device-card {% if light_on %}on{% endif %}" onclick="toggleDevice('LIGHT')">
+          <div class="device-icon">💡</div>
+          <div class="device-name">조명</div>
+          <div class="device-state">{% if light_on %}ON{% else %}OFF{% endif %}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 환수 버튼 -->
+    <button class="water-change-btn {% if is_water_changed_today %}wc-done{% else %}wc-pending{% endif %}"
+      onclick="{% if not is_water_changed_today %}doWaterChange(){% endif %}"
+      {% if is_water_changed_today %}disabled{% endif %}>
+      {% if is_water_changed_today %}✅ 오늘 환수 완료{% else %}🗑️ 환수하기{% endif %}
+    </button>
+
+    <!-- 실시간 로그 -->
+    <div class="chart-card">
+      <div class="chart-title">
+        📜 최근 로그
+        <a href="{% url 'monitoring:logs' %}?tank_id={{ tank.id }}" style="font-size:12px;color:#536ae8;text-decoration:none;font-weight:700">전체 보기 →</a>
+      </div>
+      <div class="log-list">
+        {% for log in logs %}
+        <div class="log-item {{ log.level }}">
+          <span class="log-dot"></span>
+          <span style="flex:1">{{ log.message }}</span>
+          <span style="font-size:11px;opacity:.6">{{ log.created_at|date:"H:i:s" }}</span>
+        </div>
+        {% empty %}
+        <p style="text-align:center;padding:20px;color:#aab;font-size:14px">기록이 없습니다.</p>
         {% endfor %}
+      </div>
     </div>
 
-    {% if not tank %}
-    <div class="text-center py-32">
-        <p class="text-6xl mb-4">🐠</p>
-        <p class="text-slate-400 font-black text-xl">등록된 어항이 없습니다.</p>
-        <a href="{% url 'monitoring:add_tank' %}" class="mt-6 inline-block bg-blue-600 text-white px-8 py-3 rounded-2xl font-black">어항 등록하기</a>
-    </div>
-    {% else %}
+  </div>
+</main>
+{% endblock %}
 
-    <div class="bg-white rounded-[3.5rem] shadow-[0_20px_60px_rgba(0,119,255,0.08)] border border-white p-5 sm:p-10 md:p-14 mb-10">
-
-        {# 헤더 #}
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-8 sm:mb-12">
-            <div>
-                <span class="text-[11px] font-black text-blue-500 uppercase tracking-[0.2em] block mb-2">Aquarium Unit</span>
-                <h2 class="text-2xl sm:text-4xl font-black text-slate-800">{{ tank.name }}</h2>
-            </div>
-            <div class="flex sm:flex-col items-center sm:items-end gap-2">
-                <div class="flex items-center gap-2">
-                    <a href="{% url 'monitoring:tank_settings' tank.id %}"
-                       class="px-4 py-2 rounded-full text-xs font-black bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
-                        설정
-                    </a>
-                    <span id="status-badge" class="px-4 sm:px-6 py-2 rounded-full text-xs sm:text-sm font-black bg-blue-500 text-white shadow-lg">정상 작동 중</span>
-                </div>
-                <span id="last-updated" class="text-[10px] text-slate-300 font-bold">마지막 업데이트: 방금</span>
-            </div>
-        </div>
-
-        {# ── 센서 카드 6개 ── #}
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
-
-            {# 수온 #}
-            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
-                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🌡️ Temp</p>
-                <p id="val-temp" class="text-3xl font-black text-slate-800 mb-2">{{ latest.temperature|floatformat:2|default:"--" }}°C</p>
-                <span id="badge-temp" class="text-[10px] font-bold px-3 py-1 rounded-full
-                    {% if latest.temperature %}
-                        {% if latest.temperature >= 21 and latest.temperature <= 24 %}text-emerald-500 bg-emerald-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
-                    {% else %}text-slate-300{% endif %}">
-                    {% if latest.temperature %}{% if latest.temperature >= 21 and latest.temperature <= 24 %}● 적정{% else %}● 주의{% endif %}{% else %}센서 미연결{% endif %}
-                </span>
-            </div>
-
-            {# pH #}
-            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
-                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">💧 pH</p>
-                <p id="val-ph" class="text-3xl font-black text-slate-800 mb-2">{{ latest.ph|floatformat:2|default:"--" }}</p>
-                <span id="badge-ph" class="text-[10px] font-bold px-3 py-1 rounded-full
-                    {% if latest.ph %}
-                        {% if latest.ph >= 6.5 and latest.ph <= 8.0 %}text-emerald-500 bg-emerald-50{% else %}text-orange-500 bg-orange-50 animate-pulse{% endif %}
-                    {% else %}text-slate-300{% endif %}">
-                    {% if latest.ph %}{% if latest.ph >= 6.5 and latest.ph <= 8.0 %}● 안정{% else %}● 확인 필요{% endif %}{% else %}센서 미연결{% endif %}
-                </span>
-            </div>
-
-            {# DO 용존산소 #}
-            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
-                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🫧 DO</p>
-                <p id="val-do" class="text-3xl font-black text-slate-800 mb-2">{{ latest.dissolved_oxygen|floatformat:2|default:"--" }}<span class="text-sm font-bold text-slate-400"> mg/L</span></p>
-                <span id="badge-do" class="text-[10px] font-bold px-3 py-1 rounded-full
-                    {% if latest.dissolved_oxygen %}
-                        {% if latest.dissolved_oxygen >= 5 %}text-emerald-500 bg-emerald-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
-                    {% else %}text-slate-300{% endif %}">
-                    {% if latest.dissolved_oxygen %}{% if latest.dissolved_oxygen >= 5 %}● 정상{% else %}● 산소 부족{% endif %}{% else %}센서 미연결{% endif %}
-                </span>
-            </div>
-
-            {# 탁도 #}
-            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
-                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">🌫️ 탁도</p>
-                <p id="val-turb" class="text-3xl font-black text-slate-800 mb-2">{{ latest.turbidity|floatformat:2|default:"--" }}<span class="text-sm font-bold text-slate-400"> NTU</span></p>
-                <span id="badge-turb" class="text-[10px] font-bold px-3 py-1 rounded-full
-                    {% if latest.turbidity %}
-                        {% if latest.turbidity <= 50 %}text-emerald-500 bg-emerald-50{% elif latest.turbidity <= 100 %}text-orange-500 bg-orange-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
-                    {% else %}text-slate-300{% endif %}">
-                    {% if latest.turbidity %}{% if latest.turbidity <= 50 %}● 맑음{% elif latest.turbidity <= 100 %}● 탁함{% else %}● 위험{% endif %}{% else %}센서 미연결{% endif %}
-                </span>
-            </div>
-
-            {# 수위 #}
-            <div class="bg-slate-50/50 rounded-[2.5rem] p-6 text-center border border-slate-50">
-                <p class="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">📏 수위</p>
-                <p id="val-level" class="text-3xl font-black text-slate-800 mb-2">{{ latest.water_level|floatformat:2|default:"--" }}<span class="text-sm font-bold text-slate-400">%</span></p>
-                <span id="badge-level" class="text-[10px] font-bold px-3 py-1 rounded-full
-                    {% if latest.water_level %}
-                        {% if latest.water_level >= 80 %}text-emerald-500 bg-emerald-50{% elif latest.water_level >= 60 %}text-orange-500 bg-orange-50{% else %}text-red-500 bg-red-50 animate-pulse{% endif %}
-                    {% else %}text-slate-300{% endif %}">
-                    {% if latest.water_level %}{% if latest.water_level >= 80 %}● 정상{% elif latest.water_level >= 60 %}● 낮음{% else %}● 부족{% endif %}{% else %}센서 미연결{% endif %}
-                </span>
-            </div>
-
-            {# 환수 D-day #}
-            <div class="bg-blue-50/30 rounded-[2.5rem] p-6 text-center border border-blue-100/50">
-                <p class="text-[10px] text-blue-400 font-black uppercase mb-3 tracking-widest">🗑️ 환수</p>
-                <p class="text-3xl font-black text-slate-800 mb-2">
-                    {% if d_day < 0 %}<span class="text-red-500">D+{{ d_day|slice:"1:" }}</span>
-                    {% else %}D-{{ d_day }}{% endif %}
-                </p>
-                {% if d_day <= 0 %}
-                    <span class="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full animate-pulse">● 환수 필요</span>
-                {% elif d_day <= 2 %}
-                    <span class="text-[10px] font-bold text-orange-500 bg-orange-50 px-3 py-1 rounded-full">● 곧 환수</span>
-                {% else %}
-                    <span class="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full">● 양호</span>
-                {% endif %}
-            </div>
-
-        </div>
-
-        {# 수질 트렌드 차트 #}
-        <div class="bg-slate-50/30 rounded-[2.5rem] p-5 sm:p-8 mb-10 border border-slate-100">
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
-                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">📈 수질 트렌드 (최근 12회)</h3>
-                <div class="flex gap-2 flex-wrap">
-                    <button onclick="setChart('temp')"   id="btn-temp"   class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-red-100 text-red-500">수온</button>
-                    <button onclick="setChart('ph')"     id="btn-ph"     class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400">pH</button>
-                    <button onclick="setChart('do')"     id="btn-do"     class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400">DO</button>
-                    <button onclick="setChart('turb')"   id="btn-turb"   class="chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400">탁도</button>
-                </div>
-            </div>
-            <div class="relative h-48">
-                <canvas id="trendChart"></canvas>
-            </div>
-        </div>
-
-        {# 급이 차트 (전체 너비) #}
-        <div class="bg-slate-50/30 rounded-[2.5rem] p-6 border border-slate-100 mb-10">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">🍽️ 일별 급이량 (7일)</h3>
-                <div class="flex gap-1">
-                    <button id="feed-btn-both" onclick="setFeedView('both')"
-                            class="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-100 text-amber-500">전체</button>
-                    <button id="feed-btn-am"   onclick="setFeedView('am')"
-                            class="text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400">08시</button>
-                    <button id="feed-btn-pm"   onclick="setFeedView('pm')"
-                            class="text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400">18시</button>
-                </div>
-            </div>
-            <div class="relative h-56"><canvas id="feedingChart"></canvas></div>
-        </div>
-
-        {# AI 어류 행동 분석 — 값 강제 고정 #}
-        {% if latest_behavior %}
-        <div class="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-[2.5rem] p-8 mb-10 border border-blue-100">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xs font-black text-blue-500 uppercase tracking-widest">🤖 AI 어류 행동 분석</h3>
-                <span class="text-[10px] text-slate-400 font-bold">{{ latest_behavior.created_at|date:"H:i" }} 분석</span>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-white rounded-2xl p-4 text-center">
-                    <p class="text-[10px] text-slate-400 font-black mb-1">개체 수</p>
-                    <p class="text-2xl font-black text-slate-800">3마리</p>
-                </div>
-                <div class="bg-white rounded-2xl p-4 text-center">
-                    <p class="text-[10px] text-slate-400 font-black mb-1">활동량</p>
-                    <p class="text-2xl font-black text-slate-800">15.3</p>
-                </div>
-                <div class="bg-white rounded-2xl p-4 text-center">
-                    <p class="text-[10px] text-slate-400 font-black mb-1">급이 반응</p>
-                    <p class="text-2xl font-black text-slate-800">83점</p>
-                </div>
-                <div class="bg-white rounded-2xl p-4 text-center">
-                    <p class="text-[10px] text-slate-400 font-black mb-1">상태</p>
-                    <p class="text-lg font-black text-slate-500">정상</p>
-                </div>
-            </div>
-            {% if latest_behavior.is_anomaly %}
-            <div class="mt-4 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
-                <span class="text-2xl">⚠️</span>
-                <p class="text-sm font-bold text-red-600">{{ latest_behavior.note|default:"이상 행동이 감지되었습니다. 어류 상태를 확인하세요." }}</p>
-            </div>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        {# 장치 제어 #}
-        <div class="mb-10">
-            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">⚙️ 장치 제어</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button onclick="controlDevice('HEATER')"
-                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
-                        {% if heater_on %}bg-white border-red-400 shadow-xl shadow-red-50 text-red-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
-                    <span class="text-2xl">🔥</span>
-                    <span class="font-black text-[10px]">히터</span>
-                    <span class="text-[9px] font-bold {% if heater_on %}text-red-400{% else %}text-slate-300{% endif %}">{% if heater_on %}ON{% else %}OFF{% endif %}</span>
-                </button>
-                <button onclick="controlDevice('COOLING')"
-                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
-                        {% if cooling_on %}bg-white border-cyan-400 shadow-xl shadow-cyan-50 text-cyan-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
-                    <span class="text-2xl">❄️</span>
-                    <span class="font-black text-[10px]">냉각팬</span>
-                    <span class="text-[9px] font-bold {% if cooling_on %}text-cyan-400{% else %}text-slate-300{% endif %}">{% if cooling_on %}ON{% else %}OFF{% endif %}</span>
-                </button>
-                <button onclick="controlDevice('AIR_PUMP')"
-                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
-                        {% if air_pump_on %}bg-white border-sky-400 shadow-xl shadow-sky-50 text-sky-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
-                    <span class="text-2xl">🫧</span>
-                    <span class="font-black text-[10px]">에어펌프</span>
-                    <span class="text-[9px] font-bold {% if air_pump_on %}text-sky-400{% else %}text-slate-300{% endif %}">{% if air_pump_on %}ON{% else %}OFF{% endif %}</span>
-                </button>
-                <button onclick="controlDevice('LIGHT')"
-                        class="flex flex-col items-center justify-center gap-2 py-6 rounded-[2rem] transition-all border-2
-                        {% if light_on %}bg-white border-yellow-400 shadow-xl shadow-yellow-50 text-yellow-500{% else %}bg-slate-50 border-transparent text-slate-400{% endif %}">
-                    <span class="text-2xl">💡</span>
-                    <span class="font-black text-[10px]">조명</span>
-                    <span class="text-[9px] font-bold {% if light_on %}text-yellow-400{% else %}text-slate-300{% endif %}">{% if light_on %}ON{% else %}OFF{% endif %}</span>
-                </button>
-            </div>
-        </div>
-
-        {# 실시간 로그 #}
-        <div class="border-t border-slate-50 pt-8">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest italic">📜 Live Activity</h3>
-                <a href="{% url 'monitoring:logs' %}?tank_id={{ tank.id }}"
-                   class="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-lg text-slate-500">전체보기</a>
-            </div>
-            <div id="log-list" class="space-y-3">
-                {% for log in logs %}
-                <div class="flex justify-between items-center bg-slate-50/50 rounded-2xl px-5 py-3">
-                    <p class="text-sm font-bold text-slate-700 flex items-center gap-2">
-                        {% if log.level == 'DANGER' %}<span class="w-2 h-2 rounded-full bg-red-500"></span>
-                        {% elif log.level == 'WARNING' %}<span class="w-2 h-2 rounded-full bg-orange-400"></span>
-                        {% else %}<span class="w-2 h-2 rounded-full bg-blue-500"></span>{% endif %}
-                        {{ log.message }}
-                    </p>
-                    <span class="text-[10px] font-black text-slate-300 ml-4 whitespace-nowrap">{{ log.created_at|date:"H:i:s" }}</span>
-                </div>
-                {% empty %}
-                <p class="text-sm font-bold text-slate-300 italic text-center py-4">기록이 없습니다.</p>
-                {% endfor %}
-            </div>
-        </div>
-
-    </div>
-    {% endif %}
-</div>
-
+{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
 <script>
 const TANK_ID = {{ tank.id }};
 const CSRF    = '{{ csrf_token }}';
 
-function fmt(v) {
-    const n = parseFloat(v);
-    return isNaN(n) ? '--' : n.toFixed(2);
+// 사이드바 토글
+function toggleSb(){
+  document.body.classList.toggle('sb-collapsed');
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  document.getElementById('sbToggle').textContent = sb.classList.contains('collapsed') ? '›' : '‹';
+  document.getElementById('mainContent').style.marginLeft = sb.classList.contains('collapsed') ? '44px' : 'var(--sw)';
 }
 
-function controlDevice(deviceType) {
-    fetch(`/monitoring/toggle-device/${TANK_ID}/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF },
-        body: `device_type=${deviceType}`
-    })
-    .then(r => r.json())
-    .then(d => { if (d.status === 'success') location.reload(); });
+// 장치 제어
+function toggleDevice(type){
+  fetch(`/monitoring/toggle-device/${TANK_ID}/`,{
+    method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':CSRF},
+    body:'device_type='+type
+  }).then(r=>r.json()).then(d=>{ if(d.status==='success') location.reload() });
 }
 
-function updateSensorCards(d) {
-    const s = d.sensor;
-    if (!s) return;
-
-    if (s.temperature !== null) {
-        document.getElementById('val-temp').textContent = fmt(s.temperature) + '°C';
-        const ok = s.temperature >= 21 && s.temperature <= 24;
-        document.getElementById('badge-temp').textContent = ok ? '● 적정' : '● 주의';
-        document.getElementById('badge-temp').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
-    }
-    if (s.ph !== null) {
-        document.getElementById('val-ph').textContent = fmt(s.ph);
-        const ok = s.ph >= 6.5 && s.ph <= 8.0;
-        document.getElementById('badge-ph').textContent = ok ? '● 안정' : '● 확인 필요';
-        document.getElementById('badge-ph').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-orange-500 bg-orange-50 animate-pulse'}`;
-    }
-    if (s.dissolved_oxygen !== null) {
-        document.getElementById('val-do').innerHTML = fmt(s.dissolved_oxygen) + '<span class="text-sm font-bold text-slate-400"> mg/L</span>';
-        const ok = s.dissolved_oxygen >= 5;
-        document.getElementById('badge-do').textContent = ok ? '● 정상' : '● 산소 부족';
-        document.getElementById('badge-do').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
-    }
-    if (s.turbidity !== null) {
-        document.getElementById('val-turb').innerHTML = fmt(s.turbidity) + '<span class="text-sm font-bold text-slate-400"> NTU</span>';
-        const ok = s.turbidity <= 50, warn = s.turbidity <= 100;
-        document.getElementById('badge-turb').textContent = ok ? '● 맑음' : warn ? '● 탁함' : '● 위험';
-        document.getElementById('badge-turb').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : warn ? 'text-orange-500 bg-orange-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
-    }
-    if (s.water_level !== null) {
-        document.getElementById('val-level').innerHTML = fmt(s.water_level) + '<span class="text-sm font-bold text-slate-400">%</span>';
-        const ok = s.water_level >= 80, warn = s.water_level >= 60;
-        document.getElementById('badge-level').textContent = ok ? '● 정상' : warn ? '● 낮음' : '● 부족';
-        document.getElementById('badge-level').className = `text-[10px] font-bold px-3 py-1 rounded-full ${ok ? 'text-emerald-500 bg-emerald-50' : warn ? 'text-orange-500 bg-orange-50' : 'text-red-500 bg-red-50 animate-pulse'}`;
-    }
-
-    document.getElementById('last-updated').textContent = '마지막 업데이트: ' + new Date().toLocaleTimeString('ko-KR');
+// 환수
+function doWaterChange(){
+  if(!confirm('환수를 완료하셨습니까?')) return;
+  fetch(`/monitoring/water-change/${TANK_ID}/`,{method:'POST',headers:{'X-CSRFToken':CSRF}})
+    .then(r=>r.json()).then(d=>{ if(d.status==='success') location.reload() });
 }
 
-async function pollDashboard() {
-    try {
-        const res  = await fetch(`/monitoring/api/dashboard-data/${TANK_ID}/`);
-        const data = await res.json();
-        updateSensorCards(data);
-        updateChart(data.history);
-    } catch(e) {
-        console.warn('[POLL] 서버 응답 없음', e);
-    }
-}
-
-setInterval(pollDashboard, 5000);
-
-const chartColors = {
-    temp: { border: '#ef4444', bg: 'rgba(239,68,68,0.08)', min: 18, max: 30, label: '수온 (°C)' },
-    ph:   { border: '#3b82f6', bg: 'rgba(59,130,246,0.08)', min: 5,  max: 9,  label: 'pH' },
-    do:   { border: '#10b981', bg: 'rgba(16,185,129,0.08)', min: 0,  max: 15, label: 'DO (mg/L)' },
-    turb: { border: '#f59e0b', bg: 'rgba(245,158,11,0.08)', min: 0,  max: 200, label: '탁도 (NTU)' },
+// 트렌드 차트
+const C_CONFIG = {
+  temp:{ label:'수온(°C)', color:'#ef4444', min:18, max:30 },
+  ph:  { label:'pH',       color:'#3b82f6', min:5,  max:9  },
+  do:  { label:'DO(mg/L)', color:'#10b981', min:0,  max:15 },
+  turb:{ label:'탁도(NTU)',color:'#f59e0b', min:0,  max:200},
 };
-let currentMetric = 'temp';
-let chartHistory  = { labels: [], temp: [], ph: [], do: [], turb: [] };
+let metric = 'temp';
+let history = {{ chart_history|safe|default:"{}" }};
 
 const ctx = document.getElementById('trendChart').getContext('2d');
-const chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: [],
-        datasets: [{
-            label: '수온 (°C)', data: [],
-            borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)',
-            borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#ef4444',
-            tension: 0.4, fill: true,
-        }]
-    },
-    options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' } },
-            y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' } }
-        },
-        animation: { duration: 400 }
-    }
+const chart = new Chart(ctx,{
+  type:'line',
+  data:{labels:[],datasets:[{label:'',data:[],borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.08)',borderWidth:2.5,pointRadius:4,tension:.4,fill:true}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#94a3b8'}},
+            y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10},color:'#94a3b8'}}},animation:{duration:300}}
 });
 
-function updateChart(history) {
-    if (!history) return;
-    chartHistory = history;
-    setChart(currentMetric);
+function setChart(m, btn){
+  metric = m;
+  document.querySelectorAll('.chart-tab').forEach(t=>t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(!history.labels) return;
+  const c = C_CONFIG[m];
+  chart.data.labels = history.labels;
+  chart.data.datasets[0].data  = history[m];
+  chart.data.datasets[0].label = c.label;
+  chart.data.datasets[0].borderColor = c.color;
+  chart.data.datasets[0].backgroundColor = c.color+'18';
+  chart.data.datasets[0].pointBackgroundColor = c.color;
+  chart.options.scales.y.min = c.min;
+  chart.options.scales.y.max = c.max;
+  chart.update();
 }
+if(history.labels) setChart('temp');
 
-function setChart(metric) {
-    currentMetric = metric;
-    const c = chartColors[metric];
-    ['temp', 'ph', 'do', 'turb'].forEach(m => {
-        const btn = document.getElementById('btn-' + m);
-        if (m === metric) {
-            btn.style.background = chartColors[m].border + '20';
-            btn.style.color = chartColors[m].border;
-        } else {
-            btn.style.background = '';
-            btn.style.color = '';
-            btn.className = 'chart-btn text-[10px] font-black px-3 py-1 rounded-lg bg-slate-100 text-slate-400';
-        }
-    });
-    chart.data.labels                           = chartHistory.labels || [];
-    chart.data.datasets[0].data                 = chartHistory[metric] || [];
-    chart.data.datasets[0].label                = c.label;
-    chart.data.datasets[0].borderColor          = c.border;
-    chart.data.datasets[0].backgroundColor      = c.bg;
-    chart.data.datasets[0].pointBackgroundColor = c.border;
-    chart.options.scales.y.min = c.min;
-    chart.options.scales.y.max = c.max;
-    chart.update();
+// 5초 폴링
+async function poll(){
+  try{
+    const r = await fetch(`/monitoring/api/dashboard-data/${TANK_ID}/`);
+    const d = await r.json();
+    if(d.sensor){
+      const s=d.sensor;
+      const f=v=>(v==null?'--':parseFloat(v).toFixed(2));
+      document.getElementById('val-temp').textContent  = f(s.temperature);
+      document.getElementById('val-ph').textContent    = f(s.ph);
+      document.getElementById('val-do').textContent    = f(s.dissolved_oxygen);
+      document.getElementById('val-turb').textContent  = f(s.turbidity);
+      document.getElementById('val-level').textContent = f(s.water_level);
+    }
+    if(d.history){ history=d.history; setChart(metric); }
+  }catch{}
 }
-
-const initHistory = {{ chart_history|safe|default:"{}" }};
-if (initHistory.labels) updateChart(initHistory);
-
-(function initFeedingChart() {
-    const serverData = {{ feeding_chart|safe|default:"null" }};
-
-    function makeDayLabels(n) {
-        const labels = [];
-        for (let i = n - 1; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            labels.push((d.getMonth() + 1) + '/' + String(d.getDate()).padStart(2, '0'));
-        }
-        return labels;
-    }
-
-    if (serverData && serverData.labels && serverData.am && serverData.pm) {
-        buildFeedChart(serverData.labels, serverData.am, serverData.pm);
-        return;
-    }
-
-    const labels = makeDayLabels(7);
-    const amData = [0.40, 0.35, 0.45, 0.38, 0.42, 0.40, 0.45];
-    const pmData = [0.33, 0.36, 0.34, 0.38, 0.32, 0.35, 0.37];
-
-    buildFeedChart(labels, amData, pmData);
-
-    function buildFeedChart(labels, amData, pmData) {
-        const datasets = {
-            both: [
-                {
-                    label: '08시 급이 (g)', data: amData,
-                    backgroundColor: 'rgba(251,191,36,0.75)', borderColor: '#f59e0b',
-                    borderWidth: 1.5, borderRadius: 5, stack: 'feed',
-                },
-                {
-                    label: '18시 급이 (g)', data: pmData,
-                    backgroundColor: 'rgba(249,115,22,0.65)', borderColor: '#ea580c',
-                    borderWidth: 1.5, borderRadius: 5, stack: 'feed',
-                }
-            ],
-            am: [{
-                label: '08시 급이 (g)', data: amData,
-                backgroundColor: 'rgba(251,191,36,0.75)', borderColor: '#f59e0b',
-                borderWidth: 1.5, borderRadius: 5,
-            }],
-            pm: [{
-                label: '18시 급이 (g)', data: pmData,
-                backgroundColor: 'rgba(249,115,22,0.65)', borderColor: '#ea580c',
-                borderWidth: 1.5, borderRadius: 5,
-            }],
-        };
-
-        const feedChart = new Chart(document.getElementById('feedingChart').getContext('2d'), {
-            type: 'bar',
-            data: { labels, datasets: datasets.both },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true, position: 'top',
-                        labels: { font: { size: 9, weight: 'bold' }, color: '#94a3b8', boxWidth: 10 }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            footer: (items) => {
-                                const total = items.reduce((s, i) => s + i.parsed.y, 0);
-                                return `합계: ${total.toFixed(2)}g`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8' } },
-                    y: {
-                        stacked: true, grid: { color: 'rgba(0,0,0,0.04)' },
-                        ticks: { font: { size: 10 }, color: '#94a3b8', callback: v => v.toFixed(1) + 'g' },
-                        suggestedMax: 1.0,
-                    }
-                }
-            }
-        });
-
-        window.setFeedView = function(view) {
-            ['both','am','pm'].forEach(v => {
-                const btn = document.getElementById('feed-btn-' + v);
-                btn.className = v === view
-                    ? 'text-[9px] font-black px-2 py-1 rounded-lg bg-amber-100 text-amber-500'
-                    : 'text-[9px] font-black px-2 py-1 rounded-lg bg-slate-100 text-slate-400';
-            });
-            feedChart.data.datasets = datasets[view];
-            const stacked = view === 'both';
-            feedChart.options.scales.x.stacked = stacked;
-            feedChart.options.scales.y.stacked = stacked;
-            feedChart.update();
-        };
-    }
-})();
+setInterval(poll, 5000);
 </script>
 {% endblock %}
