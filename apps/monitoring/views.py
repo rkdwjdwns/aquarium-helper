@@ -458,6 +458,7 @@ def chat_api(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+
 @login_required
 def fish_data_view(request):
     """물고기 개체 데이터 페이지"""
@@ -469,4 +470,58 @@ def fish_data_view(request):
     return render(request, 'monitoring/fish_data.html', {
         'tank':       tank,
         'user_tanks': user_tanks,
+    })
+
+
+@login_required
+def fish_data_view(request):
+    """물고기 개체 데이터 페이지"""
+    tank_id    = request.GET.get('tank_id')
+    user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+    tank       = user_tanks.filter(id=tank_id).first() if tank_id else None
+    if not tank:
+        tank = user_tanks.first()
+    return render(request, 'monitoring/fish_data.html', {
+        'tank': tank, 'user_tanks': user_tanks,
+    })
+
+
+@login_required
+def analysis_view(request):
+    """AI 행동분석 페이지"""
+    tank_id    = request.GET.get('tank_id')
+    user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+    tank       = user_tanks.filter(id=tank_id).first() if tank_id else None
+    if not tank:
+        tank = user_tanks.first()
+    return render(request, 'monitoring/analysis.html', {
+        'tank': tank, 'user_tanks': user_tanks,
+    })
+
+
+@login_required
+def data_log_view(request):
+    """데이터 로그 페이지 (EventLog 전체 조회)"""
+    tank_id      = request.GET.get('tank_id')
+    level        = request.GET.get('level', '')
+    sort         = request.GET.get('sort', 'desc')
+    user_tanks   = Tank.objects.filter(user=request.user).order_by('-id')
+    selected_tank = user_tanks.filter(id=tank_id).first() if tank_id else user_tanks.first()
+
+    order_by = '-created_at' if sort != 'asc' else 'created_at'
+    logs = EventLog.objects.filter(tank__user=request.user).order_by(order_by)
+    if selected_tank:
+        logs = logs.filter(tank=selected_tank)
+    if level:
+        logs = logs.filter(level=level)
+
+    paginator = Paginator(logs, 20)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'monitoring/data_log.html', {
+        'page_obj':      page_obj,
+        'user_tanks':    user_tanks,
+        'selected_tank': selected_tank,
+        'level':         level,
+        'sort':          sort,
     })
