@@ -24,7 +24,8 @@
 
   /* 메인 콘텐츠 영역 여백 및 배경색 조절 */
   main{margin-left:var(--sw);padding:145px 32px 70px;transition:margin-left .3s; background:#eef3f7; min-height:100vh;}
-  .analysis-wrap{max-width:1120px;margin:0 auto}
+  /* 방법 A: max-width/가운데 정렬 제거 → 사이드바를 뺀 콘텐츠 영역을 꽉 채우도록 변경 (사진2와 여백 비율 통일) */
+  .analysis-wrap{width:100%}
 
   /* 센서 카드 (Panel 스타일 적용) */
   .sensor-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:28px}
