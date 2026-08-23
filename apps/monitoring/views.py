@@ -46,12 +46,14 @@ def index(request):
 
 
 def _get_chart_history(tank):
+    if not tank:
+        return json.dumps({})
     readings = list(SensorReading.objects.filter(tank=tank).order_by('-created_at')[:12])
     readings.reverse()
     return json.dumps({
         "labels": [r.created_at.strftime("%H:%M") for r in readings],
-        "temp":   [r.temperature        for r in readings],
-        "ph":     [r.ph                 for r in readings],
+        "temp":   [r.temperature         for r in readings],
+        "ph":     [r.ph                  for r in readings],
         "do":     [r.dissolved_oxygen   for r in readings],
         "turb":   [r.turbidity          for r in readings],
     }, ensure_ascii=False)
@@ -59,6 +61,8 @@ def _get_chart_history(tank):
 
 def _get_growth_chart(tank):
     """물고기별(fish_id) 성장 추이 — 최대 3개 라인"""
+    if not tank:
+        return json.dumps({})
     from .models import GrowthRecord
 
     records = list(
@@ -70,7 +74,6 @@ def _get_growth_chart(tank):
     if not records:
         return json.dumps({})
 
-    # 날짜 문자열 → {fish_id: length} 매핑
     date_fish = defaultdict(dict)
     for r in records:
         date_str = r['created_at'].strftime("%m/%d")
@@ -85,7 +88,7 @@ def _get_growth_chart(tank):
     for i, fid in enumerate(fish_ids):
         datasets.append({
             'label': f'금붕어 {fid}호',
-            'data':  [date_fish[d].get(fid) for d in labels],  # 없는 날짜는 None
+            'data':  [date_fish[d].get(fid) for d in labels],
             'color': colors[i % len(colors)],
         })
 
@@ -93,6 +96,8 @@ def _get_growth_chart(tank):
 
 
 def _get_feeding_chart(tank):
+    if not tank:
+        return json.dumps({"labels": [], "amounts": []})
     from .models import FeedingEvent
     from django.db.models import Sum
     import datetime as dt
@@ -110,18 +115,23 @@ def _get_feeding_chart(tank):
 
 @login_required
 def dashboard(request, tank_id=None):
+    user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+    tank = None
     if tank_id:
-        tank = get_object_or_404(Tank, id=tank_id, user=request.user)
-    else:
-        tank = Tank.objects.filter(user=request.user).first()
+        try:
+            tank = user_tanks.filter(id=int(tank_id)).first()
+        except (ValueError, TypeError):
+            tank = None
     if not tank:
-        return render(request, 'monitoring/dashboard.html', {'tank': None})
+        tank = user_tanks.first()
 
-    latest          = tank.readings.order_by('-created_at').first()
+    if not tank:
+        return render(request, 'monitoring/dashboard.html', {'tank': None, 'user_tanks': user_tanks})
+
+    latest             = tank.readings.order_by('-created_at').first()
     latest_behavior = tank.behaviors.order_by('-created_at').first() if hasattr(tank, 'behaviors') else None
     devices         = {d.type: d for d in DeviceControl.objects.filter(tank=tank)}
     logs            = EventLog.objects.filter(tank=tank).order_by('-created_at')[:3]
-    user_tanks      = Tank.objects.filter(user=request.user).order_by('-id')
 
     d_day = 7
     if tank.last_water_change:
@@ -134,7 +144,7 @@ def dashboard(request, tank_id=None):
         'tank': tank, 'latest': latest, 'latest_behavior': latest_behavior,
         'devices': devices, 'logs': logs, 'd_day': d_day,
         'is_water_changed_today': (tank.last_water_change == date.today()),
-        'user_tanks':    user_tanks,
+        'user_tanks':     user_tanks,
         'chart_history': _get_chart_history(tank),
         'growth_chart':  _get_growth_chart(tank),
         'feeding_chart': _get_feeding_chart(tank),
@@ -177,8 +187,8 @@ def tank_settings(request, tank_id):
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     if request.method == 'POST':
         try:
-            tank.temp_min         = float(request.POST.get('temp_min',         21.0))
-            tank.temp_max         = float(request.POST.get('temp_max',         24.0))
+            tank.temp_min         = float(request.POST.get('temp_min',        21.0))
+            tank.temp_max         = float(request.POST.get('temp_max',        24.0))
             tank.ph_min           = float(request.POST.get('ph_min',            6.5))
             tank.ph_max           = float(request.POST.get('ph_max',            8.0))
             tank.do_min           = float(request.POST.get('do_min',            5.0))
@@ -187,10 +197,10 @@ def tank_settings(request, tank_id):
             tank.heater_off_temp  = float(request.POST.get('heater_off_temp',  22.0))
             tank.cooling_on_temp  = float(request.POST.get('cooling_on_temp',  24.0))
             tank.cooling_off_temp = float(request.POST.get('cooling_off_temp', 23.0))
-            tank.filter_on_ntu    = float(request.POST.get('filter_on_ntu',   50.0))
-            tank.filter_off_ntu   = float(request.POST.get('filter_off_ntu',  20.0))
-            tank.airpump_on_do    = float(request.POST.get('airpump_on_do',    4.0))
-            tank.airpump_off_do   = float(request.POST.get('airpump_off_do',   6.0))
+            tank.filter_on_ntu    = float(request.POST.get('filter_on_ntu',    50.0))
+            tank.filter_off_ntu   = float(request.POST.get('filter_off_ntu',   20.0))
+            tank.airpump_on_do    = float(request.POST.get('airpump_on_do',     4.0))
+            tank.airpump_off_do   = float(request.POST.get('airpump_off_do',    6.0))
             tank.feeding_times    = request.POST.get('feeding_times', '08:00,18:00')
             tank.feeding_amount_g = float(request.POST.get('feeding_amount_g', 0.1))
             tank.feeding_auto     = request.POST.get('feeding_auto') == 'on'
@@ -251,7 +261,7 @@ def add_tank(request):
 def edit_tank(request, tank_id):
     tank = get_object_or_404(Tank, id=tank_id, user=request.user)
     if request.method == 'POST':
-        tank.name        = request.POST.get('name', tank.name)
+        tank.name       = request.POST.get('name', tank.name)
         tank.target_temp = float(request.POST.get('target_temp') or 26.0)
         tank.save()
         messages.success(request, "수정 완료.")
@@ -295,14 +305,27 @@ def logs_view(request):
 
 @login_required
 def camera_view(request):
-    tank = Tank.objects.filter(user=request.user).first()
-    return render(request, 'monitoring/camera.html', {'tank': tank, 'title': '실시간 모니터링'})
+    try:
+        tank_id = request.GET.get('tank_id')
+        user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+        tank = None
+        if tank_id:
+            try:
+                tank = user_tanks.filter(id=int(tank_id)).first()
+            except (ValueError, TypeError):
+                tank = None
+        if not tank:
+            tank = user_tanks.first()
+            
+        return render(request, 'monitoring/camera.html', {'tank': tank, 'user_tanks': user_tanks, 'title': '실시간 모니터링'})
+    except Exception as e:
+        return HttpResponse(f"Camera View Error: {e}", status=500)
 
 
 @login_required
 @require_POST
 def toggle_device(request, tank_id):
-    tank      = get_object_or_404(Tank, id=tank_id, user=request.user)
+    tank        = get_object_or_404(Tank, id=tank_id, user=request.user)
     device, _ = DeviceControl.objects.get_or_create(tank=tank, type=request.POST.get('device_type'))
     device.is_on = not device.is_on
     device.save()
@@ -330,7 +353,11 @@ def ai_report_list(request):
     tank_id       = request.GET.get('tank_id')
     selected_tank = None
     if has_tanks:
-        if tank_id: selected_tank = tanks.filter(id=tank_id).first()
+        if tank_id:
+            try:
+                selected_tank = tanks.filter(id=int(tank_id)).first()
+            except (ValueError, TypeError):
+                selected_tank = None
         if not selected_tank: selected_tank = tanks.first()
     sort_order  = request.GET.get('sort', 'desc')
     order_by    = '-created_at' if sort_order == 'desc' else 'created_at'
@@ -338,7 +365,6 @@ def ai_report_list(request):
     behaviors   = []
     reports     = []
     if selected_tank:
-        # ✅ OOM 방지: 최근 200개만
         report_data = selected_tank.readings.all().order_by(order_by)[:200]
         behaviors   = selected_tank.behaviors.all().order_by(order_by)[:10] if hasattr(selected_tank, 'behaviors') else []
         try:
@@ -462,28 +488,26 @@ def chat_api(request):
 @login_required
 def fish_data_view(request):
     """물고기 개체 데이터 페이지"""
-    tank_id    = request.GET.get('tank_id')
-    user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
-    tank       = user_tanks.filter(id=tank_id).first() if tank_id else None
-    if not tank:
-        tank = user_tanks.first()
-    return render(request, 'monitoring/fish_data.html', {
-        'tank':       tank,
-        'user_tanks': user_tanks,
-    })
-
-
-@login_required
-def fish_data_view(request):
-    """물고기 개체 데이터 페이지"""
-    tank_id    = request.GET.get('tank_id')
-    user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
-    tank       = user_tanks.filter(id=tank_id).first() if tank_id else None
-    if not tank:
-        tank = user_tanks.first()
-    return render(request, 'monitoring/fish_data.html', {
-        'tank': tank, 'user_tanks': user_tanks,
-    })
+    try:
+        tank_id    = request.GET.get('tank_id')
+        user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
+        tank       = None
+        
+        if tank_id:
+            try:
+                tank = user_tanks.filter(id=int(tank_id)).first()
+            except (ValueError, TypeError):
+                tank = None
+                
+        if not tank:
+            tank = user_tanks.first()
+            
+        return render(request, 'monitoring/fish_data.html', {
+            'tank': tank,
+            'user_tanks': user_tanks,
+        })
+    except Exception as e:
+        return HttpResponse(f"Fish Data View Error: {e}", status=500)
 
 
 @login_required
@@ -491,7 +515,12 @@ def analysis_view(request):
     """AI 행동분석 페이지"""
     tank_id    = request.GET.get('tank_id')
     user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
-    tank       = user_tanks.filter(id=tank_id).first() if tank_id else None
+    tank = None
+    if tank_id:
+        try:
+            tank = user_tanks.filter(id=int(tank_id)).first()
+        except (ValueError, TypeError):
+            tank = None
     if not tank:
         tank = user_tanks.first()
     return render(request, 'monitoring/analysis.html', {
@@ -502,11 +531,18 @@ def analysis_view(request):
 @login_required
 def data_log_view(request):
     """데이터 로그 페이지 (EventLog 전체 조회)"""
-    tank_id      = request.GET.get('tank_id')
-    level        = request.GET.get('level', '')
-    sort         = request.GET.get('sort', 'desc')
-    user_tanks   = Tank.objects.filter(user=request.user).order_by('-id')
-    selected_tank = user_tanks.filter(id=tank_id).first() if tank_id else user_tanks.first()
+    tank_id           = request.GET.get('tank_id')
+    level             = request.GET.get('level', '')
+    sort              = request.GET.get('sort', 'desc')
+    user_tanks        = Tank.objects.filter(user=request.user).order_by('-id')
+    selected_tank = None
+    if tank_id:
+        try:
+            selected_tank = user_tanks.filter(id=int(tank_id)).first()
+        except (ValueError, TypeError):
+            selected_tank = None
+    if not selected_tank:
+        selected_tank = user_tanks.first()
 
     order_by = '-created_at' if sort != 'asc' else 'created_at'
     logs = EventLog.objects.filter(tank__user=request.user).order_by(order_by)
