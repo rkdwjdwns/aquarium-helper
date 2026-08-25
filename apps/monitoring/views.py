@@ -60,7 +60,7 @@ def _get_chart_history(tank):
 
 
 def _get_growth_chart(tank):
-    """물고기별(fish_id) 성장 추이 — 최대 3개 라인"""
+    """물고기별(fish_id) 성장 추이 확인 (최근 3마리)"""
     if not tank:
         return json.dumps({})
     from .models import GrowthRecord
@@ -69,7 +69,7 @@ def _get_growth_chart(tank):
         GrowthRecord.objects.filter(tank=tank)
         .order_by('created_at')
         .values('fish_id', 'estimated_length', 'created_at')
-    )[-42:]  # 최근 42개 (3마리 × 14일치)
+    )[-42:]  # 최근 42개 (3마리 × 14포인트)
 
     if not records:
         return json.dumps({})
@@ -82,12 +82,12 @@ def _get_growth_chart(tank):
 
     labels   = sorted(date_fish.keys())
     fish_ids = sorted({r['fish_id'] for r in records})
-    colors   = ['#3b82f6', '#10b981', '#f59e0b']  # 파랑, 초록, 노랑
+    colors   = ['#3b82f6', '#10b981', '#f59e0b']  # 파랑, 초록, 주황
 
     datasets = []
     for i, fid in enumerate(fish_ids):
         datasets.append({
-            'label': f'금붕어 {fid}호',
+            'label': f'금붕어 {fid}번',
             'data':  [date_fish[d].get(fid) for d in labels],
             'color': colors[i % len(colors)],
         })
@@ -400,7 +400,7 @@ def download_report(request, tank_id):
     content  = f"[{tank.name}] {period.upper()} 분석 기록\n기준일: {today.strftime('%Y-%m-%d')}\n" + "=" * 40 + "\n"
     if readings.exists():
         for r in readings:
-            content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} | 수온:{r.temperature}°C | pH:{r.ph} | DO:{r.dissolved_oxygen}mg/L | 탁도:{r.turbidity}NTU | 수질점수:{r.water_quality_score}\n"
+            content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} | 수온:{r.temperature}°C | pH:{r.ph} | DO:{r.dissolved_oxygen}mg/L | 탁도:{r.turbidity}NTU | 수질지수:{r.water_quality_score}\n"
     else:
         content += "데이터가 없습니다."
     response = HttpResponse(content, content_type='text/plain; charset=utf-8')
@@ -414,14 +414,14 @@ def _build_prompt(display_name: str, user_message: str) -> str:
 [말투 규칙]
 - 존댓말 사용, 문장은 짧고 핵심만
 - 이모지 사용 금지
-- 인사말 금지
+- 특수문자 금지
 - 문장 중간에 끊지 말고 완성된 문장으로 마무리
 
 [답변 형식]
-1. 물고기 추천: 2~3종, 각각 물고기명 / 특징 한 문장 / 수온·pH·난이도
-2. 수질/센서: 수온·pH·DO·탁도 수치 항목별
-3. 어항 세팅: 핵심 순서 3~5줄
-4. 관리/질병: 원인 + 해결책
+1. 물고기 추천: 2~3종, 각각 물고기명 / 특징 한 문장 / 수온·pH·크기
+2. 수질/이상: 수온·pH·DO·탁도 수치 해석
+3. 어항 세팅: 핵심 순서 3~5개
+4. 관찰 질병: 원인 + 해결책
 5. 기타: 핵심만 3~5줄
 
 질문: {user_message}"""
@@ -512,7 +512,7 @@ def fish_data_view(request):
 
 @login_required
 def analysis_view(request):
-    """AI 행동분석 페이지"""
+    """AI 자동분석 페이지"""
     tank_id    = request.GET.get('tank_id')
     user_tanks = Tank.objects.filter(user=request.user).order_by('-id')
     tank = None
@@ -568,19 +568,12 @@ def video_feed(request, tank_id=None):
     """실시간 카메라 스트리밍 뷰"""
     try:
         return StreamingHttpResponse(
-            gen_camera_frame(), 
-            content_type='multipart/x-mixed-replace; boundary=frame'
-        )
-    except Exception as e:
-        return HttpResponse(f"Streaming Error: {e}", status=500)def video_feed(request):
-    """실시간 카메라 스트리밍 뷰"""
-    try:
-        return StreamingHttpResponse(
-            gen_camera_frame(), 
+            gen_camera_frame(),
             content_type='multipart/x-mixed-replace; boundary=frame'
         )
     except Exception as e:
         return HttpResponse(f"Streaming Error: {e}", status=500)
+
 
 def gen_camera_frame():
     while True:
