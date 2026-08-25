@@ -33,12 +33,13 @@
   .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
   .panel{background:#f4f7fb;border-radius:14px;padding:12px 14px}
   .metric-small{text-align:center}
-  .footer-panel{background:#f4f7fb;border-radius:14px;padding:14px 18px;margin-top:12px}
+  .footer-panel{background:#f4f7fb;border-radius:14px;padding:14px 18px;margin-top:12px;font-size:13px;font-weight:700;color:#555;line-height:1.5}
   .green{color:#10b981}
   .track{width:100%;height:8px;background:#eee;border-radius:6px;overflow:hidden;margin-top:5px}
   .track span{display:block;height:100%;border-radius:6px}
   .fish-row{margin-bottom:10px}
   .fish-row-head{display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px}
+  .empty-note{color:#ccc;font-size:12px;text-align:center;padding:8px}
   .detail-btn{position:absolute;top:22px;right:22px;border:0;border-radius:10px;background:#e8f0ff;color:#2572e9;font-size:11px;font-weight:900;padding:6px 12px;cursor:pointer}
   @media(max-width:1100px){.analytics-grid{grid-template-columns:1fr}}
   @media(max-width:900px){.sidebar{display:none}main{margin-left:0!important;padding:24px 18px 80px}}
@@ -91,84 +92,62 @@
       <article class="analysis-card" style="border-top:4px solid #f59e0b">
         <button class="detail-btn" onclick="location.href='{% url 'monitoring:camera_view' %}'">상세 보기 →</button>
         <div class="card-title">급이 반응 분석</div>
-        <div class="card-sub">08:00 급이 기준</div>
-        <div class="big-number" id="frsScore">82<small>점/100</small></div>
+        <div class="card-sub">최근 급이 기준</div>
+        <div class="big-number" id="frsScore">--</div>
         <div class="big-sub">급이 반응 점수</div>
         <div class="two-col">
-          <div class="panel"><div class="panel-label">평가</div><strong class="green" id="frsLabel">급이 반응 강함</strong></div>
-          <div class="panel"><div class="panel-label">분석 시간</div><strong>전 60초 / 후 180초</strong></div>
+          <div class="panel"><div class="panel-label">평가</div><strong id="frsLabel">--</strong></div>
+          <div class="panel"><div class="panel-label">측정 시각</div><strong id="frsTime" style="font-size:12px">--</strong></div>
         </div>
         <div class="three-col">
-          <div class="panel metric-small"><div class="panel-label">첫 수면 접근</div><strong id="frsRt">1.80초</strong></div>
-          <div class="panel metric-small"><div class="panel-label">활동량 증가</div><strong id="frsAct">+34.20%</strong></div>
-          <div class="panel metric-small"><div class="panel-label">수면 접근률</div><strong id="frsSurf">7.10%</strong></div>
+          <div class="panel metric-small"><div class="panel-label">첫 수면 접근</div><strong id="frsRt">--</strong></div>
+          <div class="panel metric-small"><div class="panel-label">활동량 증가</div><strong id="frsAct">--</strong></div>
+          <div class="panel metric-small"><div class="panel-label">수면 접근률</div><strong id="frsSurf">--</strong></div>
         </div>
-        <div class="footer-panel" style="display:flex;justify-content:space-between;align-items:center">
-          <div><div class="panel-label">최근 3회 평균</div><strong style="font-size:22px" id="frsAvg">79.30점</strong></div>
-          <div style="text-align:right"><div class="panel-label">급이량 추천</div><strong class="green" style="font-size:22px" id="frsAdvice">현행 유지</strong></div>
-        </div>
+        <div class="footer-panel" id="frsComment">데이터를 불러오는 중...</div>
       </article>
 
       <!-- ABR -->
       <article class="analysis-card" style="border-top:4px solid #ef4444">
         <div class="card-title">이상행동 분석</div>
-        <div class="card-sub">00시 갱신</div>
-        <div class="big-number" id="abrRate">3.2<small>%</small></div>
+        <div class="card-sub">최근 측정 기준</div>
+        <div class="big-number" id="abrRate">--</div>
         <div class="big-sub">전체 이상행동률</div>
         <div class="two-col">
-          <div class="panel"><div class="panel-label">평가</div><strong class="green" id="abrStatus">정상 상태</strong></div>
-          <div class="panel"><div class="panel-label">이상 감지</div><strong id="abrCount">2회</strong></div>
+          <div class="panel"><div class="panel-label">평가</div><strong id="abrStatus">--</strong></div>
+          <div class="panel"><div class="panel-label">이상 감지</div><strong id="abrCount">--</strong></div>
         </div>
-        <div class="panel" style="margin-bottom:10px">
-          <div class="panel-label">정상 범위 (px/s)</div>
-          <strong id="abrRange">8.00 ~ 28.90 px/s</strong>
-        </div>
-        <div id="abrFishBars">
-          <div class="fish-row"><div class="fish-row-head"><span>Fish #1 🟢</span><span>2.10%</span></div><div class="track"><span style="width:12%;background:#10b981"></span></div></div>
-          <div class="fish-row"><div class="fish-row-head"><span>Fish #2 🟡</span><span>5.80%</span></div><div class="track"><span style="width:28%;background:#f59e0b"></span></div></div>
-          <div class="fish-row"><div class="fish-row-head"><span>Fish #3 🟢</span><span>1.70%</span></div><div class="track"><span style="width:10%;background:#10b981"></span></div></div>
-        </div>
+        <div style="font-size:11px;font-weight:900;color:#9ca3af;margin-bottom:8px">개체별 이상행동률</div>
+        <div id="abrFishBars"><div class="empty-note">로딩 중...</div></div>
       </article>
 
       <!-- 활동 분석 -->
       <article class="analysis-card" style="border-top:4px solid #3b82f6">
         <div class="card-title">활동 분석</div>
-        <div class="big-number" style="color:#2563eb" id="actVal">15.30<small> px/s</small></div>
-        <div class="big-sub">최근 30분 평균 활동량</div>
+        <div class="big-number" style="color:#2563eb" id="actVal">--</div>
+        <div class="big-sub">최근 측정 활동량</div>
         <div class="two-col">
-          <div class="panel"><div class="panel-label">Baseline 대비</div><strong class="green" id="actBaseline">+12.40%</strong></div>
-          <div class="panel"><div class="panel-label">주요 구역</div><strong id="actZone">MID</strong></div>
+          <div class="panel"><div class="panel-label">Baseline 대비</div><strong id="actBaseline">--</strong></div>
+          <div class="panel"><div class="panel-label">주요 구역</div><strong id="actZone">--</strong></div>
         </div>
-        <div style="height:120px;position:relative;margin:12px 0"><canvas id="actChart"></canvas></div>
-        <div id="actFishList" style="display:flex;flex-direction:column;gap:6px">
-          <div class="fish-row"><div class="fish-row-head"><span>Fish #1</span><span>15.90 px/s · MID</span></div></div>
-          <div class="fish-row"><div class="fish-row-head"><span>Fish #2</span><span>18.20 px/s · TOP</span></div></div>
-          <div class="fish-row"><div class="fish-row-head"><span>Fish #3</span><span>11.80 px/s · MID</span></div></div>
-        </div>
+        <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">시간대별 활동 패턴 (24시간)</div>
+        <div style="height:120px;position:relative;margin:8px 0 12px"><canvas id="actChart"></canvas></div>
+        <div style="font-size:11px;font-weight:900;color:#9ca3af;margin-bottom:8px">개체별 활동량</div>
+        <div id="actFishList" style="display:flex;flex-direction:column;gap:6px"><div class="empty-note">로딩 중...</div></div>
       </article>
 
       <!-- 성장 추적 -->
       <article class="analysis-card" style="border-top:4px solid #10b981">
         <div class="card-title">성장 추적</div>
-        <div class="big-number" style="color:#059669" id="growthAvg">5.73<small> cm</small></div>
+        <div class="big-number" style="color:#059669" id="growthAvg">--</div>
         <div class="big-sub">평균 추정 체장</div>
         <div class="two-col">
-          <div class="panel"><div class="panel-label">평균 성장률</div><strong class="green" id="growthRate">+0.05 cm/day</strong></div>
-          <div class="panel"><div class="panel-label">성장 단계</div><strong id="growthStage">치어</strong></div>
+          <div class="panel"><div class="panel-label">평균 성장률</div><strong class="green" id="growthRate">--</strong></div>
+          <div class="panel"><div class="panel-label">성장 단계</div><strong id="growthStage">--</strong></div>
         </div>
         <div style="height:120px;position:relative;margin:12px 0"><canvas id="growthChart"></canvas></div>
-        <div class="footer-panel" style="display:flex;flex-direction:column;gap:8px">
-          {% for fish_name, fish_len, fish_rate in growth_fish %}
-          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700">
-            <span>{{ fish_name }}</span>
-            <span style="color:#333">{{ fish_len }} cm <span style="color:#10b981">+{{ fish_rate }}/day</span></span>
-          </div>
-          {% empty %}
-          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700"><span>Fish #1</span><span style="color:#333">7.10 cm <span style="color:#10b981">+0.06/day</span></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700"><span>Fish #2</span><span style="color:#333">6.20 cm <span style="color:#10b981">+0.05/day</span></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700"><span>Fish #3</span><span style="color:#333">3.90 cm <span style="color:#10b981">+0.04/day</span></span></div>
-          <span style="font-size:11px;background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:10px;align-self:flex-start">보정값</span>
-          {% endfor %}
+        <div class="footer-panel" id="growthFishList" style="display:flex;flex-direction:column;gap:8px">
+          <div class="empty-note">로딩 중...</div>
         </div>
       </article>
 
@@ -181,6 +160,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 const TANK_ID = {{ tank.id|default:1 }};
+
 function toggleSb(){
   const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');
   const c=sb.classList.contains('collapsed');
@@ -188,51 +168,169 @@ function toggleSb(){
   document.getElementById('mainContent').style.marginLeft=c?'44px':'var(--sw)';
 }
 
-// 활동 미니차트
-const SERIES=[13.2,14.1,15.3,14.8,16.1,15.3];
-new Chart(document.getElementById('actChart').getContext('2d'),{
-  type:'line',data:{labels:['23:00','23:05','23:10','23:15','23:20','23:25'],
-  datasets:[{data:SERIES,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',borderWidth:2,pointRadius:3,tension:.4,fill:true}]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-    scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#94a3b8'}},y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:9},color:'#94a3b8'}}}}
-});
+function f2(v){const n=parseFloat(v);return isNaN(n)?'--':n.toFixed(2);}
+async function sf(url){try{const r=await fetch(url);return r.ok?await r.json():null;}catch{return null;}}
 
-// 성장 차트 (3마리 라인)
-new Chart(document.getElementById('growthChart').getContext('2d'),{
-  type:'line',
-  data:{labels:['6/1','6/2','6/3','6/4','6/5','6/6','6/7'],
-    datasets:[
-      {label:'Fish #1',data:[7.04,7.05,7.06,7.07,7.08,7.09,7.10],borderColor:'#3b82f6',borderWidth:2,pointRadius:2,tension:.4,fill:false},
-      {label:'Fish #2',data:[6.14,6.15,6.16,6.17,6.18,6.19,6.20],borderColor:'#10b981',borderWidth:2,pointRadius:2,tension:.4,fill:false},
-      {label:'Fish #3',data:[3.84,3.85,3.86,3.87,3.88,3.89,3.90],borderColor:'#f59e0b',borderWidth:2,pointRadius:2,tension:.4,fill:false},
-    ]},
-  options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:true,position:'top',labels:{font:{size:9},boxWidth:10}}},
-    scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#94a3b8'}},y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:9},color:'#94a3b8'}}}}
-});
+const ZONE_KO={TOP:'상층',MID:'중층',BOT:'하층'};
 
-// API 연동
-async function loadData(){
-  try{
-    const r=await fetch(`/monitoring/api/frs/?tank_id=${TANK_ID}`);
-    if(r.ok){const d=await r.json();
-      if(d.score) document.getElementById('frsScore').innerHTML=Math.round(d.score)+'<small>점/100</small>';
-    }
-  }catch{}
-  try{
-    const r=await fetch(`/monitoring/api/abr/?tank_id=${TANK_ID}`);
-    if(r.ok){const d=await r.json();
-      if(d.abr_rate!=null) document.getElementById('abrRate').innerHTML=parseFloat(d.abr_rate).toFixed(1)+'<small>%</small>';
-    }
-  }catch{}
-  try{
-    const r=await fetch(`/monitoring/api/behavior/latest/?tank_id=${TANK_ID}`);
-    if(r.ok){const d=await r.json();
-      if(d.activity_level) document.getElementById('actVal').innerHTML=parseFloat(d.activity_level).toFixed(2)+'<small> px/s</small>';
-      if(d.dominant_zone) document.getElementById('actZone').textContent=d.dominant_zone;
-    }
-  }catch{}
+let actChartInst=null;
+let growthChartInst=null;
+
+// FRS (급이 반응)
+async function fetchFRS(){
+  const d=await sf(`/monitoring/api/frs/?tank_id=${TANK_ID}`);
+  if(!d){
+    document.getElementById('frsScore').textContent='데이터 없음';
+    document.getElementById('frsLabel').textContent='--';
+    document.getElementById('frsTime').textContent='--';
+    document.getElementById('frsRt').textContent='--';
+    document.getElementById('frsAct').textContent='--';
+    document.getElementById('frsSurf').textContent='--';
+    document.getElementById('frsComment').textContent='아직 수신된 급이 데이터가 없습니다.';
+    return;
+  }
+  document.getElementById('frsScore').innerHTML=Math.round(d.score)+'<small>점/100</small>';
+  const labelEl=document.getElementById('frsLabel');
+  labelEl.textContent=d.status||'--';
+  labelEl.className=d.status==='양호'?'green':(d.status==='위험'?'':'');
+  labelEl.style.color=d.status==='위험'?'#ef4444':(d.status==='주의'?'#f59e0b':'');
+  document.getElementById('frsTime').textContent=d.timestamp?new Date(d.timestamp).toLocaleString('ko-KR'):'--';
+  document.getElementById('frsRt').textContent=f2(d.response_time_sec)+'초';
+  document.getElementById('frsAct').textContent=(d.activity_increase_percent>=0?'+':'')+f2(d.activity_increase_percent)+'%';
+  document.getElementById('frsSurf').textContent=(d.surface_visits??'--')+'회';
+  document.getElementById('frsComment').textContent=d.comment||'';
 }
-loadData();
+
+// ABR (이상행동)
+async function fetchABR(){
+  const d=await sf(`/monitoring/api/abr/?tank_id=${TANK_ID}`);
+  if(!d){
+    document.getElementById('abrRate').textContent='데이터 없음';
+    document.getElementById('abrStatus').textContent='--';
+    document.getElementById('abrCount').textContent='--';
+    document.getElementById('abrFishBars').innerHTML='<div class="empty-note">데이터 없음</div>';
+    return;
+  }
+  document.getElementById('abrRate').innerHTML=parseFloat(d.abr_rate).toFixed(1)+'<small>%</small>';
+  const statusEl=document.getElementById('abrStatus');
+  statusEl.textContent=d.status||'--';
+  statusEl.style.color=d.status==='위험'?'#ef4444':(d.status==='주의'?'#f59e0b':'#10b981');
+  document.getElementById('abrCount').textContent=(d.anomaly_count??0)+'회';
+
+  const SC={정상:'#10b981',관찰:'#f59e0b',위험:'#ef4444'};
+  const EMOJI={정상:'🟢',관찰:'🟡',위험:'🔴'};
+  const fish=d.fish||[];
+  document.getElementById('abrFishBars').innerHTML = fish.length
+    ? fish.map(f=>`
+      <div class="fish-row">
+        <div class="fish-row-head"><span>Fish #${f.fish_id} ${EMOJI[f.status]||''}</span><span>${f.abr_rate.toFixed(1)}%</span></div>
+        <div class="track"><span style="width:${Math.min(f.abr_rate*3,100)}%;background:${SC[f.status]||'#536ae8'}"></span></div>
+      </div>`).join('')
+    : '<div class="empty-note">개체별 데이터 없음</div>';
+}
+
+// 최신 행동(개체 수/구역/개체별 활동량)
+async function fetchBehavior(){
+  const d=await sf(`/monitoring/api/behavior/latest/?tank_id=${TANK_ID}`);
+  if(!d){
+    document.getElementById('actVal').textContent='데이터 없음';
+    document.getElementById('actZone').textContent='--';
+    document.getElementById('actFishList').innerHTML='<div class="empty-note">데이터 없음</div>';
+    return;
+  }
+  document.getElementById('actVal').innerHTML=f2(d.activity_level)+'<small> px/s</small>';
+  document.getElementById('actZone').textContent=ZONE_KO[d.dominant_zone]||d.dominant_zone||'--';
+
+  const fish=d.fish||[];
+  document.getElementById('actFishList').innerHTML = fish.length
+    ? fish.map(f=>`<div class="fish-row"><div class="fish-row-head"><span>Fish #${f.fish_id}</span><span>${f2(f.activity_level)} px/s · ${ZONE_KO[f.dominant_zone]||f.dominant_zone}</span></div></div>`).join('')
+    : '<div class="empty-note">개체별 데이터 없음</div>';
+}
+
+// 시간대별 활동 패턴 (ActivityPattern)
+async function fetchPattern(){
+  const d=await sf(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
+  const ctx=document.getElementById('actChart').getContext('2d');
+  if(!d){
+    document.getElementById('actBaseline').textContent='데이터 없음';
+    if(actChartInst){actChartInst.destroy();actChartInst=null;}
+    return;
+  }
+  const delta=d.compared_to_baseline;
+  const bEl=document.getElementById('actBaseline');
+  bEl.textContent=(delta>=0?'+':'')+f2(delta)+'%';
+  bEl.style.color=delta>=0?'#10b981':'#ef4444';
+
+  const hourly=d.hourly_activity||[];
+  const labels=hourly.map((_,i)=>`${i}시`);
+  if(!actChartInst){
+    actChartInst=new Chart(ctx,{
+      type:'line',
+      data:{labels,datasets:[{data:hourly,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',borderWidth:2,pointRadius:2,tension:.4,fill:true}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#94a3b8'}},y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:9},color:'#94a3b8'}}}}
+    });
+  } else {
+    actChartInst.data.labels=labels;
+    actChartInst.data.datasets[0].data=hourly;
+    actChartInst.update();
+  }
+}
+
+// 성장 추적 (차트 + 개체별 최신값)
+async function fetchGrowth(){
+  const [chart, latest] = await Promise.all([
+    sf(`/monitoring/api/growth/chart/?tank_id=${TANK_ID}`),
+    sf(`/monitoring/api/growth/latest-all/?tank_id=${TANK_ID}`),
+  ]);
+
+  const ctx=document.getElementById('growthChart').getContext('2d');
+  if(chart && chart.labels && chart.labels.length){
+    const datasets=(chart.datasets||[]).map(ds=>({
+      label: ds.label, data: ds.data, borderColor: ds.color,
+      borderWidth: 2, pointRadius: 2, tension: .4, fill: false, spanGaps: true,
+    }));
+    if(!growthChartInst){
+      growthChartInst=new Chart(ctx,{
+        type:'line',
+        data:{labels:chart.labels,datasets},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:true,position:'top',labels:{font:{size:9},boxWidth:10}}},
+          scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#94a3b8'}},y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:9},color:'#94a3b8'}}}}
+      });
+    } else {
+      growthChartInst.data.labels=chart.labels;
+      growthChartInst.data.datasets=datasets;
+      growthChartInst.update();
+    }
+  } else if(growthChartInst){
+    growthChartInst.destroy();
+    growthChartInst=null;
+  }
+
+  if(!latest || !latest.fish || !latest.fish.length){
+    document.getElementById('growthAvg').textContent='데이터 없음';
+    document.getElementById('growthRate').textContent='--';
+    document.getElementById('growthStage').textContent='--';
+    document.getElementById('growthFishList').innerHTML='<div class="empty-note">개체별 데이터 없음</div>';
+    return;
+  }
+
+  document.getElementById('growthAvg').innerHTML=f2(latest.avg_length)+'<small> cm</small>';
+  document.getElementById('growthRate').textContent='+'+f2(latest.avg_rate)+' cm/day';
+  document.getElementById('growthStage').textContent=latest.fish[0].growth_stage||'--';
+
+  document.getElementById('growthFishList').innerHTML = latest.fish.map(f=>`
+    <div style="display:flex;justify-content:space-between">
+      <span>Fish #${f.fish_id}</span>
+      <span style="color:#333">${f2(f.estimated_length)} cm <span style="color:#10b981">+${f2(f.growth_rate)}/day</span></span>
+    </div>`).join('');
+}
+
+async function loadAll(){
+  await Promise.allSettled([fetchFRS(), fetchABR(), fetchBehavior(), fetchPattern(), fetchGrowth()]);
+}
+loadAll();
+setInterval(loadAll, 30000);
 </script>
 {% endblock %}

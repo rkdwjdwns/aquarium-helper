@@ -33,10 +33,11 @@
   .feeding-y{position:absolute;left:12px;top:16px;bottom:28px;display:flex;flex-direction:column;justify-content:space-between;font-size:10px;color:#999}
   .feeding-bars{display:flex;align-items:flex-end;justify-content:space-around;width:100%;height:100%;padding:0 8px}
   .bar-grp{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
-  .bar-stack{width:60%;max-width:48px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden}
+  .bar-stack{width:60%;max-width:48px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden;background:#f0f2f5}
   .seg-a{background:#c5b2ff}
   .seg-b{background:#7755d9}
   .bar-lbl{font-size:10px;color:#888;margin-top:5px}
+  .bar-val{font-size:9px;color:#aaa}
 
   /* 하단 그리드 */
   .bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -53,6 +54,7 @@
   .g-track{height:28px;background:#f0f3f7;border-radius:8px;overflow:hidden}
   .g-bar{height:100%;border-radius:8px;display:flex;align-items:center;padding-left:10px;font-size:11px;font-weight:900;color:#fff}
   .g-val{font-size:13px;font-weight:900;color:#333;text-align:right}
+  .empty-note{color:#ccc;font-size:12px;text-align:center;padding:16px}
 
   @media(max-width:1000px){.bottom-grid{grid-template-columns:1fr}}
   @media(max-width:900px){.sidebar{display:none}main{margin-left:0!important;padding:24px 0 80px}}
@@ -102,33 +104,32 @@
     <!-- 급이량 차트 -->
     <div class="card">
       <div class="card-head">
-        <div class="card-title">▥ 일별 급이량 <span>(최근 7일)</span></div>
+        <div class="card-title">▥ 일별 급이량 <span>(최근 7일 · 오전/오후 구간 합계)</span></div>
         <div class="time-tabs">
           <button class="active" onclick="setFeed('all',this)">전체</button>
-          <button onclick="setFeed('08:00',this)">08:00</button>
-          <button onclick="setFeed('18:00',this)">18:00</button>
+          <button onclick="setFeed('am',this)">오전(~14시)</button>
+          <button onclick="setFeed('pm',this)">오후(14시~)</button>
         </div>
       </div>
       <div class="feeding-chart-wrap">
-        <div class="feeding-y"><span>1.2</span><span>0.9</span><span>0.6</span><span>0.3</span><span>0</span></div>
-        <div class="feeding-bars" id="feedingBars"></div>
+        <div class="feeding-y" id="feedingY"><span>--</span><span>--</span><span>--</span><span>--</span><span>0</span></div>
+        <div class="feeding-bars" id="feedingBars"><div class="empty-note">데이터를 불러오는 중...</div></div>
       </div>
     </div>
 
     <div class="bottom-grid">
 
-      <!-- 활동량 라인 차트 -->
+      <!-- 활동 패턴 (ActivityPattern 기반) -->
       <div class="card">
         <div class="card-head">
-          <div class="card-title">↗ 일별 평균 활동량 <span>(최근 7일)</span></div>
+          <div class="card-title">↗ 시간대별 활동 패턴 <span>(24시간 · ActivityPattern)</span></div>
         </div>
         <div class="line-chart-wrap">
           <div class="legend">
-            <span><i style="background:#ff7a1a"></i>Fish #1</span>
-            <span><i style="background:#16b67a"></i>Fish #2</span>
-            <span><i style="background:#2f6fec"></i>Fish #3</span>
+            <span><i style="background:#3b82f6"></i>전체 어항 평균 활동량 (px/s)</span>
           </div>
           <div style="height:180px;position:relative"><canvas id="actChart"></canvas></div>
+          <div style="margin-top:10px;font-size:12px;color:#9ca3af" id="actMeta">데이터를 불러오는 중...</div>
         </div>
       </div>
 
@@ -137,27 +138,8 @@
         <div class="card-head">
           <div class="card-title">📏 개체별 성장 추정</div>
         </div>
-        <div class="growth-list">
-          <div class="g-row">
-            <div class="g-label">Fish #1</div>
-            <div class="g-track"><div class="g-bar" style="width:71%;background:#3b82f6">7.10 cm</div></div>
-            <div class="g-val">+0.06/day</div>
-          </div>
-          <div class="g-row">
-            <div class="g-label">Fish #2</div>
-            <div class="g-track"><div class="g-bar" style="width:62%;background:#10b981">6.20 cm</div></div>
-            <div class="g-val">+0.05/day</div>
-          </div>
-          <div class="g-row">
-            <div class="g-label">Fish #3</div>
-            <div class="g-track"><div class="g-bar" style="width:39%;background:#f59e0b">3.90 cm</div></div>
-            <div class="g-val">+0.04/day</div>
-          </div>
-          <div style="margin-top:18px;padding:14px;background:#f4f7fb;border-radius:14px;font-size:13px;font-weight:700;color:#555">
-            평균 체장: <strong style="color:#10b981">5.73 cm</strong>
-            &nbsp;·&nbsp; 평균 성장률: <strong style="color:#3b82f6">+0.05 cm/day</strong>
-            &nbsp;·&nbsp; <span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:8px;font-size:11px">보정값</span>
-          </div>
+        <div class="growth-list" id="growthList">
+          <div class="empty-note">데이터를 불러오는 중...</div>
         </div>
       </div>
 
@@ -169,6 +151,8 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+const TANK_ID = {{ tank.id|default:1 }};
+
 function toggleSb(){
   const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');
   const c=sb.classList.contains('collapsed');
@@ -176,24 +160,42 @@ function toggleSb(){
   document.getElementById('mainContent').style.marginLeft=c?'44px':'var(--sw)';
 }
 
-// 급이 데이터 (08시 + 18시 하루 2회)
-const FEED={
-  labels:['월','화','수','목','금','토','일'],
-  all:   [[0.10,0.10],[0.10,0.10],[0.10,0.11],[0.10,0.10],[0.10,0.10],[0.10,0.11],[0.10,0.10]],
-  '08:00':[[0.10,0],[0.10,0],[0.10,0],[0.10,0],[0.10,0],[0.10,0],[0.10,0]],
-  '18:00':[[0,0.10],[0,0.10],[0,0.11],[0,0.10],[0,0.10],[0,0.11],[0,0.10]],
-};
-const maxH=220;const maxV=1.2;
+function f2(v){const n=parseFloat(v);return isNaN(n)?'--':n.toFixed(2);}
+async function sf(url){try{const r=await fetch(url);return r.ok?await r.json():null;}catch{return null;}}
+
+const maxH=220;
+
+// ──────────────────────────────────────────────
+// 급이량 차트 (/monitoring/api/feeding/chart/)
+// ──────────────────────────────────────────────
+let FEED=null; // {labels, am, pm}
 
 function renderFeed(key){
   const bars=document.getElementById('feedingBars');
+  const yWrap=document.getElementById('feedingY');
+  if(!FEED || !FEED.labels || !FEED.labels.length){
+    bars.innerHTML='<div class="empty-note">최근 7일간 급이 기록이 없습니다.</div>';
+    return;
+  }
+  const totals=FEED.labels.map((_,i)=>{
+    if(key==='am') return FEED.am[i];
+    if(key==='pm') return FEED.pm[i];
+    return FEED.am[i]+FEED.pm[i];
+  });
+  const maxV = Math.max(...totals, 0.1);
+
+  yWrap.innerHTML = [1,0.75,0.5,0.25,0].map(r=>`<span>${(maxV*r).toFixed(2)}</span>`).join('');
+
   bars.innerHTML='';
   FEED.labels.forEach((day,i)=>{
-    const [a,b]=FEED[key][i];
+    const a = key==='pm' ? 0 : FEED.am[i];
+    const b = key==='am' ? 0 : FEED.pm[i];
     const aH=Math.round((a/maxV)*maxH);
     const bH=Math.round((b/maxV)*maxH);
+    const total=(a+b).toFixed(3);
     bars.innerHTML+=`<div class="bar-grp">
-      <div class="bar-stack" style="height:${aH+bH}px">
+      <div class="bar-val">${total}g</div>
+      <div class="bar-stack" style="height:${Math.max(aH+bH,2)}px">
         <div class="seg-b" style="height:${bH}px"></div>
         <div class="seg-a" style="height:${aH}px"></div>
       </div>
@@ -201,26 +203,93 @@ function renderFeed(key){
     </div>`;
   });
 }
+
 function setFeed(key,btn){
   document.querySelectorAll('.time-tabs button').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   renderFeed(key);
 }
-renderFeed('all');
 
-// 활동량 라인 차트
-const DAYS=['월','화','수','목','금','토','일'];
-new Chart(document.getElementById('actChart').getContext('2d'),{
-  type:'line',
-  data:{labels:DAYS,datasets:[
-    {label:'Fish #1',data:[12.1,13.5,14.2,13.8,15.1,14.6,15.9],borderColor:'#ff7a1a',borderWidth:2.5,pointRadius:3,tension:.4,fill:false},
-    {label:'Fish #2',data:[16.2,17.0,16.5,17.8,18.0,17.5,18.2],borderColor:'#16b67a',borderWidth:2.5,pointRadius:3,tension:.4,fill:false},
-    {label:'Fish #3',data:[10.5,11.2,10.8,11.5,11.0,11.8,11.8],borderColor:'#2f6fec',borderWidth:2.5,pointRadius:3,tension:.4,fill:false},
-  ]},
-  options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:false}},
-    scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#94a3b8'}},
-            y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10},color:'#94a3b8'}}}}
-});
+async function fetchFeeding(){
+  FEED = await sf(`/monitoring/api/feeding/chart/?tank_id=${TANK_ID}`);
+  renderFeed('all');
+}
+
+// ──────────────────────────────────────────────
+// 활동 패턴 (/monitoring/api/pattern/)
+// ──────────────────────────────────────────────
+let actChartInst=null;
+
+async function fetchActivity(){
+  const d=await sf(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
+  const ctx=document.getElementById('actChart').getContext('2d');
+  const meta=document.getElementById('actMeta');
+
+  if(!d){
+    meta.textContent='아직 수신된 활동 패턴 데이터가 없습니다.';
+    if(actChartInst){actChartInst.destroy();actChartInst=null;}
+    return;
+  }
+
+  const hourly=d.hourly_activity||[];
+  const labels=hourly.map((_,i)=>`${i}시`);
+  const delta=d.compared_to_baseline;
+  meta.textContent=`현재 시간대 활동량 ${f2(d.current_hour_activity)} px/s · baseline 대비 ${delta>=0?'+':''}${f2(delta)}%`;
+
+  if(!actChartInst){
+    actChartInst=new Chart(ctx,{
+      type:'line',
+      data:{labels,datasets:[{data:hourly,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',borderWidth:2.5,pointRadius:2,tension:.4,fill:true}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#94a3b8'}},
+                y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10},color:'#94a3b8'}}}}
+    });
+  } else {
+    actChartInst.data.labels=labels;
+    actChartInst.data.datasets[0].data=hourly;
+    actChartInst.update();
+  }
+}
+
+// ──────────────────────────────────────────────
+// 성장 추이 (/monitoring/api/growth/latest-all/)
+// ──────────────────────────────────────────────
+async function fetchGrowth(){
+  const d=await sf(`/monitoring/api/growth/latest-all/?tank_id=${TANK_ID}`);
+  const wrap=document.getElementById('growthList');
+
+  if(!d || !d.fish || !d.fish.length){
+    wrap.innerHTML='<div class="empty-note">아직 수신된 성장 데이터가 없습니다.</div>';
+    return;
+  }
+
+  const colors=['#3b82f6','#10b981','#f59e0b'];
+  const max=Math.max(...d.fish.map(f=>f.estimated_length), 0.1);
+
+  let html='';
+  d.fish.forEach((f,i)=>{
+    const pct=Math.max((f.estimated_length/max*100), 4).toFixed(1);
+    html+=`
+      <div class="g-row">
+        <div class="g-label">Fish #${f.fish_id}</div>
+        <div class="g-track"><div class="g-bar" style="width:${pct}%;background:${colors[i%colors.length]}">${f2(f.estimated_length)} cm</div></div>
+        <div class="g-val">+${f2(f.growth_rate)}/day</div>
+      </div>`;
+  });
+
+  html+=`<div style="margin-top:18px;padding:14px;background:#f4f7fb;border-radius:14px;font-size:13px;font-weight:700;color:#555">
+    평균 체장: <strong style="color:#10b981">${f2(d.avg_length)} cm</strong>
+    &nbsp;·&nbsp; 평균 성장률: <strong style="color:#3b82f6">+${f2(d.avg_rate)} cm/day</strong>
+  </div>`;
+
+  wrap.innerHTML=html;
+}
+
+async function loadAll(){
+  await Promise.allSettled([fetchFeeding(), fetchActivity(), fetchGrowth()]);
+}
+loadAll();
+setInterval(loadAll, 30000);
 </script>
 {% endblock %}

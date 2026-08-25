@@ -59,6 +59,7 @@ urlpatterns = [
     path('api/register-pi/',          api_views.register_pi,              name='api_register_pi'),
     path('api/register-camera-url/', api_views.register_camera_url,      name='api_register_camera_url'),
     path('api/event-log/',            api_views.create_event_log,         name='api_event_log'),
+    path('api/feeding/chart/', api_views.get_feeding_chart, name='api_feeding_chart'),
 
     # ── [10. 프론트 전용 GET API] ──────────────────────────────────
     path('api/behavior/latest/',     api_views.get_behavior_latest,      name='api_behavior_latest'),

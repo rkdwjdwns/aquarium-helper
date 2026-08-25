@@ -936,3 +936,35 @@ def get_growth_latest_all(request):
     avg_rate   = round(sum(f['growth_rate'] for f in fish) / len(fish), 3)
 
     return JsonResponse({'fish': fish, 'avg_length': avg_length, 'avg_rate': avg_rate})
+
+
+# ──────────────────────────────────────────────
+# [14] 일별 급이량 차트  GET /monitoring/api/feeding/chart/?tank_id=1
+#      최근 7일 — 오전(14시 이전)/오후(14시 이후) 2구간으로 분리 집계
+#      ✅ fish_data.html의 급이량 차트가 실데이터를 쓰도록 신규 추가
+# ──────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def get_feeding_chart(request):
+    tank_id = request.GET.get('tank_id', 1)
+    tank, err = _get_tank(tank_id)
+    if err:
+        return err
+
+    import datetime as dt
+    from django.db.models import Sum
+
+    WEEKDAY_KO = ['월', '화', '수', '목', '금', '토', '일']
+    today = timezone.now().date()
+
+    labels, am_amounts, pm_amounts = [], [], []
+    for i in range(6, -1, -1):
+        day = today - dt.timedelta(days=i)
+        qs  = FeedingEvent.objects.filter(tank=tank, created_at__date=day)
+        am  = qs.filter(created_at__hour__lt=14).aggregate(total=Sum('amount_g'))['total'] or 0.0
+        pm  = qs.filter(created_at__hour__gte=14).aggregate(total=Sum('amount_g'))['total'] or 0.0
+        labels.append(WEEKDAY_KO[day.weekday()])
+        am_amounts.append(round(am, 3))
+        pm_amounts.append(round(pm, 3))
+
+    return JsonResponse({'labels': labels, 'am': am_amounts, 'pm': pm_amounts})
