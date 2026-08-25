@@ -1,120 +1,211 @@
-from django.shortcuts import render, get_object_or_404
-import google.generativeai as genai
-from django.conf import settings
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_http_methods
-from .models import ChatMessage
-import PIL.Image
-import os
 import json
+import os
+import PIL.Image
+import google.generativeai as genai
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.conf import settings
+from django.views.decorators.http import require_POST, require_http_methods
+
+from .models import ChatMessage
+
+
+# ── 사용 가능한 모델 목록 (2026-08 기준 갱신) ──
+# gemini-2.0-flash / gemini-2.0-flash-lite 는 2026-06-01부로 retired.
+# gemini-2.5-flash 계열로 교체하고, 알 수 없는 상황 대비용으로 -latest 별칭도 유지.
+GEMINI_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-flash-latest",
+]
 
 
 @login_required
 def chatbot_home(request):
-    # 최신 대화 기록 50개를 가져와서 보여줍니다.
     history = ChatMessage.objects.filter(user=request.user).order_by('-created_at')[:50]
     return render(request, 'chatbot/chat.html', {'history': reversed(list(history))})
 
 
-@login_required
-def ask_chatbot(request):
-    if request.method == "POST":
-        user_message = ""
-        image_file = None
+def _build_prompt(user_message: str) -> str:
+    return f"""너는 어항 관리 전문 도우미야. 질문 유형에 맞게 답해.
 
-        # JSON 및 Form 데이터 대응
-        if request.content_type == 'application/json':
-            try:
-                data = json.loads(request.body)
-                user_message = data.get('message', '').strip()
-            except: pass
+[말투 규칙]
+- 존댓말 사용, 문장은 짧고 핵심만
+- 이모지 사용 금지
+- 인사말("안녕하세요" 등) 금지
+- 어항 정보 없다는 언급 금지
+- 문장을 절대 중간에 끊지 말고 완성된 문장으로 마무리
+
+[질문 유형별 답변 형식]
+
+1. 물고기 추천 (초보자용, 같이 키울 수 있는 물고기 등)
+→ 추천 2~3종, 각각 아래 형식으로 완성해서 작성
+   물고기명
+   특징: 한 문장으로 완성
+   수온: XX~XX도 / pH: X.X~X.X / 난이도: 하(또는 중, 상)
+
+2. 수질/센서 설정 (수온, pH, 금붕어 수질 등)
+→ 수치를 항목별로
+   수온: XX~XX도
+   pH: X.X~X.X
+   DO: Xmg/L 이상
+   탁도: XXNTU 이하
+
+3. 어항 세팅 (처음 세팅, 여과기, 어항 크기 등)
+→ 핵심 순서 또는 항목별로 3~5줄, 각 문장 완성해서 작성
+
+4. 관리/질병 (먹이, 환수, 병 증상 등)
+→ 원인 한 줄 + 해결책 위주로, 문장 완성해서 작성
+
+5. 기타
+→ 핵심만 3~5줄, 문장 완성해서 작성
+
+질문: {user_message}"""
+
+
+def _clean_reply(raw: str) -> str:
+    """이모지 및 마크다운 제거 후 정리"""
+    raw = raw.replace('**', '').replace('##', '').replace('# ', '').strip()
+
+    cleaned = []
+    for ch in raw:
+        cp = ord(ch)
+        if 0x1F300 <= cp <= 0x1FAFF:
+            continue
+        if 0x2600 <= cp <= 0x27BF:
+            continue
+        if 0x1F000 <= cp <= 0x1F02F:
+            continue
+        cleaned.append(ch)
+    raw = ''.join(cleaned).strip()
+
+    lines      = raw.split('\n')
+    result     = []
+    prev_blank = False
+    for line in lines:
+        if line.strip() == '':
+            if not prev_blank:
+                result.append('')
+            prev_blank = True
         else:
-            user_message = request.POST.get('message', '').strip()
-            image_file = request.FILES.get('image')
+            result.append(line.rstrip())
+            prev_blank = False
 
-        display_name = getattr(request.user, 'nickname', request.user.username)
+    return '\n'.join(result).strip()
 
-        # API 키 참조 (settings.py 우선)
-        api_key = getattr(settings, 'GEMINI_API_KEY', None) or os.environ.get('GEMINI_API_KEY_1')
 
-        if not api_key:
-            return JsonResponse({'status': 'error', 'message': "API 키가 설정되지 않았습니다."}, status=500)
+@login_required
+@require_POST
+def ask_chatbot(request):
+    user_message = ""
+    image_file   = None
 
+    if request.content_type == 'application/json':
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(
-                model_name='gemini-1.5-flash',
-                system_instruction=(
-                    f"당신은 '어항 도우미'입니다.\n"
-                    f"1. 첫 문장은 반드시 '{display_name}님! 🌊'으로 시작.\n"
-                    f"2. 별표(*), 해시(#), 대시(-) 등 특수 기호는 절대 사용 금지.\n"
-                    f"3. 아주 쉽고 짧게 핵심만 말할 것.\n"
-                    f"4. 가독성을 위해 줄바꿈을 자주 할 것.\n"
-                    f"5. 마지막에 [권장설정: 온도 26도, pH 7.0, 환수 7일] 형태를 꼭 포함할 것."
+            user_message = json.loads(request.body).get('message', '').strip()
+        except:
+            pass
+    else:
+        user_message = request.POST.get('message', '').strip()
+        image_file   = request.FILES.get('image')
+
+    api_keys = [k for k in [
+        os.getenv('GEMINI_API_KEY_1'),
+        os.getenv('GEMINI_API_KEY_2'),
+        os.getenv('GEMINI_API_KEY_3'),
+        getattr(settings, 'GEMINI_API_KEY', None),
+    ] if k]
+
+    if not api_keys:
+        return JsonResponse({'status': 'error', 'message': 'API 키가 없습니다.'}, status=500)
+
+    last_error = ""
+    for api_key in api_keys:
+        for model_name in GEMINI_MODELS:
+            try:
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel(model_name=model_name)
+
+                prompt_parts = [_build_prompt(user_message)]
+                if image_file:
+                    image_file.seek(0)
+                    prompt_parts.insert(0, PIL.Image.open(image_file))
+
+                response = model.generate_content(
+                    prompt_parts,
+                    generation_config=genai.types.GenerationConfig(
+                        max_output_tokens=1024,
+                        temperature=0.4,
+                    ),
+                    request_options={"timeout": 20},
                 )
-            )
 
-            if image_file:
-                img = PIL.Image.open(image_file)
-                response = model.generate_content([user_message or "이 어항 사진을 분석해줘.", img])
-            else:
-                response = model.generate_content(user_message)
+                if response and response.text:
+                    reply = _clean_reply(response.text)
 
-            # 응답 텍스트 정리
-            bot_response = response.text.replace('*', '').replace('#', '').replace('-', ' ').strip()
+                    try:
+                        ChatMessage.objects.create(
+                            user=request.user,
+                            message=user_message or "(사진 분석)",
+                            response=reply,
+                        )
+                    except:
+                        pass
 
-            # DB 저장 (message가 비어있을 경우 대응)
-            chat_msg = ChatMessage.objects.create(
-                user=request.user,
-                message=user_message if user_message else "(사진 분석 요청)",
-                response=bot_response
-            )
+                    return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
 
-            # 프론트엔드 JS가 'reply' 또는 'response' 중 무엇을 찾든 대응하도록 둘 다 보냅니다.
-            return JsonResponse({
-                'status': 'success',
-                'id': chat_msg.id,
-                'reply': bot_response,
-                'response': bot_response  # undefined 방지를 위해 추가
-            })
+            except Exception as e:
+                last_error = str(e)
+                continue
 
-        except Exception as e:
-            print(f"Chatbot Error: {e}")
-            return JsonResponse({'status': 'error', 'message': "AI 응답 중 오류가 발생했습니다."}, status=500)
-
-    return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
+    return JsonResponse({'status': 'error', 'message': f'연결 실패: {last_error}'}, status=500)
 
 
 @login_required
 @require_http_methods(["GET"])
 def chat_history(request):
-    """로그인한 사용자의 대화 기록을 최신순으로 반환"""
-    history = ChatMessage.objects.filter(user=request.user).order_by('-created_at')[:50]
-    data = [
-        {
-            'id': msg.id,
-            'message': msg.message,
-            'response': msg.response,
-            'created_at': msg.created_at.isoformat(),
-        }
-        for msg in history
-    ]
-    return JsonResponse({'status': 'success', 'history': data})
+    """GET /chatbot/history/"""
+    try:
+        messages = ChatMessage.objects.filter(
+            user=request.user
+        ).order_by('-created_at')[:50]
+
+        history = [
+            {
+                "id":         m.id,
+                "message":    m.message,
+                "response":   m.response,
+                "created_at": m.created_at.strftime("%m/%d %H:%M"),
+            }
+            for m in reversed(list(messages))
+        ]
+        return JsonResponse({"status": "ok", "history": history})
+
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 
 @login_required
-@require_http_methods(["POST"])
+@require_POST
 def chat_clear(request):
-    """로그인한 사용자의 대화 기록 전체 삭제"""
-    deleted_count, _ = ChatMessage.objects.filter(user=request.user).delete()
-    return JsonResponse({'status': 'success', 'deleted': deleted_count})
+    """POST /chatbot/clear/ — 전체 삭제"""
+    try:
+        count, _ = ChatMessage.objects.filter(user=request.user).delete()
+        return JsonResponse({"status": "ok", "deleted": count})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 
 @login_required
-@require_http_methods(["POST", "DELETE"])
+@require_POST
 def chat_delete_one(request, message_id):
-    """특정 메시지 하나만 삭제 (본인 소유만 가능)"""
-    msg = get_object_or_404(ChatMessage, id=message_id, user=request.user)
-    msg.delete()
-    return JsonResponse({'status': 'success', 'deleted_id': message_id})
+    """POST /chatbot/delete/<id>/ — 개별 삭제"""
+    try:
+        msg = ChatMessage.objects.filter(id=message_id, user=request.user).first()
+        if not msg:
+            return JsonResponse({"status": "error", "message": "없는 메시지입니다."}, status=404)
+        msg.delete()
+        return JsonResponse({"status": "ok"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
