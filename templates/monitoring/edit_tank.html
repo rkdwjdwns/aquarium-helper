@@ -10,7 +10,7 @@
     <div class="bg-white/70 backdrop-blur-xl rounded-[3rem] shadow-[0_20px_50px_rgba(0,119,255,0.08)] border border-white p-10">
         <form method="post" class="space-y-6">
             {% csrf_token %}
-            
+
             <div>
                 <label class="block text-sm font-black text-slate-700 mb-2 ml-1">어항 이름</label>
                 <input type="text" name="name" value="{{ tank.name }}" required
@@ -51,11 +51,11 @@
             </div>
 
             <div class="flex gap-4 pt-6">
-                <a href="{% url 'monitoring:tank_list' %}" 
+                <a href="{% url 'monitoring:tank_list' %}"
                    class="flex-1 py-5 bg-slate-100 text-slate-500 rounded-[2rem] font-black text-center hover:bg-slate-200 transition-all active-stable">
                     취소
                 </a>
-                <button type="submit" 
+                <button type="submit"
                         class="flex-[2] py-5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-[2rem] font-black shadow-xl shadow-blue-100 hover:scale-[1.02] active:scale-95 transition-all">
                     설정 저장하기 💾
                 </button>
@@ -63,4 +63,159 @@
         </form>
     </div>
 </div>
+
+<!-- ===== 어항 도우미 챗봇 (디자인은 fish_tank_edit.html에서 이식) ===== -->
+<style>
+  .aq-chat-toggle{
+    position:fixed;right:38px;bottom:30px;width:58px;height:58px;
+    border:5px solid #eef2fb;border-radius:50%;background:#7399eb;
+    box-shadow:0 10px 24px rgba(0,0,0,.20);cursor:pointer;z-index:1200;
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  #aquarium-chatbot{
+    position:fixed!important;inset:auto 36px 100px auto!important;margin:0!important;
+    width:380px!important;height:600px!important;padding:0!important;border:0!important;
+    border-radius:28px!important;overflow:hidden!important;background:#f7faff!important;
+    box-shadow:0 20px 45px rgba(0,0,0,.25)!important;
+    font-family:Arial,'Noto Sans KR',sans-serif!important;
+  }
+  #aquarium-chatbot > header{
+    height:76px!important;padding:0 20px!important;display:flex!important;
+    align-items:center!important;justify-content:space-between!important;
+    background:linear-gradient(120deg,#2879ed,#12b5c8)!important;color:#fff!important;
+  }
+  #aquarium-chatbot > header strong{font-size:14px!important;font-weight:900!important}
+  #aquarium-chatbot > header span{font-size:10px!important;opacity:.8!important}
+  #aquarium-chatbot > header a{color:#fff!important;text-decoration:none!important;font-size:12px!important}
+  #aquarium-chatbot > header button{
+    border:0!important;background:transparent!important;color:#fff!important;
+    font-size:25px!important;line-height:1!important;cursor:pointer!important;
+  }
+
+  .aq-chat-messages{
+    height:456px;padding:18px;overflow-y:auto;background:#f6f9fd;
+    scrollbar-width:none;
+  }
+  .aq-chat-messages::-webkit-scrollbar{display:none}
+  .chatbot-bubble{
+    max-width:92%;padding:15px 17px;margin-bottom:12px;background:#fff;
+    border-radius:5px 17px 17px 17px;color:#546073;font-size:14px;line-height:1.55;
+    box-shadow:0 2px 7px rgba(0,0,0,.08);
+  }
+  .chatbot-bubble.user{
+    margin-left:auto;background:#e7edff;color:#2f3d55;
+    border-radius:17px 5px 17px 17px;
+  }
+
+  .aq-chat-form{
+    height:68px;padding:10px 15px;display:flex;align-items:center;gap:8px;
+    background:#fff;border-top:1px solid #f0f2f5;
+  }
+  .aq-chat-form input{
+    flex:1;height:44px;padding:0 16px;border:0;border-radius:24px;
+    background:#f7f9fc;color:#333;font-size:13px;outline:none;
+  }
+  .aq-chat-form button{
+    width:36px;height:36px;flex:none;border:0;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:#3474e9;color:#fff;cursor:pointer;
+  }
+
+  @media(max-width:800px){
+    #aquarium-chatbot{width:92vw!important;right:4vw!important;left:4vw!important;bottom:88px!important}
+  }
+</style>
+
+<!-- 챗봇 버튼 -->
+<button
+  type="button"
+  popovertarget="aquarium-chatbot"
+  popovertargetaction="show"
+  aria-label="챗봇 열기"
+  class="aq-chat-toggle">
+  <svg width="31" height="31" viewBox="0 0 24 24" fill="none">
+    <path d="M21 11.5C21 16.2 16.97 20 12 20C10.65 20 9.38 19.72 8.23 19.22L3.5 20.5L4.79 16.64C3.67 15.2 3 13.42 3 11.5C3 6.81 7.03 3 12 3C16.97 3 21 6.81 21 11.5Z"
+      stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="8.5" cy="11.5" r="1" fill="#111827"/>
+    <circle cx="12" cy="11.5" r="1" fill="#111827"/>
+    <circle cx="15.5" cy="11.5" r="1" fill="#111827"/>
+  </svg>
+</button>
+
+<!-- 챗봇 창 -->
+<section id="aquarium-chatbot" popover="manual">
+  <header>
+    <div style="display:flex;flex-direction:column;gap:5px;">
+      <strong>어항 도우미</strong>
+      <span>물고기 추천 · 수질 설정 · 관리법</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:18px;">
+      <a href="{% url 'chatbot:chat_page' %}">전체 대화 보기</a>
+      <button type="button" popovertarget="aquarium-chatbot" popovertargetaction="hide" aria-label="챗봇 닫기">×</button>
+    </div>
+  </header>
+
+  <div id="chatbotMessages" class="aq-chat-messages">
+    <div class="chatbot-bubble">
+      어항 관련 무엇이든 물어보세요.<br>
+      물고기 추천, 수질 설정, 관리법을 안내해 드립니다.
+    </div>
+  </div>
+
+  <form id="chatbotForm" class="aq-chat-form">
+    {% csrf_token %}
+    <input type="text" id="chatbotInput" placeholder="질문을 입력하세요..." autocomplete="off">
+    <button type="submit" aria-label="질문 보내기">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path d="M5 4L20 12L5 20L8 12L5 4Z" fill="white"/></svg>
+    </button>
+  </form>
+</section>
+
+<script>
+(function () {
+  const form = document.getElementById('chatbotForm');
+  const input = document.getElementById('chatbotInput');
+  const messages = document.getElementById('chatbotMessages');
+
+  function addBubble(text, sender) {
+    const div = document.createElement('div');
+    div.className = 'chatbot-bubble' + (sender === 'user' ? ' user' : '');
+    div.innerHTML = String(text).replace(/\n/g, '<br>');
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const message = input.value.trim();
+    if (!message) return;
+
+    addBubble(message, 'user');
+    input.value = '';
+
+    const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    try {
+      const res = await fetch("{% url 'chatbot:ask' %}", {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: message })
+      });
+      const data = await res.json();
+
+      if (data.status === 'success') {
+        addBubble(data.reply, 'bot');
+      } else {
+        addBubble(data.message || '오류가 발생했습니다.', 'bot');
+      }
+    } catch (err) {
+      addBubble('서버와 통신할 수 없습니다.', 'bot');
+    }
+  });
+})();
+</script>
 {% endblock %}
