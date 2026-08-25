@@ -262,6 +262,12 @@ def receive_sensor_data(request):
 # ──────────────────────────────────────────────
 # [2] AI 행동 분석  POST /monitoring/api/behavior/
 #     ✅ fish_details 배열 수신 시 개체별 상세 저장 (하위 호환 유지)
+#     ✅ 수정: fish_count는 Pi가 보낸 값을 그대로 믿지 않고,
+#        fish_details(실제 개체 목록)가 있으면 그걸 fish_id 기준으로
+#        중복 제거한 뒤 그 개수를 최종 fish_count로 사용한다.
+#        → 겹침(overlap)/중복 detection으로 fish_count 필드 자체가
+#          부풀려져 오는 경우에도 실제 화면에 표시되는 마리 수는
+#          왜곡되지 않는다.
 # ──────────────────────────────────────────────
 
 @csrf_exempt
@@ -286,9 +292,41 @@ def receive_fish_behavior(request):
 
     is_anomaly = bool(data.get('is_anomaly', False))
 
+    # ✅ fish_details를 fish_id 기준으로 먼저 중복 제거 (같은 요청 안에
+    #    동일 fish_id가 두 번 이상 들어오면 마지막 값으로 덮어씀)
+    raw_fish_details = data.get('fish_details', [])
+    detail_map = {}
+    for fd in raw_fish_details:
+        try:
+            fzone = str(fd.get('dominant_zone', 'MID')).upper()
+            if fzone not in ['TOP', 'MID', 'BOT']:
+                fzone = 'MID'
+            fish_id = int(fd['fish_id'])
+            detail_map[fish_id] = {
+                'activity_level': float(fd.get('activity_level', 0.0)),
+                'dominant_zone':  fzone,
+                'abr_score':      float(fd.get('abr_score', 0.0)),
+            }
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    # ✅ fish_details가 있으면 그 개수(중복 제거됨)를 진짜 물고기 수로 사용.
+    #    없을 때만 Pi가 보낸 fish_count 필드를 그대로 사용(하위 호환).
+    reported_fish_count = int(data.get('fish_count', 0) or 0)
+    if detail_map:
+        fish_count = len(detail_map)
+        if reported_fish_count and reported_fish_count != fish_count:
+            logger.warning(
+                f"[행동] tank={tank.id} fish_count 불일치: "
+                f"payload={reported_fish_count} vs fish_details={fish_count} "
+                f"→ fish_details 기준으로 저장"
+            )
+    else:
+        fish_count = reported_fish_count
+
     behavior = FishBehavior.objects.create(
         tank=tank,
-        fish_count=int(data.get('fish_count', 0)),
+        fish_count=fish_count,
         overlap_frames=int(data.get('overlap_frames', 0)),
         activity_level=float(data.get('activity_level', 0.0)),
         abr_score=float(data.get('abr_score', 0.0)),
@@ -302,24 +340,17 @@ def receive_fish_behavior(request):
         note=data.get('note', ''),
     )
 
-    # ✅ 개체별 상세 데이터 (선택적 — 라즈베리파이가 안 보내면 그냥 넘어감)
-    fish_details = data.get('fish_details', [])
-    detail_objs = []
-    for fd in fish_details:
-        try:
-            fzone = str(fd.get('dominant_zone', 'MID')).upper()
-            if fzone not in ['TOP', 'MID', 'BOT']:
-                fzone = 'MID'
-            detail_objs.append(FishActivityDetail(
-                behavior=behavior,
-                tank=tank,
-                fish_id=int(fd['fish_id']),
-                activity_level=float(fd.get('activity_level', 0.0)),
-                dominant_zone=fzone,
-                abr_score=float(fd.get('abr_score', 0.0)),
-            ))
-        except (KeyError, TypeError, ValueError):
-            continue
+    detail_objs = [
+        FishActivityDetail(
+            behavior=behavior,
+            tank=tank,
+            fish_id=fid,
+            activity_level=v['activity_level'],
+            dominant_zone=v['dominant_zone'],
+            abr_score=v['abr_score'],
+        )
+        for fid, v in detail_map.items()
+    ]
     if detail_objs:
         FishActivityDetail.objects.bulk_create(detail_objs)
 
@@ -334,10 +365,11 @@ def receive_fish_behavior(request):
             message=f"[FRS 저조] {behavior.feeding_score}점 — 어류 상태 확인 권장"
         )
 
-    logger.info(f"[행동] tank={tank.id} status={status} anomaly={is_anomaly} fish_details={len(detail_objs)}")
+    logger.info(f"[행동] tank={tank.id} status={status} anomaly={is_anomaly} fish_count={fish_count} fish_details={len(detail_objs)}")
     return _ok({
         'behavior_id': behavior.id, 'status': status,
-        'is_anomaly': is_anomaly, 'fish_detail_count': len(detail_objs),
+        'is_anomaly': is_anomaly, 'fish_count': fish_count,
+        'fish_detail_count': len(detail_objs),
         'timestamp': behavior.created_at.isoformat(),
     })
 
