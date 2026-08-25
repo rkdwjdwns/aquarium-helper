@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block extra_css %}
 <style>
-  :root{--sw:330px}
+  :root{--sw:270px}
   .sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
   .sidebar.collapsed{width:44px;overflow:hidden}
   .sidebar.collapsed .hide-on-collapse{display:none!important}
@@ -17,7 +17,7 @@
   .s-menu a:hover{background:#f1f5fa}
   .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
   .sidebar-bottom a{display:flex;align-items:center;text-decoration:none;white-space:nowrap;font-size:14px;font-weight:800}
-  main{margin-left:var(--sw);padding:40px 32px 80px;transition:margin-left .3s}
+  main{margin-left:var(--sw);padding:40px 48px 80px 48px;transition:margin-left .3s}
 
   .report-toolbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:24px;flex-wrap:wrap}
   .dl-btns{display:flex;gap:10px;flex-wrap:wrap}
@@ -94,7 +94,7 @@
 </aside>
 
 <main id="mainContent">
-  <div style="max-width:1120px;margin:0 auto">
+  <div style="max-width:1200px;margin:0 auto">
     <h1 style="font-size:20px;font-weight:900;margin-bottom:40px">데이터 리포트</h1>
 
     <!-- 리포트 생성 & 정렬 -->

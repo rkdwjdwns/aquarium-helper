@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block extra_css %}
 <style>
-  :root{--sw:330px}
+  :root{--sw:270px}
   .sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
   .sidebar.collapsed{width:44px;overflow:hidden}
   .sidebar.collapsed .hide-on-collapse{display:none!important}
@@ -17,7 +17,7 @@
   .s-menu a:hover{background:#f1f5fa}
   .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
   .sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
-  main{margin-left:var(--sw);padding:40px 32px 80px;transition:margin-left .3s}
+  main{margin-left:var(--sw);padding:40px 48px 80px 48px;transition:margin-left .3s}
 
   .log-card{border-radius:20px 20px 0 0;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.08)}
   .log-card-head{min-height:110px;padding:22px 28px 18px;background:linear-gradient(110deg,#b7c9ff,#8eb8f2);display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -72,7 +72,7 @@
   <div class="hide-on-collapse" style="padding:14px 14px 0">
     <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:12px 8px 6px;display:flex;justify-content:space-between"><span>어항 정보 확인</span><span>⌄</span></div>
     <ul class="s-menu">
-      <li><a href="{% if selected_tank %}{% url 'monitoring:dashboard' selected_tank.id %}{% else %}{% url 'monitoring:dashboard' %}{% endif %}">▱ 환경 정보 및 제어</a></li>
+      <li><a href="{% if selected_tank %}{% url 'monitoring:dashboard' selected_tank.id %}{% else %}{% url 'monitoring:dashboard_default' %}{% endif %}">▱ 환경 정보 및 제어</a></li>
       <li><a href="{% url 'monitoring:fish_data' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}">▱ 물고기 데이터</a></li>
       <li><a href="{% url 'monitoring:camera_view' %}">▱ 실시간 모니터링</a></li>
     </ul>
@@ -90,7 +90,7 @@
 </aside>
 
 <main id="mainContent">
-  <div style="max-width:1120px;margin:0 auto">
+  <div style="max-width:1200px;margin:0 auto">
     <h1 style="font-size:18px;font-weight:900;margin-bottom:32px">이벤트 로그</h1>
 
     <div class="log-card">
@@ -99,28 +99,22 @@
           <div class="log-title">데이터 로그</div>
           <div class="filter-row">
             <span class="filter-label">레벨 필터</span>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}sort={{ sort }}" style="text-decoration:none;">
-              <button class="level-btn all {% if not level %}active{% endif %}">전체</button>
-            </a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=INFO&sort={{ sort }}" style="text-decoration:none;">
-              <button class="level-btn info {% if level == 'INFO' %}active{% endif %}">INFO</button>
-            </a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=WARNING&sort={{ sort }}" style="text-decoration:none;">
-              <button class="level-btn warning {% if level == 'WARNING' %}active{% endif %}">WARNING</button>
-            </a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=DANGER&sort={{ sort }}" style="text-decoration:none;">
-              <button class="level-btn danger {% if level == 'DANGER' %}active{% endif %}">DANGER</button>
-            </a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}sort={{ sort }}">
+              <button class="level-btn all {% if not level %}active{% endif %}">전체</button></a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=INFO&sort={{ sort }}">
+              <button class="level-btn info {% if level == 'INFO' %}active{% endif %}">INFO</button></a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=WARNING&sort={{ sort }}">
+              <button class="level-btn warning {% if level == 'WARNING' %}active{% endif %}">WARNING</button></a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=DANGER&sort={{ sort }}">
+              <button class="level-btn danger {% if level == 'DANGER' %}active{% endif %}">DANGER</button></a>
           </div>
         </div>
         <div class="head-right">
           <div class="sort-toggle">
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=desc" style="text-decoration:none;">
-              <button class="{% if sort != 'asc' %}active{% endif %}">최신순</button>
-            </a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=asc" style="text-decoration:none;">
-              <button class="{% if sort == 'asc' %}active{% endif %}">오래된순</button>
-            </a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=desc">
+              <button class="{% if sort != 'asc' %}active{% endif %}">최신순</button></a>
+            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=asc">
+              <button class="{% if sort == 'asc' %}active{% endif %}">오래된순</button></a>
           </div>
           <button class="refresh-btn" onclick="location.reload()">⟳ 새로고침</button>
         </div>
@@ -151,18 +145,15 @@
       <div class="pagination">
         {% if page_obj.has_previous %}
         <a href="?page={{ page_obj.previous_page_number }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">
-          <button class="page-btn">‹</button>
-        </a>
+          <button class="page-btn">‹</button></a>
         {% endif %}
         {% for num in page_obj.paginator.page_range %}
         <a href="?page={{ num }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">
-          <button class="page-btn {% if page_obj.number == num %}active{% endif %}">{{ num }}</button>
-        </a>
+          <button class="page-btn {% if page_obj.number == num %}active{% endif %}">{{ num }}</button></a>
         {% endfor %}
         {% if page_obj.has_next %}
         <a href="?page={{ page_obj.next_page_number }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">
-          <button class="page-btn">›</button>
-        </a>
+          <button class="page-btn">›</button></a>
         {% endif %}
       </div>
       {% endif %}
@@ -175,11 +166,10 @@
 {% block extra_js %}
 <script>
 function toggleSb(){
-  const sb = document.getElementById('sidebar');
-  sb.classList.toggle('collapsed');
-  const c = sb.classList.contains('collapsed');
-  document.getElementById('sbToggle').textContent = c ? '›' : '‹';
-  document.getElementById('mainContent').style.marginLeft = c ? '44px' : 'var(--sw)';
+  const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');
+  const c=sb.classList.contains('collapsed');
+  document.getElementById('sbToggle').textContent=c?'›':'‹';
+  document.getElementById('mainContent').style.marginLeft=c?'44px':'var(--sw)';
 }
 </script>
 {% endblock %}

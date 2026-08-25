@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block extra_css %}
 <style>
-  :root{--sw:330px}
+  :root{--sw:270px}
   .sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
   .sidebar.collapsed{width:44px;overflow:hidden}
   .sidebar.collapsed .hide-on-collapse{display:none!important}
@@ -17,7 +17,7 @@
   .s-menu a:hover{background:#f1f5fa}
   .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
   .sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
-  main{margin-left:var(--sw);padding:40px 32px 80px;transition:margin-left .3s}
+  main{margin-left:var(--sw);padding:40px 48px 80px 48px;transition:margin-left .3s}
 
   .page-title{font-size:18px;font-weight:900;letter-spacing:.08em;color:#333;margin-bottom:32px}
   .analytics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
@@ -82,7 +82,7 @@
 </aside>
 
 <main id="mainContent">
-  <div style="width:100%">
+  <div style="max-width:1200px;margin:0 auto">
     <h1 class="page-title">AI ANALYTICS</h1>
 
     <div class="analytics-grid">
