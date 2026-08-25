@@ -1,18 +1,21 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 import google.generativeai as genai
 from django.conf import settings
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
 from .models import ChatMessage
 import PIL.Image
 import os
 import json
+
 
 @login_required
 def chatbot_home(request):
     # 최신 대화 기록 50개를 가져와서 보여줍니다.
     history = ChatMessage.objects.filter(user=request.user).order_by('-created_at')[:50]
     return render(request, 'chatbot/chat.html', {'history': reversed(list(history))})
+
 
 @login_required
 def ask_chatbot(request):
@@ -31,7 +34,7 @@ def ask_chatbot(request):
             image_file = request.FILES.get('image')
 
         display_name = getattr(request.user, 'nickname', request.user.username)
-        
+
         # API 키 참조 (settings.py 우선)
         api_key = getattr(settings, 'GEMINI_API_KEY', None) or os.environ.get('GEMINI_API_KEY_1')
 
@@ -51,32 +54,67 @@ def ask_chatbot(request):
                     f"5. 마지막에 [권장설정: 온도 26도, pH 7.0, 환수 7일] 형태를 꼭 포함할 것."
                 )
             )
-            
+
             if image_file:
                 img = PIL.Image.open(image_file)
                 response = model.generate_content([user_message or "이 어항 사진을 분석해줘.", img])
             else:
                 response = model.generate_content(user_message)
-            
+
             # 응답 텍스트 정리
             bot_response = response.text.replace('*', '').replace('#', '').replace('-', ' ').strip()
-            
+
             # DB 저장 (message가 비어있을 경우 대응)
-            ChatMessage.objects.create(
-                user=request.user, 
-                message=user_message if user_message else "(사진 분석 요청)", 
+            chat_msg = ChatMessage.objects.create(
+                user=request.user,
+                message=user_message if user_message else "(사진 분석 요청)",
                 response=bot_response
             )
-            
+
             # 프론트엔드 JS가 'reply' 또는 'response' 중 무엇을 찾든 대응하도록 둘 다 보냅니다.
             return JsonResponse({
-                'status': 'success', 
+                'status': 'success',
+                'id': chat_msg.id,
                 'reply': bot_response,
                 'response': bot_response  # undefined 방지를 위해 추가
             })
-            
+
         except Exception as e:
             print(f"Chatbot Error: {e}")
             return JsonResponse({'status': 'error', 'message': "AI 응답 중 오류가 발생했습니다."}, status=500)
-            
+
     return JsonResponse({'status': 'error', 'message': "잘못된 접근입니다."}, status=405)
+
+
+@login_required
+@require_http_methods(["GET"])
+def chat_history(request):
+    """로그인한 사용자의 대화 기록을 최신순으로 반환"""
+    history = ChatMessage.objects.filter(user=request.user).order_by('-created_at')[:50]
+    data = [
+        {
+            'id': msg.id,
+            'message': msg.message,
+            'response': msg.response,
+            'created_at': msg.created_at.isoformat(),
+        }
+        for msg in history
+    ]
+    return JsonResponse({'status': 'success', 'history': data})
+
+
+@login_required
+@require_http_methods(["POST"])
+def chat_clear(request):
+    """로그인한 사용자의 대화 기록 전체 삭제"""
+    deleted_count, _ = ChatMessage.objects.filter(user=request.user).delete()
+    return JsonResponse({'status': 'success', 'deleted': deleted_count})
+
+
+@login_required
+@require_http_methods(["POST", "DELETE"])
+def chat_delete_one(request, message_id):
+    """특정 메시지 하나만 삭제 (본인 소유만 가능)"""
+    msg = get_object_or_404(ChatMessage, id=message_id, user=request.user)
+    msg.delete()
+    return JsonResponse({'status': 'success', 'deleted_id': message_id})
