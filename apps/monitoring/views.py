@@ -1,6 +1,8 @@
 import json
 import os
 import re
+import logging
+import requests
 import PIL.Image
 import google.generativeai as genai
 from django.shortcuts import render, redirect, get_object_or_404
@@ -18,6 +20,7 @@ from collections import defaultdict
 
 from .models import Tank, EventLog, DeviceControl, SensorReading, FishBehavior
 
+logger = logging.getLogger(__name__)
 
 @login_required
 def index(request):
@@ -316,11 +319,15 @@ def camera_view(request):
                 tank = None
         if not tank:
             tank = user_tanks.first()
-            
-        return render(request, 'monitoring/camera.html', {'tank': tank, 'user_tanks': user_tanks, 'title': '실시간 모니터링'})
+
+        return render(request, 'monitoring/camera.html', {
+            'tank': tank,
+            'user_tanks': user_tanks,
+            'title': '실시간 모니터링',
+            'is_camera_online': tank.is_camera_online if tank else False,
+        })
     except Exception as e:
         return HttpResponse(f"Camera View Error: {e}", status=500)
-
 
 @login_required
 @require_POST
@@ -565,18 +572,32 @@ def data_log_view(request):
 
 @login_required
 def video_feed(request, tank_id=None):
-    """실시간 카메라 스트리밍 뷰"""
+    """실시간 카메라 스트리밍 뷰 — 라즈베리파이(또는 Cloudflare 터널)의
+    MJPEG 스트림을 서버가 그대로 중계(proxy)한다."""
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    source_url = tank.camera_stream_url
+
+    if not source_url:
+        return HttpResponse("카메라가 아직 등록되지 않았습니다.", status=503)
+
     try:
-        return StreamingHttpResponse(
-            gen_camera_frame(),
-            content_type='multipart/x-mixed-replace; boundary=frame'
-        )
-    except Exception as e:
-        return HttpResponse(f"Streaming Error: {e}", status=500)
+        upstream = requests.get(source_url, stream=True, timeout=10)
+        upstream.raise_for_status()
+    except requests.RequestException as e:
+        logger.warning(f"[카메라 중계 실패] tank={tank.id} url={source_url} err={e}")
+        return HttpResponse("카메라 스트림에 연결할 수 없습니다.", status=502)
 
+    # 소스가 보낸 Content-Type(멀티파트 boundary 포함)을 그대로 사용
+    content_type = upstream.headers.get('Content-Type', 'multipart/x-mixed-replace; boundary=frame')
 
-def gen_camera_frame():
-    while True:
-        frame = b''
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+    def relay():
+        try:
+            for chunk in upstream.iter_content(chunk_size=4096):
+                if chunk:
+                    yield chunk
+        except requests.RequestException as e:
+            logger.warning(f"[카메라 중계 중단] tank={tank.id} err={e}")
+        finally:
+            upstream.close()
+
+    return StreamingHttpResponse(relay(), content_type=content_type)

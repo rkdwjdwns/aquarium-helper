@@ -85,6 +85,24 @@ class Tank(models.Model):
         device = self.devices.filter(type='FILTER').first()
         return device.is_auto if device else True
 
+    @property
+    def camera_stream_url(self):
+        """실제 MJPEG 스트림 URL — pi_ip에 URL(https://...)이 저장된 경우와
+        순수 IP만 저장된 경우(register_pi) 둘 다 대응"""
+        if not self.pi_ip:
+            return None
+        if self.pi_ip.startswith('http://') or self.pi_ip.startswith('https://'):
+            return f"{self.pi_ip}/stream.mjpg"
+        return f"http://{self.pi_ip}:{self.pi_stream_port}/stream.mjpg"
+
+    @property
+    def is_camera_online(self):
+        """마지막 접속이 2분 이내면 온라인으로 간주"""
+        if not self.pi_last_seen:
+            return False
+        from django.utils import timezone
+        return (timezone.now() - self.pi_last_seen).total_seconds() < 120
+
 
 # ──────────────────────────────────────────────
 # 센서 데이터
@@ -533,3 +551,30 @@ class TankStateEvent(models.Model):
             f"[{self.tank.name}] "
             f"{self.state_code.code} - {status}"
         )
+
+
+class FishActivityDetail(models.Model):
+    """개체별 활동/이상행동 지표 — FishBehavior 스냅샷에 딸린 개체별 상세값"""
+
+    ZONE_CHOICES = FishBehavior.ZONE_CHOICES
+
+    behavior = models.ForeignKey(
+        FishBehavior,
+        on_delete=models.CASCADE,
+        related_name='fish_details',
+    )
+    tank    = models.ForeignKey(Tank, on_delete=models.CASCADE, related_name='fish_activity_details')
+    fish_id = models.IntegerField(help_text="ByteTrack 개체 ID")
+
+    activity_level = models.FloatField(default=0.0, help_text="개체 활동량(px/s)")
+    dominant_zone  = models.CharField(max_length=3, choices=ZONE_CHOICES, default='MID')
+    abr_score      = models.FloatField(default=0.0, help_text="개체 이상행동율(0~1)")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'monitoring'
+        ordering  = ['fish_id']
+
+    def __str__(self):
+        return f"[{self.tank.name}] Fish#{self.fish_id} act={self.activity_level} abr={self.abr_score}"

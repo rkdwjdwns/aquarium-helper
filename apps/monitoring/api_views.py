@@ -24,7 +24,7 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
 from .models import (
-    Tank, SensorReading, FishBehavior, DeviceControl, EventLog,
+    Tank, SensorReading, FishBehavior, FishActivityDetail, DeviceControl, EventLog,
     FeedingEvent, FeedingResponse, GrowthRecord, ActivityPattern,
 )
 
@@ -261,6 +261,7 @@ def receive_sensor_data(request):
 
 # ──────────────────────────────────────────────
 # [2] AI 행동 분석  POST /monitoring/api/behavior/
+#     ✅ fish_details 배열 수신 시 개체별 상세 저장 (하위 호환 유지)
 # ──────────────────────────────────────────────
 
 @csrf_exempt
@@ -301,6 +302,27 @@ def receive_fish_behavior(request):
         note=data.get('note', ''),
     )
 
+    # ✅ 개체별 상세 데이터 (선택적 — 라즈베리파이가 안 보내면 그냥 넘어감)
+    fish_details = data.get('fish_details', [])
+    detail_objs = []
+    for fd in fish_details:
+        try:
+            fzone = str(fd.get('dominant_zone', 'MID')).upper()
+            if fzone not in ['TOP', 'MID', 'BOT']:
+                fzone = 'MID'
+            detail_objs.append(FishActivityDetail(
+                behavior=behavior,
+                tank=tank,
+                fish_id=int(fd['fish_id']),
+                activity_level=float(fd.get('activity_level', 0.0)),
+                dominant_zone=fzone,
+                abr_score=float(fd.get('abr_score', 0.0)),
+            ))
+        except (KeyError, TypeError, ValueError):
+            continue
+    if detail_objs:
+        FishActivityDetail.objects.bulk_create(detail_objs)
+
     if is_anomaly:
         EventLog.objects.create(
             tank=tank, level='WARNING',
@@ -312,20 +334,18 @@ def receive_fish_behavior(request):
             message=f"[FRS 저조] {behavior.feeding_score}점 — 어류 상태 확인 권장"
         )
 
-    logger.info(f"[행동] tank={tank.id} status={status} anomaly={is_anomaly}")
+    logger.info(f"[행동] tank={tank.id} status={status} anomaly={is_anomaly} fish_details={len(detail_objs)}")
     return _ok({
         'behavior_id': behavior.id, 'status': status,
-        'is_anomaly': is_anomaly, 'timestamp': behavior.created_at.isoformat(),
+        'is_anomaly': is_anomaly, 'fish_detail_count': len(detail_objs),
+        'timestamp': behavior.created_at.isoformat(),
     })
 
 
 # ──────────────────────────────────────────────
 # [2-1] AI 행동 분석 최신값 조회
 #       GET /monitoring/api/behavior/latest/?tank_id=1  (프론트용)
-#
-# run.py가 30초마다 POST /api/behavior/ 로 전송한 값을 반환.
-# 실제 제공값: activity_level, dominant_zone, status (run.py 실시간 데이터)
-# 현재 미제공: abr_score (0.0 고정), feeding_score (0 고정 — v4 FRS 제거)
+#       ✅ 개체별 활동량/구역 배열(fish) 포함
 # ──────────────────────────────────────────────
 
 @require_http_methods(['GET'])
@@ -333,6 +353,14 @@ def get_behavior_latest(request):
     tank_id = request.GET.get('tank_id', 1)
     try:
         b = FishBehavior.objects.filter(tank_id=tank_id).latest('created_at')
+        fish_list = [
+            {
+                'fish_id':        d.fish_id,
+                'activity_level': round(float(d.activity_level), 2),
+                'dominant_zone':  d.dominant_zone,
+            }
+            for d in b.fish_details.all().order_by('fish_id')
+        ]
         return JsonResponse({
             'fish_count':     b.fish_count,
             'activity_level': round(float(b.activity_level), 2),
@@ -345,6 +373,7 @@ def get_behavior_latest(request):
             'status_ko':      STATUS_KO.get(b.status, b.status),
             'is_anomaly':     b.is_anomaly,
             'note':           b.note or '',
+            'fish':           fish_list,
             'timestamp':      b.created_at.isoformat(),
         })
     except FishBehavior.DoesNotExist:
@@ -627,6 +656,7 @@ def register_pi(request):
 
 # ──────────────────────────────────────────────
 # [7-1] 카메라 URL 등록  POST /monitoring/api/register-camera-url/
+#       ✅ scheme(https 등) 보존 버그 수정
 # ──────────────────────────────────────────────
 
 @csrf_exempt
@@ -645,23 +675,25 @@ def register_camera_url(request):
     if not camera_url:
         return _error("camera_url 필드가 필요합니다.")
 
-    parsed   = urlparse(camera_url)
-    hostname = parsed.netloc or camera_url
+    parsed = urlparse(camera_url)
+    # ✅ scheme까지 포함해서 저장 (예: https://xxxx.trycloudflare.com)
+    #    scheme이 없으면 원본 문자열을 그대로 사용
+    base_url = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else camera_url.rstrip('/')
 
-    tank.pi_ip        = hostname
+    tank.pi_ip        = base_url
     tank.pi_last_seen = timezone.now()
     tank.save(update_fields=['pi_ip', 'pi_last_seen'])
 
-    logger.info(f"[카메라 URL 등록] tank={tank.id} host={hostname}")
+    logger.info(f"[카메라 URL 등록] tank={tank.id} base_url={base_url}")
     EventLog.objects.create(
         tank=tank, level='INFO',
-        message=f"[카메라 연결] Cloudflare 터널 등록 완료 ({hostname})"
+        message=f"[카메라 연결] Cloudflare 터널 등록 완료 ({base_url})"
     )
 
     return _ok({
         'tank_id':    tank.id,
         'camera_url': camera_url,
-        'stream_url': f"{camera_url}/stream.mjpg",
+        'stream_url': f"{base_url}/stream.mjpg",
     })
 
 
@@ -736,6 +768,7 @@ def get_frs(request):
 
 # ──────────────────────────────────────────────
 # [11] ABR 최신 조회  GET /monitoring/api/abr/?tank_id=1
+#      ✅ 개체별 ABR 배열(fish) 포함
 # ──────────────────────────────────────────────
 
 @require_http_methods(['GET'])
@@ -750,10 +783,17 @@ def get_abr(request):
 
         anomaly_count = FishBehavior.objects.filter(tank_id=tank_id, is_anomaly=True).count()
 
+        fish_list = []
+        for d in b.fish_details.all().order_by('fish_id'):
+            rate = round(float(d.abr_score or 0) * 100, 1)
+            f_status = '정상' if rate <= 10 else ('관찰' if rate <= 30 else '위험')
+            fish_list.append({'fish_id': d.fish_id, 'abr_rate': rate, 'status': f_status})
+
         return JsonResponse({
             'abr_rate':      abr_rate,
             'status':        status,
             'anomaly_count': anomaly_count,
+            'fish':          fish_list,
             'timestamp':     b.created_at.isoformat(),
         })
     except FishBehavior.DoesNotExist:
@@ -833,3 +873,34 @@ def get_growth_chart(request):
         return JsonResponse({'error': 'no data'}, status=404)
 
     return JsonResponse(chart_data)
+# ──────────────────────────────────────────────
+# [13] 개체별 성장 최신값 조회  GET /monitoring/api/growth/latest-all/?tank_id=1
+# ──────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def get_growth_latest_all(request):
+    tank_id = request.GET.get('tank_id', 1)
+    tank, err = _get_tank(tank_id)
+    if err:
+        return err
+
+    fish_ids = GrowthRecord.objects.filter(tank=tank).values_list('fish_id', flat=True).distinct()
+    fish = []
+    for fid in fish_ids:
+        r = GrowthRecord.objects.filter(tank=tank, fish_id=fid).latest('created_at')
+        stage_raw = (r.growth_stage or '').upper()
+        fish.append({
+            'fish_id':          fid,
+            'estimated_length': round(float(r.estimated_length or 0), 2),
+            'growth_rate':      round(float(r.growth_rate or 0), 3),
+            'growth_stage':     GROWTH_STAGE_KO.get(stage_raw, stage_raw or '--'),
+        })
+    fish.sort(key=lambda x: x['fish_id'])
+
+    if not fish:
+        return JsonResponse({'error': 'no data'}, status=404)
+
+    avg_length = round(sum(f['estimated_length'] for f in fish) / len(fish), 2)
+    avg_rate   = round(sum(f['growth_rate'] for f in fish) / len(fish), 3)
+
+    return JsonResponse({'fish': fish, 'avg_length': avg_length, 'avg_rate': avg_rate})
