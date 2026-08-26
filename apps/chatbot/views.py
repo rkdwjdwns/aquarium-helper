@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 import PIL.Image
 import google.generativeai as genai
 from django.shortcuts import render
@@ -9,6 +10,8 @@ from django.conf import settings
 from django.views.decorators.http import require_POST, require_http_methods
 
 from .models import ChatMessage
+
+logger = logging.getLogger(__name__)
 
 
 # ── 사용 가능한 모델 목록 (2026-08 기준 갱신) ──
@@ -150,8 +153,8 @@ def ask_chatbot(request):
                             message=user_message or "(사진 분석)",
                             response=reply,
                         )
-                    except:
-                        pass
+                    except Exception as save_err:
+                        logger.error(f"[챗봇 저장 실패] user={request.user.id} err={save_err}")
 
                     return JsonResponse({'status': 'success', 'reply': reply, 'response': reply})
 
