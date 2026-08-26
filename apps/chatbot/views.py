@@ -27,7 +27,9 @@ GEMINI_MODELS = [
 @login_required
 def chatbot_home(request):
     history = ChatMessage.objects.filter(user=request.user).order_by('-created_at')[:50]
-    return render(request, 'chatbot/chat.html', {'history': reversed(list(history))})
+    # ✅ 템플릿(chat.html)이 {% for msg in messages %}로 순회하므로
+    #    context 키를 'history'가 아니라 'messages'로 맞춰야 함
+    return render(request, 'chatbot/chat.html', {'messages': reversed(list(history))})
 
 
 def _build_prompt(user_message: str) -> str:
