@@ -12,7 +12,11 @@ load_dotenv(BASE_DIR / '.env')
 # ──────────────────────────────────────────────
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fish-helper-temp-key-1234')
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+# ⚠️ .env 파일이 없거나 DEBUG 값이 비어 있으면 기본적으로 로컬 개발로 간주해
+#    True로 처리합니다. Render 등 실제 배포 환경에서는 반드시 환경변수로
+#    DEBUG=False 를 명시적으로 설정해주세요.
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*', 'aquarium-helper.onrender.com']
 
