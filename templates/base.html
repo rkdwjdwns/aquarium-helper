@@ -51,7 +51,7 @@
     }
     .chat-panel{
       position:fixed;inset:auto 36px 100px auto;margin:0;
-      width:355px;height:565px;padding:0;border:0;border-radius:27px;
+      width:380px;height:600px;padding:0;border:0;border-radius:27px;
       overflow:hidden;background:#f7faff;
       box-shadow:0 20px 45px rgba(0,0,0,.25);
       font-family:"Pretendard",Arial,sans-serif;
@@ -61,7 +61,7 @@
     .chat-panel.open{transform:translateX(0)}
     #side-chat-window{scroll-behavior:smooth;scrollbar-width:none}
     #side-chat-window::-webkit-scrollbar{display:none}
-    .chat-msg{white-space:pre-line;word-break:break-word}
+    .chat-msg{white-space:pre-line;word-break:break-word;overflow-wrap:break-word}
 
     @media(max-width:700px){
       .topbar{padding:0 18px}
@@ -119,35 +119,35 @@
   </svg>
 </button>
 
-<!-- 챗봇 패널 (edit_ver_2 디자인) -->
+<!-- 챗봇 패널 -->
 <div id="chatPanel" class="chat-panel">
-  <header style="height:74px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;background:#30375f;color:#fff">
+  <header style="height:76px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;background:#30375f;color:#fff">
     <div style="display:flex;flex-direction:column;gap:5px">
-      <strong style="font-size:12px;font-weight:900">어항 도우미</strong>
-      <span style="font-size:8px;opacity:.75">물고기 추천 · 수질 설정 · 관리법</span>
+      <strong style="font-size:14px;font-weight:900">어항 도우미</strong>
+      <span style="font-size:10px;opacity:.8">물고기 추천 · 수질 설정 · 관리법</span>
     </div>
     <div style="display:flex;align-items:center;gap:16px">
       {% if user.is_authenticated %}
-      <a href="{% url 'chatbot:chat_page' %}" style="color:#fff;text-decoration:none;font-size:10px">내역 보기</a>
+      <a href="{% url 'chatbot:chat_page' %}" style="color:#fff;text-decoration:none;font-size:12px">내역 보기</a>
       {% endif %}
-      <button onclick="toggleChat()" style="border:0;background:transparent;color:#fff;font-size:21px;cursor:pointer;line-height:1">×</button>
+      <button onclick="toggleChat()" style="border:0;background:transparent;color:#fff;font-size:24px;cursor:pointer;line-height:1">×</button>
     </div>
   </header>
 
-  <div id="side-chat-window" style="height:426px;padding:17px;overflow-y:auto;background:#f7faff;scrollbar-width:none">
-    <div style="max-width:86%;padding:13px 14px;background:#fff;border-radius:4px 14px 14px 14px;color:#536071;font-size:11px;line-height:1.55;box-shadow:0 1px 5px rgba(0,0,0,.06)" class="chat-msg">
+  <div id="side-chat-window" style="height:456px;padding:18px;overflow-y:auto;background:#f7faff;scrollbar-width:none">
+    <div style="max-width:88%;width:fit-content;padding:14px 16px;background:#fff;border-radius:4px 16px 16px 16px;color:#3a4452;font-size:16px;line-height:1.65;box-shadow:0 1px 5px rgba(0,0,0,.06)" class="chat-msg">
       어항 관련 무엇이든 물어보세요.<br>물고기 추천, 수질 설정, 관리법을 안내해 드립니다.
     </div>
   </div>
 
-  <div style="height:65px;padding:9px 14px;display:flex;align-items:center;gap:8px;background:#fff;border-top:1px solid #f0f2f5">
+  <div style="padding:12px 15px;display:flex;align-items:center;gap:8px;background:#fff;border-top:1px solid #f0f2f5">
     <textarea id="side-user-input" rows="1"
-      style="flex:1;height:39px;padding:9px 13px;border:0;border-radius:21px;background:#f7f9fc;color:#333;font-size:10px;outline:none;resize:none;max-height:70px;font-family:inherit"
+      style="flex:1;min-height:46px;padding:12px 16px;border:0;border-radius:22px;background:#f7f9fc;color:#333;font-size:15px;outline:none;resize:none;max-height:80px;font-family:inherit"
       placeholder="질문을 입력하세요..."
       onkeydown="handleSideKey(event)" oninput="sideAutoResize(this)"></textarea>
     <button id="side-send-btn" onclick="sendSideMessage()"
-      style="width:30px;height:30px;flex:none;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#183c78;cursor:pointer">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      style="width:36px;height:36px;flex:none;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#183c78;cursor:pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" fill="#fff"/>
       </svg>
     </button>
@@ -162,6 +162,12 @@ function toggleChat(){
   p.classList.toggle('open');
 }
 
+function esc(v){
+  return String(v ?? '')
+    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'",'&#039;');
+}
+
 async function sendSideMessage(){
   const input = document.getElementById('side-user-input');
   const message = input.value.trim();
@@ -171,20 +177,20 @@ async function sendSideMessage(){
   input.value = '';
   sideAutoResize(input);
   const win = document.getElementById('side-chat-window');
-  win.innerHTML += `<div style="display:flex;justify-content:flex-end;margin:12px 0"><div style="background:#2f69ef;color:#fff;padding:12px 16px;border-radius:18px 18px 4px 18px;font-size:14px;max-width:85%" class="chat-msg">${message}</div></div>`;
+  win.innerHTML += `<div style="display:flex;justify-content:flex-end;margin:12px 0"><div style="min-width:0;background:#2f69ef;color:#fff;padding:14px 18px;border-radius:18px 18px 4px 18px;font-size:16px;line-height:1.6;max-width:85%;width:fit-content" class="chat-msg">${esc(message)}</div></div>`;
   win.scrollTop = win.scrollHeight;
   const lid = 'load-'+Date.now();
-  win.innerHTML += `<div id="${lid}" style="display:flex;margin:8px 0"><div style="background:#fff;border:1px solid #e8ecf1;padding:12px 16px;border-radius:4px 18px 18px 18px"><span>···</span></div></div>`;
+  win.innerHTML += `<div id="${lid}" style="display:flex;margin:8px 0"><div style="background:#fff;border:1px solid #e8ecf1;padding:14px 18px;border-radius:4px 18px 18px 18px"><span>···</span></div></div>`;
   win.scrollTop = win.scrollHeight;
   try{
     const res = await fetch('/chatbot/ask/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':SIDE_CSRF},body:JSON.stringify({message})});
     const data = await res.json();
     document.getElementById(lid)?.remove();
     const reply = data.reply || data.response || '응답을 받지 못했습니다.';
-    win.innerHTML += `<div style="display:flex;margin:8px 0"><div style="background:#fff;border:1px solid #e8ecf1;color:#546073;padding:12px 16px;border-radius:4px 18px 18px 18px;font-size:14px;max-width:85%" class="chat-msg">${reply}</div></div>`;
+    win.innerHTML += `<div style="display:flex;margin:8px 0"><div style="min-width:0;background:#fff;border:1px solid #e8ecf1;color:#3a4452;padding:14px 18px;border-radius:4px 18px 18px 18px;font-size:16px;line-height:1.65;max-width:85%;width:fit-content" class="chat-msg">${esc(reply)}</div></div>`;
   }catch{
     document.getElementById(lid)?.remove();
-    win.innerHTML += `<div style="padding:10px;color:#ef4444;font-size:13px">서버 연결에 실패했습니다.</div>`;
+    win.innerHTML += `<div style="padding:10px;color:#ef4444;font-size:14px">서버 연결에 실패했습니다.</div>`;
   }
   btn.disabled = false;
   win.scrollTop = win.scrollHeight;
