@@ -3,6 +3,7 @@ from .models import (
     Tank, SensorReading, FishBehavior,
     FeedingEvent, FeedingResponse, GrowthRecord,
     ActivityPattern, DeviceControl, EventLog,
+    TankStateEvent,
 )
 
 @admin.register(Tank)
@@ -40,3 +41,9 @@ class DeviceControlAdmin(admin.ModelAdmin):
 @admin.register(EventLog)
 class EventLogAdmin(admin.ModelAdmin):
     list_display = ['id', 'tank', 'level', 'event_type', 'message', 'created_at']
+
+@admin.register(TankStateEvent)
+class TankStateEventAdmin(admin.ModelAdmin):
+    list_display = ('id', 'tank', 'state_code', 'current_value', 'is_resolved', 'detected_at', 'resolved_at')
+    list_filter = ('is_resolved', 'state_code')
+    search_fields = ('tank__name', 'state_code__code')
