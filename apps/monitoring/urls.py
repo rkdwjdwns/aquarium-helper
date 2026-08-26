@@ -39,7 +39,6 @@ urlpatterns = [
     path('settings/<int:tank_id>/api/',   views.tank_settings_api,    name='tank_settings_api'),
 
     # ── [7. AI 챗봇] ───────────────────────────────────────────────
-    path('chat/',                     views.chat_api,         name='chat_api'),
 
     # ── [8. 리포트] ────────────────────────────────────────────────
     path('reports/',                             views.ai_report_list,     name='ai_report_list'),
