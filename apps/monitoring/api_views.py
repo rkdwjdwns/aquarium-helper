@@ -26,6 +26,7 @@ from django.utils import timezone
 from .models import (
     Tank, SensorReading, FishBehavior, FishActivityDetail, DeviceControl, EventLog,
     FeedingEvent, FeedingResponse, GrowthRecord, ActivityPattern,
+    StateCode, TankStateEvent,
 )
 
 logger = logging.getLogger(__name__)
@@ -216,6 +217,65 @@ def _auto_control(tank: Tank, reading: SensorReading) -> list:
 
 
 # ──────────────────────────────────────────────
+# 어항 상태 진단 코드 이벤트 처리
+# ──────────────────────────────────────────────
+
+# 감시 대상 코드 전체 목록 (정상 복귀 판정에 사용)
+MONITORED_STATE_CODES = [
+    'TMP-HIGH-001', 'TMP-LOW-001', 'DO-LOW-001', 'PH-OUT-001', 'TURB-HIGH-001',
+]
+
+
+def _check_state_events(tank: Tank, reading: SensorReading) -> list:
+    """수질 기준 이탈 시 TankStateEvent 생성, 정상 복귀 시 is_resolved=True 처리.
+    같은 code로 미해결 이벤트가 이미 있으면 중복 생성하지 않는다."""
+    s = WATER_STANDARDS
+    triggered = []  # [(code, value), ...]
+
+    if reading.temperature > s['temp_max']:
+        triggered.append(('TMP-HIGH-001', reading.temperature))
+    if reading.temperature < s['temp_min']:
+        triggered.append(('TMP-LOW-001', reading.temperature))
+    if reading.dissolved_oxygen < s['do_min']:
+        triggered.append(('DO-LOW-001', reading.dissolved_oxygen))
+    if reading.ph < s['ph_min'] or reading.ph > s['ph_max']:
+        triggered.append(('PH-OUT-001', reading.ph))
+    if reading.turbidity > s['turbidity_max']:
+        triggered.append(('TURB-HIGH-001', reading.turbidity))
+
+    triggered_codes = {code for code, _ in triggered}
+    created_codes = []
+
+    for code, value in triggered:
+        try:
+            state_code = StateCode.objects.get(code=code)
+        except StateCode.DoesNotExist:
+            logger.warning(f"[상태코드 없음] {code} — seed_state_codes 실행 필요")
+            continue
+
+        # ✅ 같은 code로 미해결 이벤트가 이미 있으면 새로 만들지 않음 (중복 방지)
+        already_open = TankStateEvent.objects.filter(
+            tank=tank, state_code=state_code, is_resolved=False
+        ).exists()
+        if not already_open:
+            TankStateEvent.objects.create(
+                tank=tank, state_code=state_code,
+                current_value=value,
+                evidence={'reading_id': reading.id, 'value': value},
+            )
+            created_codes.append(code)
+
+    # ✅ 더 이상 이상 범위가 아닌 코드는 자동 해결 처리
+    resolved_codes = set(MONITORED_STATE_CODES) - triggered_codes
+    if resolved_codes:
+        TankStateEvent.objects.filter(
+            tank=tank, state_code__code__in=resolved_codes, is_resolved=False
+        ).update(is_resolved=True, resolved_at=timezone.now())
+
+    return created_codes
+
+
+# ──────────────────────────────────────────────
 # [1] 센서 데이터  POST /monitoring/api/sensor/
 # ──────────────────────────────────────────────
 
@@ -251,11 +311,14 @@ def receive_sensor_data(request):
         water_level=w_level, water_quality_score=score,
     )
     actions = _auto_control(tank, reading)
+    new_state_events = _check_state_events(tank, reading)   # ✅ 추가
     logger.info(f"[센서] tank={tank.id} temp={temp} ph={ph} do={do_val} score={score}")
 
     return _ok({
         'reading_id': reading.id, 'water_quality_score': score,
-        'auto_actions': actions, 'timestamp': reading.created_at.isoformat(),
+        'auto_actions': actions,
+        'new_state_events': new_state_events,   # ✅ 추가 — 새로 생성된 코드 확인용
+        'timestamp': reading.created_at.isoformat(),
     })
 
 
