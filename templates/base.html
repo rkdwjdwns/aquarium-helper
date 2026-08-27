@@ -78,6 +78,19 @@
   <a class="topbar-brand" href="/">어항 도우미</a>
   <div class="topbar-right">
     {% if user.is_authenticated %}
+    <div style="position:relative">
+      <button id="alertBellBtn" onclick="toggleAlerts()" style="position:relative;border:0;background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;padding:6px">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" fill="#fff"/>
+        </svg>
+        <span id="alertBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:900;align-items:center;justify-content:center"></span>
+      </button>
+      <div id="alertDropdown" style="display:none;position:absolute;top:44px;right:0;width:340px;max-height:420px;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.2);z-index:2500;color:#252d3b">
+        <div style="padding:16px 18px;border-bottom:1px solid #eef1f5;font-weight:900;font-size:14px">이상 경고</div>
+        <div id="alertList" style="padding:8px"></div>
+      </div>
+    </div>
+    {% endif %}
     <div class="user-pill">
       <div class="user-circle">{{ user.nickname|default:user.username|first }}</div>
       <span>{{ user.nickname|default:user.username }} 님</span>
@@ -196,6 +209,65 @@ async function sendSideMessage(){
 
 function handleSideKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendSideMessage()}}
 function sideAutoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,80)+'px'}
+
+// ── 이상 경고(알림 벨) ──────────────────────────
+const ALERT_LEVEL_COLOR = {DANGER:'#ef4444', WARNING:'#f59e0b', INFO:'#3b82f6'};
+
+async function fetchAlerts(){
+  try{
+    const res = await fetch('/monitoring/api/alerts/');
+    const data = await res.json();
+    const badge = document.getElementById('alertBadge');
+    const list  = document.getElementById('alertList');
+    if(!badge || !list) return;
+
+    if(data.count > 0){
+      badge.style.display = 'flex';
+      badge.textContent = data.count > 9 ? '9+' : data.count;
+    } else {
+      badge.style.display = 'none';
+    }
+
+    if(!data.alerts.length){
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">현재 이상 경고가 없습니다.</div>';
+      return;
+    }
+
+    list.innerHTML = data.alerts.map(a => {
+      const color = ALERT_LEVEL_COLOR[a.level] || '#6b7280';
+      const actions = (a.actions || []).slice(0,3).map(x => `<li style="margin-bottom:2px">${x}</li>`).join('');
+      const time = new Date(a.detected_at).toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+      return `
+        <div style="padding:12px 10px;border-radius:12px;margin-bottom:6px;background:#f8fafc">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:13px;font-weight:900;color:${color}">● ${a.title}</span>
+            <span style="font-size:10px;color:#9ca3af">${time}</span>
+          </div>
+          <div style="font-size:11px;color:#6b7280;margin-bottom:6px">${a.tank_name}${a.current_value != null ? ' · 측정값 ' + a.current_value : ''}</div>
+          ${actions ? `<ul style="margin:0;padding-left:16px;font-size:11px;color:#4b5564">${actions}</ul>` : ''}
+        </div>`;
+    }).join('');
+  }catch(e){ /* 조용히 무시 — 알림 조회 실패가 페이지 전체를 방해하면 안 됨 */ }
+}
+
+function toggleAlerts(){
+  const dd = document.getElementById('alertDropdown');
+  if(!dd) return;
+  dd.style.display = dd.style.display === 'block' ? 'none' : 'block';
+}
+
+document.addEventListener('click', function(e){
+  const dd = document.getElementById('alertDropdown');
+  const btn = document.getElementById('alertBellBtn');
+  if(dd && dd.style.display === 'block' && !dd.contains(e.target) && e.target !== btn && !btn.contains(e.target)){
+    dd.style.display = 'none';
+  }
+});
+
+if(document.getElementById('alertBellBtn')){
+  fetchAlerts();
+  setInterval(fetchAlerts, 30000);
+}
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
