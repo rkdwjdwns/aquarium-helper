@@ -163,6 +163,8 @@ def dashboard(request, tank_id=None):
 @login_required
 def dashboard_data(request, tank_id):
     tank     = get_object_or_404(Tank, id=tank_id, user=request.user)
+    from .api_views import _check_data_freshness
+    _check_data_freshness(tank)      
     latest   = SensorReading.objects.filter(tank=tank).order_by('-created_at').first()
     readings = list(SensorReading.objects.filter(tank=tank).order_by('-created_at')[:12])
     readings.reverse()

@@ -64,6 +64,7 @@ urlpatterns = [
     path('api/behavior/latest/',     api_views.get_behavior_latest,      name='api_behavior_latest'),
     path('api/frs/',                 api_views.get_frs,                  name='api_frs'),
     path('api/abr/',                 api_views.get_abr,                  name='api_abr'),
+    path('api/alerts/',               api_views.get_active_alerts,        name='api_alerts'),
 
     # ── [11. 대시보드 AJAX 폴링] ───────────────────────────────────
     path('api/dashboard-data/<int:tank_id>/', views.dashboard_data,      name='dashboard_data'),

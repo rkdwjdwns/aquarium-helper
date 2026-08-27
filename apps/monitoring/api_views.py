@@ -1031,3 +1031,37 @@ def get_feeding_chart(request):
         pm_amounts.append(round(pm, 3))
 
     return JsonResponse({'labels': labels, 'am': am_amounts, 'pm': pm_amounts})
+
+# ──────────────────────────────────────────────
+# [15] 미해결 알림 목록 조회  GET /monitoring/api/alerts/
+#      로그인한 사용자의 모든 어항 기준으로 조회 (상단바 공통 표시용)
+# ──────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def get_active_alerts(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'count': 0, 'alerts': []})
+
+    events = (
+        TankStateEvent.objects
+        .filter(tank__user=request.user, is_resolved=False)
+        .select_related('tank', 'state_code')
+        .order_by('-detected_at')[:20]
+    )
+
+    alerts = [
+        {
+            'id':           e.id,
+            'tank_id':      e.tank_id,
+            'tank_name':    e.tank.name,
+            'code':         e.state_code.code,
+            'title':        e.state_code.title,
+            'level':        e.state_code.level,
+            'current_value': e.current_value,
+            'actions':      e.state_code.actions,  # 조치 추천 목록
+            'detected_at':  e.detected_at.isoformat(),
+        }
+        for e in events
+    ]
+
+    return JsonResponse({'count': len(alerts), 'alerts': alerts})
