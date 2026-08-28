@@ -1065,3 +1065,43 @@ def get_active_alerts(request):
     ]
 
     return JsonResponse({'count': len(alerts), 'alerts': alerts})
+
+@require_http_methods(['GET'])
+def get_active_states(request):
+    """
+    GET /monitoring/api/states/active/?tank_id=1
+    현재 미해결 TankStateEvent 목록 반환.
+    이상 없으면 states: [] 반환.
+    """
+    tank_id = request.GET.get('tank_id')
+    if not tank_id:
+        return JsonResponse({'states': []})
+ 
+    try:
+        tank = Tank.objects.get(id=tank_id)
+    except Tank.DoesNotExist:
+        return JsonResponse({'states': []})
+ 
+    events = (
+        TankStateEvent.objects
+        .filter(tank=tank, is_resolved=False)
+        .select_related('state_code')
+        .order_by('detected_at')
+    )
+ 
+    states = []
+    for ev in events:
+        sc = ev.state_code
+        states.append({
+            'code':        sc.code,
+            'title':       sc.title,
+            'level':       sc.level,          # 'WARNING' | 'DANGER'
+            'causes':      sc.causes or [],
+            'effects':     sc.effects or [],
+            'actions':     sc.actions or [],
+            'prevention':  sc.prevention or [],
+            'current_value': ev.current_value,
+            'detected_at': ev.detected_at.isoformat(),
+        })
+ 
+    return JsonResponse({'states': states})
