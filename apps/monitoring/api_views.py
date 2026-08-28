@@ -276,6 +276,65 @@ def _check_state_events(tank: Tank, reading: SensorReading) -> list:
 
 
 # ──────────────────────────────────────────────
+# 데이터 미수신 감지 / 자동 복구
+# ──────────────────────────────────────────────
+
+DATA_OFFLINE_THRESHOLD_SEC = 120  # 2분 — 센서가 10초 주기 전송이라 넉넉히 잡음
+
+
+def _check_data_freshness(tank: Tank) -> str | None:
+    """센서 데이터 수신이 끊겼는지 확인하고, 끊겼으면 경고 생성 /
+    복구됐으면 자동 해제. 반환값은 'offline' / 'recovered' / None."""
+    try:
+        state_code = StateCode.objects.get(code='DATA-OFFLINE-001')
+    except StateCode.DoesNotExist:
+        logger.warning("DATA-OFFLINE-001 StateCode 없음 — seed_state_codes 실행 필요")
+        return None
+
+    latest = SensorReading.objects.filter(tank=tank).order_by('-created_at').first()
+    now = timezone.now()
+
+    open_event = TankStateEvent.objects.filter(
+        tank=tank, state_code=state_code, is_resolved=False
+    ).first()
+
+    # 데이터가 아예 없거나, 마지막 수신이 임계 시간을 넘었으면 → 미수신 상태
+    is_stale = (
+        latest is None
+        or (now - latest.created_at).total_seconds() > DATA_OFFLINE_THRESHOLD_SEC
+    )
+
+    if is_stale:
+        if not open_event:
+            TankStateEvent.objects.create(
+                tank=tank, state_code=state_code,
+                current_value=None,
+                evidence={
+                    'last_reading_at': latest.created_at.isoformat() if latest else None,
+                },
+            )
+            EventLog.objects.create(
+                tank=tank, level='DANGER', event_type='SYSTEM',
+                message="[센서 미수신] 데이터 수신이 중단되었습니다."
+            )
+            return 'offline'
+        return None  # 이미 경고 중 — 중복 생성 안 함
+
+    # 정상 수신 중인데 열려있는 미수신 이벤트가 있으면 → 자동 복구
+    if open_event:
+        open_event.is_resolved = True
+        open_event.resolved_at = now
+        open_event.save(update_fields=['is_resolved', 'resolved_at'])
+        EventLog.objects.create(
+            tank=tank, level='INFO', event_type='SYSTEM',
+            message="[센서 복구] 데이터 수신이 재개되었습니다."
+        )
+        return 'recovered'
+
+    return None
+
+
+# ──────────────────────────────────────────────
 # [1] 센서 데이터  POST /monitoring/api/sensor/
 # ──────────────────────────────────────────────
 
@@ -311,13 +370,15 @@ def receive_sensor_data(request):
         water_level=w_level, water_quality_score=score,
     )
     actions = _auto_control(tank, reading)
-    new_state_events = _check_state_events(tank, reading)   # ✅ 추가
+    new_state_events = _check_state_events(tank, reading)
+    recovery_status = _check_data_freshness(tank)   # ✅ 추가 — 데이터가 들어왔다는 건 곧 복구 신호
     logger.info(f"[센서] tank={tank.id} temp={temp} ph={ph} do={do_val} score={score}")
 
     return _ok({
         'reading_id': reading.id, 'water_quality_score': score,
         'auto_actions': actions,
-        'new_state_events': new_state_events,   # ✅ 추가 — 새로 생성된 코드 확인용
+        'new_state_events': new_state_events,
+        'data_recovery': recovery_status,   # ✅ 추가 — 'recovered'면 방금 복구된 것
         'timestamp': reading.created_at.isoformat(),
     })
 
@@ -968,6 +1029,8 @@ def get_growth_chart(request):
         return JsonResponse({'error': 'no data'}, status=404)
 
     return JsonResponse(chart_data)
+
+
 # ──────────────────────────────────────────────
 # [13] 개체별 성장 최신값 조회  GET /monitoring/api/growth/latest-all/?tank_id=1
 # ──────────────────────────────────────────────
@@ -1004,7 +1067,6 @@ def get_growth_latest_all(request):
 # ──────────────────────────────────────────────
 # [14] 일별 급이량 차트  GET /monitoring/api/feeding/chart/?tank_id=1
 #      최근 7일 — 오전(14시 이전)/오후(14시 이후) 2구간으로 분리 집계
-#      ✅ fish_data.html의 급이량 차트가 실데이터를 쓰도록 신규 추가
 # ──────────────────────────────────────────────
 
 @require_http_methods(['GET'])
@@ -1032,15 +1094,23 @@ def get_feeding_chart(request):
 
     return JsonResponse({'labels': labels, 'am': am_amounts, 'pm': pm_amounts})
 
+
 # ──────────────────────────────────────────────
 # [15] 미해결 알림 목록 조회  GET /monitoring/api/alerts/
 #      로그인한 사용자의 모든 어항 기준으로 조회 (상단바 공통 표시용)
+#      ✅ 조회 전에 프레시니스 체크를 먼저 수행 → 이 API가 30초마다
+#         호출되는 것만으로 "데이터 미수신" 자동 감지가 이루어짐
 # ──────────────────────────────────────────────
 
 @require_http_methods(['GET'])
 def get_active_alerts(request):
     if not request.user.is_authenticated:
         return JsonResponse({'count': 0, 'alerts': []})
+
+    # ✅ 조회 전에 사용자의 모든 어항에 대해 미수신 여부를 먼저 갱신
+    user_tanks = Tank.objects.filter(user=request.user)
+    for t in user_tanks:
+        _check_data_freshness(t)
 
     events = (
         TankStateEvent.objects
@@ -1066,6 +1136,12 @@ def get_active_alerts(request):
 
     return JsonResponse({'count': len(alerts), 'alerts': alerts})
 
+
+# ──────────────────────────────────────────────
+# [16] 특정 어항의 미해결 상태 상세 조회  GET /monitoring/api/states/active/?tank_id=1
+#      원인/영향/조치/예방까지 전부 포함 (어항 상세 페이지용)
+# ──────────────────────────────────────────────
+
 @require_http_methods(['GET'])
 def get_active_states(request):
     """
@@ -1076,19 +1152,19 @@ def get_active_states(request):
     tank_id = request.GET.get('tank_id')
     if not tank_id:
         return JsonResponse({'states': []})
- 
+
     try:
         tank = Tank.objects.get(id=tank_id)
     except Tank.DoesNotExist:
         return JsonResponse({'states': []})
- 
+
     events = (
         TankStateEvent.objects
         .filter(tank=tank, is_resolved=False)
         .select_related('state_code')
         .order_by('detected_at')
     )
- 
+
     states = []
     for ev in events:
         sc = ev.state_code
@@ -1103,5 +1179,5 @@ def get_active_states(request):
             'current_value': ev.current_value,
             'detected_at': ev.detected_at.isoformat(),
         })
- 
+
     return JsonResponse({'states': states})
