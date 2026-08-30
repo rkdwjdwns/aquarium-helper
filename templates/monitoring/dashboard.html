@@ -113,6 +113,12 @@
     <!-- ── 상태 경고 배너 ── -->
     <div id="stateAlerts" style="margin-bottom:20px;display:flex;flex-direction:column;gap:10px"></div>
 
+    <!-- ── 데이터 신선도 배너 (미수신 시에만 표시) ── -->
+    <div id="staleBanner" style="display:none;margin-bottom:16px;padding:12px 18px;border-radius:14px;background:#fff8e1;border-left:4px solid #f59e0b;color:#7a4a00;font-size:13px;font-weight:800;align-items:center;gap:10px">
+      <span style="font-size:18px">📡</span>
+      <span id="staleBannerText">센서 데이터 수신이 중단되었습니다. 마지막 수신값을 표시 중입니다.</span>
+    </div>
+
     <!-- 상태 경고 모달 -->
     <div id="stateModal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:20px">
       <div style="background:#fff;border-radius:24px;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)">
@@ -282,6 +288,7 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <script>
 const TANK_ID = {{ tank.id }};
 const CSRF    = '{{ csrf_token }}';
@@ -310,12 +317,12 @@ function doWaterChange(){
     .then(r=>r.json()).then(d=>{ if(d.status==='success') location.reload() });
 }
 
-// 트렌드 차트
+// 트렌드 차트 — 기준선(baseLow/baseHigh)은 어항 설정값 기반
 const C_CONFIG = {
-  temp:{ label:'수온(°C)', color:'#ef4444', min:18, max:30 },
-  ph:  { label:'pH',       color:'#3b82f6', min:5,  max:9  },
-  do:  { label:'DO(mg/L)', color:'#10b981', min:0,  max:15 },
-  turb:{ label:'탁도(NTU)',color:'#f59e0b', min:0,  max:200},
+  temp:{ label:'수온(°C)', color:'#ef4444', min:18, max:30, baseLow:{{ tank.temp_min|default:"null" }}, baseHigh:{{ tank.temp_max|default:"null" }} },
+  ph:  { label:'pH',       color:'#3b82f6', min:5,  max:9,  baseLow:{{ tank.ph_min|default:"null" }},   baseHigh:{{ tank.ph_max|default:"null" }} },
+  do:  { label:'DO(mg/L)', color:'#10b981', min:0,  max:15, baseLow:{{ tank.do_min|default:"null" }},   baseHigh:null },
+  turb:{ label:'탁도(NTU)',color:'#f59e0b', min:0,  max:200,baseLow:null, baseHigh:{{ tank.turbidity_max|default:"null" }} },
 };
 let metric = 'temp';
 let history = {{ chart_history|safe|default:"{}" }};
@@ -324,7 +331,7 @@ const ctx = document.getElementById('trendChart').getContext('2d');
 const chart = new Chart(ctx,{
   type:'line',
   data:{labels:[],datasets:[{label:'',data:[],borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.08)',borderWidth:2.5,pointRadius:4,tension:.4,fill:true}]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},annotation:{annotations:{}}},
     scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#94a3b8'}},
             y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10},color:'#94a3b8'}}},animation:{duration:300}}
 });
@@ -343,6 +350,27 @@ function setChart(m, btn){
   chart.data.datasets[0].pointBackgroundColor = c.color;
   chart.options.scales.y.min = c.min;
   chart.options.scales.y.max = c.max;
+
+  // ── 기준선 (annotation) ──
+  const annotations = {};
+  if(c.baseLow != null){
+    annotations.baseLow = {
+      type:'line', yMin:c.baseLow, yMax:c.baseLow,
+      borderColor:'#94a3b8', borderWidth:1.5, borderDash:[6,4],
+      label:{ display:true, content:`하한 ${c.baseLow}`, position:'start',
+              backgroundColor:'rgba(148,163,184,.85)', color:'#fff', font:{size:9}, padding:3 }
+    };
+  }
+  if(c.baseHigh != null){
+    annotations.baseHigh = {
+      type:'line', yMin:c.baseHigh, yMax:c.baseHigh,
+      borderColor:'#f97316', borderWidth:1.5, borderDash:[6,4],
+      label:{ display:true, content:`상한 ${c.baseHigh}`, position:'end',
+              backgroundColor:'rgba(249,115,22,.85)', color:'#fff', font:{size:9}, padding:3 }
+    };
+  }
+  chart.options.plugins.annotation = { annotations };
+
   chart.update();
 }
 if(history.labels) setChart('temp');
@@ -362,6 +390,21 @@ async function poll(){
       document.getElementById('val-level').textContent = f(s.water_level);
     }
     if(d.history){ history=d.history; setChart(metric); }
+
+    // ✅ 미수신 배너 — 값은 그대로 두고(마지막 정상값 유지) 안내만 표시
+    const banner = document.getElementById('staleBanner');
+    if(d.is_stale){
+      let ageText = '';
+      if(d.age_sec != null){
+        const min = Math.floor(d.age_sec / 60);
+        ageText = min >= 1 ? ` (${min}분 전 값)` : ' (방금 전 값)';
+      }
+      document.getElementById('staleBannerText').textContent =
+        `센서 데이터 수신이 중단되었습니다. 마지막 수신값을 표시 중입니다${ageText}.`;
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
   }catch{}
 }
 setInterval(poll, 5000);
