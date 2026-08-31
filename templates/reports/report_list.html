@@ -190,3 +190,195 @@ function toggleSb(){
 }
 </script>
 {% endblock %}
+{% extends 'base.html' %}
+{% block extra_css %}
+<style>
+  :root{--sw:270px}
+  .sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
+  .sidebar.collapsed{width:44px;overflow:hidden}
+  .sidebar.collapsed .hide-on-collapse{display:none!important}
+  .sidebar.collapsed .tank-title-row{justify-content:center}
+  .sidebar.collapsed .tank-summary{padding:18px 7px;border-bottom:0}
+  .tank-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .tank-summary{padding:22px 22px 18px;border-bottom:1px solid #e4e8ee}
+  .sidebar-toggle{width:30px;height:30px;flex:none;border:0;border-radius:8px;background:#f1f5fa;color:#596474;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .sidebar-toggle:hover{background:#dcecff;color:#2572e9}
+  .s-menu{list-style:none;padding:14px}
+  .s-menu a{display:flex;align-items:center;gap:14px;height:48px;padding:0 16px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:15px;margin-bottom:4px}
+  .s-menu a.active{background:#dcecff;color:#2572e9;font-weight:800}
+  .s-menu a:hover{background:#f1f5fa}
+  .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
+  .sidebar-bottom a{display:flex;align-items:center;text-decoration:none;white-space:nowrap;font-size:14px;font-weight:800}
+  main{margin-left:var(--sw);padding:40px 48px 80px 48px;transition:margin-left .3s}
+
+  .report-toolbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:24px;flex-wrap:wrap}
+  .dl-btns{display:flex;gap:10px;flex-wrap:wrap}
+  .dl-btn{height:42px;padding:0 20px;border:0;border-radius:10px;color:#fff;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 3px 6px rgba(0,0,0,.17)}
+  .dl-daily{background:#5793ee}
+  .dl-weekly{background:#7458ed}
+  .dl-monthly{background:#49118b}
+  .sort-select{height:38px;padding:0 14px;border:1px solid #dde1ea;border-radius:10px;font-size:13px;font-weight:700;outline:none;cursor:pointer}
+
+  .table-card{background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.07)}
+  table{width:100%;border-collapse:collapse}
+  thead{background:#f4f7fb}
+  th,td{height:52px;text-align:left;padding:0 18px;font-size:14px}
+  th{font-weight:900;color:#444}
+  td{color:#667;border-bottom:1px solid #f3f4f6;font-weight:600}
+  tr:last-child td{border-bottom:0}
+  .badge{display:inline-block;padding:3px 10px;border-radius:14px;font-size:11px;font-weight:900}
+  .badge-ok{background:#e6f9f0;color:#1a7f5a}
+  .badge-warn{background:#fff3e0;color:#b75e00}
+  .badge-danger{background:#fdecea;color:#b71c1c}
+
+  .report-list{margin-top:28px}
+  .report-item{background:#fff;border-radius:16px;padding:18px 22px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .report-meta{font-size:12px;color:#8b919b;margin-top:4px}
+  .report-type-badge{padding:4px 12px;border-radius:14px;font-size:11px;font-weight:900}
+  .DAILY{background:#e0ecff;color:#2f69ef}
+  .WEEKLY{background:#ede0ff;color:#7458ed}
+  .MONTHLY{background:#f0d8ff;color:#49118b}
+
+  @media(max-width:900px){
+    .sidebar{display:none}
+    main{margin-left:0!important;padding:24px 18px 80px}
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<aside class="sidebar" id="sidebar">
+  <div class="tank-summary">
+    <div class="tank-title-row">
+      <div class="hide-on-collapse" style="overflow:hidden;min-width:0">
+        <h2 style="font-size:19px;font-weight:900;margin-bottom:3px">{{ selected_tank.name|default:"어항 선택" }}</h2>
+        <p style="color:#7e8997;font-size:13px">데이터 리포트</p>
+      </div>
+      <button class="sidebar-toggle" onclick="toggleSb()" id="sbToggle">‹</button>
+    </div>
+    <div class="hide-on-collapse" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+      {% for t in tanks %}
+      <a href="?tank_id={{ t.id }}" style="font-size:11px;padding:4px 10px;border-radius:16px;border:1px solid {% if t.id == selected_tank.id %}#536ae8{% else %}#dde1ea{% endif %};background:{% if t.id == selected_tank.id %}#e8f0ff{% else %}#fff{% endif %};color:{% if t.id == selected_tank.id %}#536ae8{% else %}#555{% endif %};text-decoration:none;font-weight:700">{{ t.name }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  
+    <div class="hide-on-collapse" style="padding:14px 14px 0">
+    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:12px 8px 6px;display:flex;justify-content:space-between"><span>어항 정보 확인</span><span>⌄</span></div>
+    <ul class="s-menu">
+      <li><a href="{% if tank %}{% url 'monitoring:dashboard' tank.id %}{% else %}{% url 'monitoring:dashboard_default' %}{% endif %}" class="">▱ 환경 정보 및 제어</a></li>
+      <li><a href="{% url 'monitoring:fish_data' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ 물고기 데이터</a></li>
+      <li><a href="{% url 'monitoring:camera_view' %}" class="">▱ 실시간 모니터링</a></li>
+    </ul>
+    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:16px 8px 6px;display:flex;justify-content:space-between"><span>분석 내용 제공</span><span>⌄</span></div>
+    <ul class="s-menu">
+      <li><a href="{% url 'monitoring:analysis' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ AI기반 행동분석</a></li>
+      <li><a href="{% url 'reports:report_list' %}" class="active">▱ 데이터 리포트</a></li>
+      <li><a href="{% url 'monitoring:data_log' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ 데이터 로그</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-bottom hide-on-collapse">
+    {% if selected_tank %}
+    <a href="{% url 'monitoring:tank_settings' selected_tank.id %}" style="color:#5f6876">⚙ 설정</a>
+    <a href="{% url 'monitoring:logs' %}?tank_id={{ selected_tank.id }}" style="color:#4776e6;font-size:12px">조치 내역 →</a>
+    {% endif %}
+  </div>
+</aside>
+
+<main id="mainContent">
+  <div style="max-width:1200px;margin:0 auto">
+    <h1 style="font-size:20px;font-weight:900;margin-bottom:40px">데이터 리포트</h1>
+
+    <!-- 리포트 생성 & 정렬 -->
+    {% if selected_tank %}
+    <div class="report-toolbar">
+      <div class="dl-btns">
+        <a href="{% url 'reports:report_list' %}?tank_id={{ selected_tank.id }}&period=daily">
+          <button class="dl-btn dl-daily">일간 리포트</button>
+        </a>
+        <a href="{% url 'reports:report_list' %}?tank_id={{ selected_tank.id }}&period=weekly">
+          <button class="dl-btn dl-weekly">주간 리포트</button>
+        </a>
+        <a href="{% url 'reports:report_list' %}?tank_id={{ selected_tank.id }}&period=monthly">
+          <button class="dl-btn dl-monthly">월간 리포트</button>
+        </a>
+      </div>
+      <select class="sort-select" onchange="location.href='?tank_id={{ selected_tank.id }}&sort='+this.value">
+        <option value="desc" {% if sort == 'desc' %}selected{% endif %}>최신순</option>
+        <option value="asc"  {% if sort == 'asc'  %}selected{% endif %}>오래된순</option>
+      </select>
+    </div>
+    {% endif %}
+
+    <!-- 센서 데이터 테이블 -->
+    <div class="table-card" style="margin-bottom:28px">
+      <table>
+        <thead>
+          <tr>
+            <th>시각</th>
+            <th>수온(°C)</th>
+            <th>pH</th>
+            <th>DO(mg/L)</th>
+            <th>탁도(NTU)</th>
+            <th>수위(%)</th>
+            <th>수질점수</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in report_data %}
+          <tr>
+            <td>{{ r.created_at|date:"m/d H:i" }}</td>
+            <td>{{ r.temperature|floatformat:2|default:"--" }}</td>
+            <td>{{ r.ph|floatformat:2|default:"--" }}</td>
+            <td>{{ r.dissolved_oxygen|floatformat:2|default:"--" }}</td>
+            <td>{{ r.turbidity|floatformat:2|default:"--" }}</td>
+            <td>{{ r.water_level|floatformat:1|default:"--" }}</td>
+            <td>
+              <span class="badge {% if r.water_quality_score >= 70 %}badge-ok{% elif r.water_quality_score >= 40 %}badge-warn{% else %}badge-danger{% endif %}">
+                {{ r.water_quality_score|default:"--" }}
+              </span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" style="text-align:center;padding:32px;color:#aab">데이터가 없습니다.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 생성된 리포트 목록 -->
+    {% if reports %}
+    <h2 style="font-size:16px;font-weight:900;margin-bottom:16px;color:#555">생성된 리포트</h2>
+    <div class="report-list">
+      {% for r in reports %}
+      <div class="report-item">
+        <div>
+          <span class="report-type-badge {{ r.report_type }}">{{ r.get_report_type_display }}</span>
+          <div class="report-meta">{{ r.created_at|date:"Y년 m월 d일 H:i" }} 생성</div>
+          <p style="font-size:13px;color:#555;margin-top:6px">{{ r.content|truncatechars:80 }}</p>
+        </div>
+        {% if selected_tank %}
+        <a href="{% url 'monitoring:download_report' selected_tank.id %}?period={{ r.report_type|lower }}">
+          <button style="height:38px;padding:0 16px;border:1px solid #dde1ea;border-radius:10px;background:#fff;font-size:13px;font-weight:800;cursor:pointer;color:#536ae8">⬇ 다운로드</button>
+        </a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleSb(){
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  const collapsed = sb.classList.contains('collapsed');
+  document.getElementById('sbToggle').textContent = collapsed ? '›' : '‹';
+  document.getElementById('mainContent').style.marginLeft = collapsed ? '44px' : 'var(--sw)';
+}
+</script>
+{% endblock %}

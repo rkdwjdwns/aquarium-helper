@@ -214,3 +214,13 @@ def chat_delete_one(request, message_id):
         return JsonResponse({"status": "ok"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+@login_required
+def chat_page(request):
+    """채팅 내역 페이지 — chat_history 변수명으로 전달 (messages 충돌 방지)"""
+    chat_history = ChatMessage.objects.filter(
+        user=request.user
+    ).order_by('created_at')[:50]
+    return render(request, 'chatbot/chat.html', {
+        'chat_history': chat_history,
+    })

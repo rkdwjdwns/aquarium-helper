@@ -1,36 +1,40 @@
 {% extends 'base.html' %}
 {% block extra_css %}
 <style>
-  :root{--sw:270px}
+  :root{--sw:330px}
   .sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
   .sidebar.collapsed{width:44px;overflow:hidden}
-  .sidebar.collapsed .hide-on-collapse{display:none!important}
+  .sidebar.collapsed h2,.sidebar.collapsed p,.sidebar.collapsed .menu-group-title,.sidebar.collapsed .menu,.sidebar.collapsed .sidebar-bottom{display:none}
   .sidebar.collapsed .tank-title-row{justify-content:center}
-  .sidebar.collapsed .tank-summary{padding:18px 7px;border-bottom:0}
+  .sidebar.collapsed .tank-summary{padding:18px 7px}
   .tank-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .tank-summary{padding:22px 22px 18px;border-bottom:1px solid #e4e8ee}
   .sidebar-toggle{width:30px;height:30px;flex:none;border:0;border-radius:8px;background:#f1f5fa;color:#596474;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .sidebar-toggle:hover{background:#dcecff;color:#2572e9}
-  .s-menu{list-style:none;padding:0 6px}
-  .s-menu a{display:flex;align-items:center;height:44px;padding:0 12px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:14px;margin-bottom:2px}
-  .s-menu a.active{background:#dcecff;color:#2572e9;font-weight:800}
-  .s-menu a:hover{background:#f1f5fa}
+  .menu-group-title{display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:#9da8b7;padding:14px 14px 6px;letter-spacing:.06em}
+  .menu{list-style:none;padding:0 8px}
+  .menu a{display:flex;align-items:center;height:44px;padding:0 12px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:14px;margin-bottom:2px}
+  .menu a.active{background:#dcecff;color:#2572e9;font-weight:800}
+  .menu a:hover{background:#f1f5fa}
   .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
   .sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
-  main{margin-left:var(--sw);padding:40px 48px 80px 48px;transition:margin-left .3s}
+  main{margin-left:var(--sw);padding:40px 34px 80px;transition:margin-left .3s}
+  main > *{width:100%;max-width:1100px;margin-left:auto;margin-right:auto}
+  body.sb-collapsed main{margin-left:44px}
+  .page-title{font-size:18px;font-weight:900;margin-bottom:32px;letter-spacing:.5px}
 
-  .log-card{border-radius:20px 20px 0 0;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+  .log-card{background:#fff;border-radius:20px 20px 0 0;box-shadow:0 2px 9px rgba(0,0,0,.06);overflow:hidden}
   .log-card-head{min-height:110px;padding:22px 28px 18px;background:linear-gradient(110deg,#b7c9ff,#8eb8f2);display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
-  .log-title{font-size:24px;font-weight:900;margin-bottom:12px;color:#12315f}
+  .log-title{font-size:22px;font-weight:900;color:#12315f;margin-bottom:12px}
   .filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .filter-label{font-size:12px;font-weight:800;color:#4a5360;margin-right:2px}
-  .level-btn{border:0;border-radius:18px;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;opacity:.6;transition:opacity .2s}
+  .level-btn{border:0;border-radius:18px;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;opacity:.65;transition:opacity .2s}
   .level-btn.active{opacity:1}
   .level-btn.all{background:#111;color:#fff}
   .level-btn.info{background:#a8c8ff;color:#006bdc}
   .level-btn.warning{background:#ffe2a5;color:#ff8a00}
   .level-btn.danger{background:#ffb1b5;color:#ef2938}
-  .head-right{align-self:center;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .log-head-right{align-self:center;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .sort-toggle{height:34px;display:flex;align-items:center;gap:2px;padding:3px;border-radius:10px;background:rgba(255,255,255,.55)}
   .sort-toggle button{height:28px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:#596474;font-size:11px;font-weight:800;cursor:pointer}
   .sort-toggle button.active{background:#fff;color:#276de7;box-shadow:0 1px 4px rgba(0,0,0,.1)}
@@ -38,7 +42,7 @@
   table{width:100%;border-collapse:collapse;background:#fff}
   thead{background:#dedede}
   th,td{height:56px;border-bottom:1px solid #e4e4e4;padding:0 20px;text-align:left;font-size:13px}
-  th{color:#777;font-size:13px;font-weight:900}
+  th{color:#777;font-weight:900}
   td{color:#555;font-weight:600}
   .level-chip{display:inline-block;border-radius:16px;padding:5px 12px;font-size:11px;font-weight:900}
   .chip-INFO{background:#a8c8ff;color:#0576dc}
@@ -46,10 +50,9 @@
   .chip-DANGER{background:#ffadb1;color:#ef2336}
   .empty-log{padding:40px;text-align:center;color:#929aa6;font-size:14px;background:#fff}
   .pagination{height:56px;background:#dedede;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:0 0 20px 20px}
-  .page-btn{width:34px;height:34px;border:0;border-radius:8px;background:#fff;cursor:pointer;font-weight:800;font-size:13px;color:#333}
+  .page-btn{width:34px;height:34px;border:0;border-radius:8px;background:#fff;cursor:pointer;font-weight:800;font-size:13px;color:#333;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
   .page-btn.active{background:#30375f;color:#fff}
-
-  @media(max-width:900px){.sidebar{display:none}main{margin-left:0!important;padding:24px 18px 80px}}
+  @media(max-width:900px){.sidebar{display:none}main{margin-left:0!important;padding:24px 16px 80px}}
 </style>
 {% endblock %}
 
@@ -57,108 +60,90 @@
 <aside class="sidebar" id="sidebar">
   <div class="tank-summary">
     <div class="tank-title-row">
-      <div class="hide-on-collapse" style="overflow:hidden;min-width:0">
-        <h2 style="font-size:19px;font-weight:900;margin-bottom:3px">{{ selected_tank.name|default:"어항" }}</h2>
+      <div style="overflow:hidden;min-width:0">
+        <h2 style="font-size:19px;font-weight:900;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ selected_tank.name|default:"어항" }}</h2>
         <p style="color:#7e8997;font-size:13px">데이터 로그</p>
       </div>
-      <button class="sidebar-toggle" onclick="toggleSb()" id="sbToggle">‹</button>
+      <button class="sidebar-toggle" onclick="toggleSb()" id="sbToggle">&#x2039;</button>
     </div>
-    <div class="hide-on-collapse" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
       {% for t in user_tanks %}
       <a href="?tank_id={{ t.id }}" style="font-size:11px;padding:4px 10px;border-radius:16px;border:1px solid {% if t.id == selected_tank.id %}#536ae8{% else %}#dde1ea{% endif %};background:{% if t.id == selected_tank.id %}#e8f0ff{% else %}#fff{% endif %};color:{% if t.id == selected_tank.id %}#536ae8{% else %}#555{% endif %};text-decoration:none;font-weight:700">{{ t.name }}</a>
       {% endfor %}
     </div>
   </div>
-  <div class="hide-on-collapse" style="padding:14px 14px 0">
-    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:12px 8px 6px;display:flex;justify-content:space-between"><span>어항 정보 확인</span><span>⌄</span></div>
-    <ul class="s-menu">
-      <li><a href="{% if selected_tank %}{% url 'monitoring:dashboard' selected_tank.id %}{% else %}{% url 'monitoring:dashboard_default' %}{% endif %}">▱ 환경 정보 및 제어</a></li>
-      <li><a href="{% url 'monitoring:fish_data' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}">▱ 물고기 데이터</a></li>
-      <li><a href="{% url 'monitoring:camera_view' %}">▱ 실시간 모니터링</a></li>
-    </ul>
-    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:16px 8px 6px;display:flex;justify-content:space-between"><span>분석 내용 제공</span><span>⌄</span></div>
-    <ul class="s-menu">
-      <li><a href="{% url 'monitoring:analysis' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}">▱ AI기반 행동분석</a></li>
-      <li><a href="{% url 'reports:report_list' %}">▱ 데이터 리포트</a></li>
-      <li><a href="{% url 'monitoring:data_log' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}" class="active">▱ 데이터 로그</a></li>
-    </ul>
-  </div>
-  <div class="sidebar-bottom hide-on-collapse">
-    <a href="{% if selected_tank %}{% url 'monitoring:tank_settings' selected_tank.id %}{% else %}#{% endif %}" style="color:#5f6876">⚙ 설정</a>
-    <a href="{% url 'monitoring:logs' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}" style="color:#4776e6;font-size:12px">조치 내역 →</a>
+  <div class="menu-group-title"><span>어항 정보 확인</span><span>v</span></div>
+  <ul class="menu">
+    <li><a href="{% if selected_tank %}{% url 'monitoring:dashboard' selected_tank.id %}{% else %}{% url 'monitoring:dashboard_default' %}{% endif %}">&#x25B1; 환경 정보 및 제어</a></li>
+    <li><a href="{% url 'monitoring:fish_data' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}">&#x25B1; 물고기 데이터</a></li>
+    <li><a href="{% url 'monitoring:camera_view' %}">&#x25B1; 실시간 모니터링</a></li>
+  </ul>
+  <div class="menu-group-title" style="margin-top:8px"><span>분석 내용 제공</span><span>v</span></div>
+  <ul class="menu">
+    <li><a href="{% url 'monitoring:analysis' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}">&#x25B1; AI기반 행동분석</a></li>
+    <li><a href="{% url 'reports:report_list' %}">&#x25B1; 데이터 리포트</a></li>
+    <li><a href="{% url 'monitoring:data_log' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}" class="active">&#x25B1; 데이터 로그</a></li>
+  </ul>
+  <div class="sidebar-bottom">
+    <a href="{% if selected_tank %}{% url 'monitoring:tank_settings' selected_tank.id %}{% else %}#{% endif %}" style="color:#5f6876">설정</a>
+    <a href="{% url 'monitoring:logs' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}" style="color:#4776e6;font-size:12px">조치 내역</a>
   </div>
 </aside>
 
 <main id="mainContent">
-  <div style="max-width:1200px;margin:0 auto">
-    <h1 style="font-size:18px;font-weight:900;margin-bottom:32px">이벤트 로그</h1>
+  <h1 class="page-title">EVENT LOG</h1>
 
-    <div class="log-card">
-      <div class="log-card-head">
-        <div>
-          <div class="log-title">데이터 로그</div>
-          <div class="filter-row">
-            <span class="filter-label">레벨 필터</span>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}sort={{ sort }}">
-              <button class="level-btn all {% if not level %}active{% endif %}">전체</button></a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=INFO&sort={{ sort }}">
-              <button class="level-btn info {% if level == 'INFO' %}active{% endif %}">INFO</button></a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=WARNING&sort={{ sort }}">
-              <button class="level-btn warning {% if level == 'WARNING' %}active{% endif %}">WARNING</button></a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=DANGER&sort={{ sort }}">
-              <button class="level-btn danger {% if level == 'DANGER' %}active{% endif %}">DANGER</button></a>
-          </div>
-        </div>
-        <div class="head-right">
-          <div class="sort-toggle">
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=desc">
-              <button class="{% if sort != 'asc' %}active{% endif %}">최신순</button></a>
-            <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=asc">
-              <button class="{% if sort == 'asc' %}active{% endif %}">오래된순</button></a>
-          </div>
-          <button class="refresh-btn" onclick="location.reload()">⟳ 새로고침</button>
+  <div class="log-card">
+    <div class="log-card-head">
+      <div>
+        <h2 class="log-title">어항 이벤트 로그</h2>
+        <div class="filter-row">
+          <span class="filter-label">레벨</span>
+          <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}sort={{ sort }}"><button class="level-btn all {% if not level %}active{% endif %}">전체</button></a>
+          <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=INFO&sort={{ sort }}"><button class="level-btn info {% if level == 'INFO' %}active{% endif %}">정보</button></a>
+          <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=WARNING&sort={{ sort }}"><button class="level-btn warning {% if level == 'WARNING' %}active{% endif %}">경고</button></a>
+          <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}level=DANGER&sort={{ sort }}"><button class="level-btn danger {% if level == 'DANGER' %}active{% endif %}">위험</button></a>
         </div>
       </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th style="width:30%">시각</th>
-            <th style="width:18%">레벨</th>
-            <th>메시지</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for log in page_obj %}
-          <tr>
-            <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
-            <td><span class="level-chip chip-{{ log.level }}">{{ log.level }}</span></td>
-            <td>{{ log.message }}</td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="3" class="empty-log">기록된 로그가 없습니다.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-
-      {% if page_obj.has_other_pages %}
-      <div class="pagination">
-        {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">
-          <button class="page-btn">‹</button></a>
-        {% endif %}
-        {% for num in page_obj.paginator.page_range %}
-        <a href="?page={{ num }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">
-          <button class="page-btn {% if page_obj.number == num %}active{% endif %}">{{ num }}</button></a>
-        {% endfor %}
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">
-          <button class="page-btn">›</button></a>
-        {% endif %}
+      <div class="log-head-right">
+        <div class="sort-toggle">
+          <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=desc"><button class="{% if sort != 'asc' %}active{% endif %}">최신순</button></a>
+          <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=asc"><button class="{% if sort == 'asc' %}active{% endif %}">과거순</button></a>
+        </div>
+        <button class="refresh-btn" onclick="location.reload()">새로고침</button>
       </div>
-      {% endif %}
-
     </div>
+
+    <table>
+      <thead>
+        <tr><th>발생 시간</th><th>레벨</th><th>메시지</th></tr>
+      </thead>
+      <tbody>
+        {% for log in page_obj %}
+        <tr>
+          <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+          <td><span class="level-chip chip-{{ log.level }}">{{ log.level }}</span></td>
+          <td>{{ log.message }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="empty-log">저장된 이벤트 로그가 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+      {% if page_obj.has_previous %}
+      <a class="page-btn" href="?page={{ page_obj.previous_page_number }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">&#9664;</a>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+      <a class="page-btn {% if page_obj.number == num %}active{% endif %}" href="?page={{ num }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">{{ num }}</a>
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <a class="page-btn" href="?page={{ page_obj.next_page_number }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}{% if level %}&level={{ level }}{% endif %}&sort={{ sort }}">&#9654;</a>
+      {% endif %}
+    </div>
+    {% endif %}
   </div>
 </main>
 {% endblock %}
@@ -166,10 +151,10 @@
 {% block extra_js %}
 <script>
 function toggleSb(){
-  const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');
-  const c=sb.classList.contains('collapsed');
-  document.getElementById('sbToggle').textContent=c?'›':'‹';
-  document.getElementById('mainContent').style.marginLeft=c?'44px':'var(--sw)';
+  const sb=document.getElementById("sidebar");sb.classList.toggle("collapsed");
+  document.body.classList.toggle("sb-collapsed",sb.classList.contains("collapsed"));
+  document.getElementById("sbToggle").textContent=sb.classList.contains("collapsed")?"›":"‹";
+  document.getElementById("mainContent").style.marginLeft=sb.classList.contains("collapsed")?"44px":"var(--sw)";
 }
 </script>
 {% endblock %}
