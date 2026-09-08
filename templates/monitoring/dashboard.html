@@ -129,6 +129,18 @@
     .env-detail-window{padding:20px 14px}
   }
 
+
+    /* 환경 상태 카드 상세보기 */
+    .sensor-grid{position:relative;}
+    .environment-detail-text-btn{
+      position:absolute; top:-28px; right:2px;
+      border:0; background:transparent; padding:0;
+      color:#2879ed; font-size:12px; font-weight:800;
+      cursor:pointer; line-height:1.4;
+    }
+    .environment-detail-text-btn:hover{
+      color:#145fd7; text-decoration:underline;
+    }
 </style>
 {% endblock %}
 
@@ -223,6 +235,7 @@
 
     <!-- 센서 카드 -->
     <div class="sensor-grid">
+      <button type="button" id="environmentDetailBtn" class="environment-detail-text-btn">상세 보기 →</button>
       <div class="sensor-card">
         <div class="sensor-label">🌡️ 수온</div>
         <div><span id="val-temp" class="sensor-value">{{ latest.temperature|floatformat:2|default:"--" }}</span><span class="sensor-unit">°C</span></div>
@@ -246,7 +259,7 @@
       </div>
       <div class="sensor-card">
         <div class="sensor-label">🌫️ 탁도</div>
-        <div><span id="val-turb" class="sensor-value">{{ latest.turbidity|floatformat:2|default:"--" }}</span><span class="sensor-unit">NTU</span></div>
+        <div><span id="val-turb" class="sensor-value">{{ latest.turbidity|floatformat:2|default:"--" }}</span><span class="sensor-unit">PPM</span></div>
         <span id="badge-turb" class="sensor-badge {% if latest.turbidity %}{% if latest.turbidity <= 50 %}badge-ok{% elif latest.turbidity <= 100 %}badge-warn{% else %}badge-danger{% endif %}{% endif %}">
           {% if latest.turbidity %}{% if latest.turbidity <= 50 %}● 맑음{% elif latest.turbidity <= 100 %}● 탁함{% else %}● 위험{% endif %}{% else %}미연결{% endif %}
         </span>
@@ -577,7 +590,7 @@ const C_CONFIG = {
     baseHigh:null
   },
   turb:{
-    label:'탁도(NTU)', color:'#f59e0b', min:0, max:200,
+    label:'탁도(PPM)', color:'#f59e0b', min:0, max:200,
     baseLow:null,
     baseHigh:{{ tank.turbidity_max|default:"null" }}
   }
@@ -968,7 +981,7 @@ const envDetailUnitMap = {
   temperature:'°C',
   ph:'',
   do:'mg/L',
-  turbidity:'NTU',
+  turbidity:'PPM',
   waterlevel:'%',
   waterchange:''
 };
@@ -1075,7 +1088,7 @@ function getNormalRange(key){
     temperature:`{{ tank.temp_min|default:"20" }} ~ {{ tank.temp_max|default:"26" }} °C`,
     ph:`{{ tank.ph_min|default:"6.5" }} ~ {{ tank.ph_max|default:"8.0" }}`,
     do:`{{ tank.do_min|default:"5" }} mg/L 이상`,
-    turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} NTU`,
+    turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} PPM`,
     waterlevel:'80 ~ 100 %',
     waterchange:'설정된 환수 주기 기준'
   };
