@@ -7,6 +7,9 @@ python manage.py collectstatic --no-input
 echo "=== DB 마이그레이션 ==="
 python manage.py migrate
 
+echo "=== 상태 진단 코드(StateCode) 초기화 ==="
+python manage.py seed_state_codes
+
 echo "=== 관리자 계정 자동 생성 ==="
 python manage.py shell << 'EOF'
 import os
