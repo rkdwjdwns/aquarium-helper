@@ -65,6 +65,70 @@
     .sensor-grid{grid-template-columns:repeat(2,1fr)}
     .device-grid{grid-template-columns:repeat(2,1fr)}
   }
+
+  /* ===== 1번째 코드의 환경정보 상세 모달 연동 ===== */
+  #environmentDetailModal{
+    position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.42);
+    display:none;align-items:center;justify-content:center;padding:28px;
+  }
+  #environmentDetailModal.open{display:flex}
+  .env-detail-window{
+    width:min(1180px,96vw);max-height:92vh;overflow-y:auto;
+    background:#eef3f7;border-radius:28px;padding:26px 24px 30px;
+    box-shadow:0 30px 70px rgba(0,0,0,.35);
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .env-detail-window::-webkit-scrollbar,
+  .env-detail-window *::-webkit-scrollbar{width:0;height:0;display:none}
+  .env-detail-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px}
+  .env-detail-head h2{font-size:38px;font-weight:900;letter-spacing:-2px}
+  .env-detail-head p{margin-top:9px;color:#8a94a3;font-size:13px}
+  .env-detail-close{border:1px solid #cfd5dc;background:#fff;border-radius:11px;min-width:78px;height:40px;cursor:pointer}
+  .env-sensor-tabs{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .env-sensor-tab{border:0;background:#fff;color:#5f6875;padding:9px 14px;border-radius:10px;cursor:pointer;box-shadow:0 2px 7px rgba(0,0,0,.06);font-weight:800}
+  .env-sensor-tab.active{background:#3476ef;color:#fff}
+  .env-summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+  .env-white-card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 3px 10px rgba(0,0,0,.05)}
+  .env-card-label{font-size:12px;color:#8a94a3;margin-bottom:10px}
+  .env-big-value{font-size:34px;font-weight:900}
+  .env-range-text{margin-top:8px;color:#8b96a4;font-size:12px}
+  .env-status-badge{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:15px;font-size:13px;font-weight:900;margin-bottom:10px}
+  .env-status-dot{width:10px;height:10px;border-radius:50%}
+  .env-normal-badge{background:#e9f9ee;color:#1ba64a}.env-normal-badge .env-status-dot{background:#36d75d}
+  .env-warning-badge{background:#fff2d7;color:#d88b00}.env-warning-badge .env-status-dot{background:#ffbf3d}
+  .env-danger-badge{background:#ffe1e3;color:#e52d3d}.env-danger-badge .env-status-dot{background:#ff4e5a}
+  .env-status-desc{font-size:12px;color:#667180;line-height:1.6}
+  .env-detail-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:28px 0 14px}
+  .env-section-title{font-size:24px;font-weight:900}
+  .env-state-code-chip{font-family:Consolas,Monaco,monospace;font-size:12px;font-weight:900;border-radius:9px;padding:7px 10px;border:1px solid transparent}
+  .env-state-code-chip.code-normal{color:#1ba64a;background:#e9f9ee;border-color:#c9efd4}
+  .env-state-code-chip.code-warning{color:#d88b00;background:#fff2d7;border-color:#f5dda6}
+  .env-state-code-chip.code-danger{color:#e52d3d;background:#ffe1e3;border-color:#ffc2c7}
+  .env-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .env-detail-card h3{font-size:18px;margin-bottom:14px}
+  .env-detail-card h3 span{color:#9099a5;font-size:12px;font-weight:600;margin-left:6px}
+  .env-detail-list{padding-left:18px;color:#4f5a68;line-height:1.8;font-size:13px}
+  .env-detail-card.normal-card{min-height:0;padding:14px 20px}
+  .env-detail-card.normal-card h3{margin-bottom:7px}
+  .env-normal-placeholder{display:flex;align-items:center;justify-content:flex-start;color:#7f8996;opacity:.55;font-size:14px;font-weight:800}
+  .env-trend-card{margin-top:16px}
+  .env-trend-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .env-trend-title{font-size:18px;font-weight:900}
+  .env-trend-meta{font-size:11px;color:#8b95a3}
+  .env-chart-shell{height:260px;position:relative;padding:16px 20px 28px 48px}
+  .env-grid-lines{position:absolute;left:48px;right:20px;top:16px;bottom:28px;background:repeating-linear-gradient(to bottom,transparent 0,transparent 42px,#e7ebf0 43px)}
+  .env-y-labels{position:absolute;left:8px;top:16px;bottom:28px;display:flex;flex-direction:column;justify-content:space-between;color:#8d96a3;font-size:10px}
+  .env-chart-svg{position:absolute;left:48px;right:20px;top:16px;bottom:28px;width:calc(100% - 68px);height:216px}
+  .env-x-labels{position:absolute;left:48px;right:20px;bottom:6px;display:flex;justify-content:space-between;color:#8d96a3;font-size:10px}
+  .env-waterchange-dates{display:none;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+  .env-waterchange-card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 3px 10px rgba(0,0,0,.05)}
+  .env-waterchange-value{font-size:24px;font-weight:900;margin-top:6px}
+  @media(max-width:900px){
+    #environmentDetailModal{padding:12px}
+    .env-summary-grid,.env-detail-grid{grid-template-columns:1fr}
+    .env-detail-window{padding:20px 14px}
+  }
+
 </style>
 {% endblock %}
 
@@ -207,9 +271,9 @@
       <div class="sensor-card" style="grid-column:span 2">
         <div class="sensor-label">⚙️ 수질 점수</div>
         <div style="display:flex;align-items:center;gap:18px">
-          <span class="sensor-value" style="font-size:42px">{{ latest.water_quality_score|default:"--" }}</span>
+          <span id="waterQualityScore" class="sensor-value" style="font-size:42px">{{ latest.water_quality_score|default:"--" }}</span>
           <div style="flex:1;height:10px;background:#f0f2f5;border-radius:10px;overflow:hidden">
-            <div style="height:100%;border-radius:10px;background:{% if latest.water_quality_score >= 70 %}#10b981{% elif latest.water_quality_score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};width:{{ latest.water_quality_score|default:0 }}%"></div>
+            <div id="waterQualityBar" style="height:100%;border-radius:10px;background:{% if latest.water_quality_score >= 70 %}#10b981{% elif latest.water_quality_score >= 40 %}#f59e0b{% else %}#ef4444{% endif %};width:{{ latest.water_quality_score|default:0 }}%"></div>
           </div>
         </div>
       </div>
@@ -284,156 +348,521 @@
 
   </div>
 </main>
+
+
+    <!-- 환경정보 상세 모달: 1번째 코드의 JSON 구조를 서버 API 응답으로 대체 -->
+    <div class="detail-modal" id="environmentDetailModal" aria-hidden="true">
+      <section class="env-detail-window" role="dialog" aria-modal="true" aria-label="환경정보 상세">
+        <div class="env-detail-head">
+          <div>
+            <h2>환경정보 상세</h2>
+            <p>현재 수조의 센서 상태와 이상 현상에 대한 상세 정보를 확인합니다.</p>
+          </div>
+          <button class="env-detail-close" type="button" id="environmentDetailClose">나가기</button>
+        </div>
+
+        <div class="env-sensor-tabs">
+          <button class="env-sensor-tab active" data-env-sensor="temperature">수온</button>
+          <button class="env-sensor-tab" data-env-sensor="ph">pH</button>
+          <button class="env-sensor-tab" data-env-sensor="do">DO</button>
+          <button class="env-sensor-tab" data-env-sensor="turbidity">탁도</button>
+          <button class="env-sensor-tab" data-env-sensor="waterlevel">수위</button>
+          <button class="env-sensor-tab" data-env-sensor="waterchange">환수</button>
+        </div>
+
+        <section class="env-summary-grid">
+          <div class="env-white-card">
+            <div class="env-card-label">현재 측정값</div>
+            <div class="env-big-value" id="envDetailSensorValue">-</div>
+            <div class="env-range-text" id="envDetailNormalRange">적정 범위 -</div>
+          </div>
+          <div class="env-white-card">
+            <div class="env-card-label">현재 상태</div>
+            <div id="envDetailStatusBadge"></div>
+            <div class="env-status-desc" id="envDetailStatusDescription"></div>
+          </div>
+          <div class="env-white-card">
+            <div class="env-card-label">최근 측정</div>
+            <div style="font-size:22px;font-weight:900" id="envDetailLastUpdated">-</div>
+            <div class="env-range-text">센서 데이터 기준</div>
+          </div>
+        </section>
+
+        <section class="env-waterchange-dates" id="envDetailWaterchangeDates">
+          <div class="env-waterchange-card">
+            <div class="env-card-label">마지막 환수일</div>
+            <div class="env-waterchange-value" id="envDetailLastWaterchangeDate">-</div>
+            <div class="env-range-text">최근 환수 기록 기준</div>
+          </div>
+          <div class="env-waterchange-card">
+            <div class="env-card-label">다음 예정 환수일</div>
+            <div class="env-waterchange-value" id="envDetailNextWaterchangeDate">-</div>
+            <div class="env-range-text">설정된 환수 주기 기준</div>
+          </div>
+        </section>
+
+        <div class="env-detail-section-head" id="envDetailSectionHead">
+          <h3 class="env-section-title">상태 상세 정보</h3>
+          <span class="env-state-code-chip" id="envDetailStateCode">-</span>
+        </div>
+
+        <section class="env-detail-grid" id="envDetailGrid">
+          <article class="env-white-card env-detail-card">
+            <h3>원인 <span>Causes</span></h3>
+            <div id="envDetailCauses"></div>
+          </article>
+          <article class="env-white-card env-detail-card">
+            <h3>영향 <span>Effects</span></h3>
+            <div id="envDetailEffects"></div>
+          </article>
+          <article class="env-white-card env-detail-card">
+            <h3>대처방법 <span>Actions</span></h3>
+            <div id="envDetailActions"></div>
+          </article>
+          <article class="env-white-card env-detail-card">
+            <h3>예방방법 <span>Prevention</span></h3>
+            <div id="envDetailPrevention"></div>
+          </article>
+        </section>
+
+        <section class="env-white-card env-trend-card" id="envDetailTrendCard">
+          <div class="env-trend-head">
+            <div>
+              <div class="env-trend-title">최근 센서 변화</div>
+              <div class="env-trend-meta">최근 12회 측정값</div>
+            </div>
+            <div class="env-trend-meta" id="envDetailTrendSensorName">수온</div>
+          </div>
+          <div class="env-chart-shell">
+            <div class="env-grid-lines"></div>
+            <div class="env-y-labels">
+              <span id="envY5">-</span><span id="envY4">-</span><span id="envY3">-</span>
+              <span id="envY2">-</span><span id="envY1">-</span>
+            </div>
+            <svg class="env-chart-svg" viewBox="0 0 800 216" preserveAspectRatio="none">
+              <polygon id="envDetailTrendArea" opacity=".16"></polygon>
+              <polyline id="envDetailTrendLine" fill="none" stroke-width="3"
+                        stroke-linejoin="round" stroke-linecap="round"></polyline>
+              <g id="envDetailTrendPoints"></g>
+            </svg>
+            <div class="env-x-labels" id="envDetailXLabels"></div>
+          </div>
+        </section>
+      </section>
+    </div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
 <script>
 const TANK_ID = {{ tank.id }};
-const CSRF    = '{{ csrf_token }}';
+const CSRF = '{{ csrf_token }}';
 
-// 사이드바 토글
+/* =========================
+   공통 유틸
+========================= */
+function esc(value){
+  return String(value ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
+function toNumber(value){
+  if(value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatValue(value, digits=2){
+  const n = toNumber(value);
+  return n === null ? '--' : n.toFixed(digits);
+}
+
+function formatDate(value){
+  if(!value) return '-';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('ko-KR');
+}
+
+/* =========================
+   사이드바
+========================= */
 function toggleSb(){
   document.body.classList.toggle('sb-collapsed');
   const sb = document.getElementById('sidebar');
   sb.classList.toggle('collapsed');
-  document.getElementById('sbToggle').textContent = sb.classList.contains('collapsed') ? '›' : '‹';
-  document.getElementById('mainContent').style.marginLeft = sb.classList.contains('collapsed') ? '44px' : 'var(--sw)';
+  document.getElementById('sbToggle').textContent =
+    sb.classList.contains('collapsed') ? '›' : '‹';
+  document.getElementById('mainContent').style.marginLeft =
+    sb.classList.contains('collapsed') ? '44px' : 'var(--sw)';
 }
 
-// 장치 제어
-function toggleDevice(type){
-  fetch(`/monitoring/toggle-device/${TANK_ID}/`,{
-    method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':CSRF},
-    body:'device_type='+type
-  }).then(r=>r.json()).then(d=>{ if(d.status==='success') location.reload() });
+/* =========================
+   장치 제어
+========================= */
+async function toggleDevice(type){
+  try{
+    const r = await fetch(`/monitoring/toggle-device/${TANK_ID}/`, {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/x-www-form-urlencoded',
+        'X-CSRFToken':CSRF
+      },
+      body:'device_type=' + encodeURIComponent(type)
+    });
+
+    const d = await r.json();
+
+    if(d.status === 'success'){
+      location.reload();
+      return;
+    }
+
+    alert(d.message || '장치 제어에 실패했습니다.');
+  }catch(e){
+    console.error('[toggleDevice]', e);
+    alert('장치 제어 중 오류가 발생했습니다.');
+  }
 }
 
-// 환수
-function doWaterChange(){
+/* =========================
+   환수
+========================= */
+async function doWaterChange(){
   if(!confirm('환수를 완료하셨습니까?')) return;
-  fetch(`/monitoring/water-change/${TANK_ID}/`,{method:'POST',headers:{'X-CSRFToken':CSRF}})
-    .then(r=>r.json()).then(d=>{ if(d.status==='success') location.reload() });
+
+  try{
+    const r = await fetch(`/monitoring/water-change/${TANK_ID}/`, {
+      method:'POST',
+      headers:{'X-CSRFToken':CSRF}
+    });
+
+    const d = await r.json();
+
+    if(d.status === 'success'){
+      location.reload();
+      return;
+    }
+
+    alert(d.message || '환수 처리에 실패했습니다.');
+  }catch(e){
+    console.error('[water-change]', e);
+    alert('환수 처리 중 오류가 발생했습니다.');
+  }
 }
 
-// 트렌드 차트 — 기준선(baseLow/baseHigh)은 어항 설정값 기반
+/* =========================
+   메인 트렌드 차트
+========================= */
 const C_CONFIG = {
-  temp:{ label:'수온(°C)', color:'#ef4444', min:18, max:30, baseLow:{{ tank.temp_min|default:"null" }}, baseHigh:{{ tank.temp_max|default:"null" }} },
-  ph:  { label:'pH',       color:'#3b82f6', min:5,  max:9,  baseLow:{{ tank.ph_min|default:"null" }},   baseHigh:{{ tank.ph_max|default:"null" }} },
-  do:  { label:'DO(mg/L)', color:'#10b981', min:0,  max:15, baseLow:{{ tank.do_min|default:"null" }},   baseHigh:null },
-  turb:{ label:'탁도(NTU)',color:'#f59e0b', min:0,  max:200,baseLow:null, baseHigh:{{ tank.turbidity_max|default:"null" }} },
+  temp:{
+    label:'수온(°C)', color:'#ef4444', min:18, max:30,
+    baseLow:{{ tank.temp_min|default:"null" }},
+    baseHigh:{{ tank.temp_max|default:"null" }}
+  },
+  ph:{
+    label:'pH', color:'#3b82f6', min:5, max:9,
+    baseLow:{{ tank.ph_min|default:"null" }},
+    baseHigh:{{ tank.ph_max|default:"null" }}
+  },
+  do:{
+    label:'DO(mg/L)', color:'#10b981', min:0, max:15,
+    baseLow:{{ tank.do_min|default:"null" }},
+    baseHigh:null
+  },
+  turb:{
+    label:'탁도(NTU)', color:'#f59e0b', min:0, max:200,
+    baseLow:null,
+    baseHigh:{{ tank.turbidity_max|default:"null" }}
+  }
 };
+
 let metric = 'temp';
 let history = {{ chart_history|safe|default:"{}" }};
 
-const ctx = document.getElementById('trendChart').getContext('2d');
+const chartEl = document.getElementById('trendChart');
+const ctx = chartEl.getContext('2d');
+
 const chart = new Chart(ctx,{
   type:'line',
-  data:{labels:[],datasets:[{label:'',data:[],borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.08)',borderWidth:2.5,pointRadius:4,tension:.4,fill:true}]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},annotation:{annotations:{}}},
-    scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#94a3b8'}},
-            y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10},color:'#94a3b8'}}},animation:{duration:300}}
+  data:{
+    labels:[],
+    datasets:[{
+      label:'',
+      data:[],
+      borderColor:'#ef4444',
+      backgroundColor:'rgba(239,68,68,.08)',
+      borderWidth:2.5,
+      pointRadius:4,
+      tension:.4,
+      fill:true
+    }]
+  },
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      annotation:{annotations:{}}
+    },
+    scales:{
+      x:{grid:{display:false},ticks:{font:{size:10},color:'#94a3b8'}},
+      y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10},color:'#94a3b8'}}
+    },
+    animation:{duration:300}
+  }
 });
 
 function setChart(m, btn){
   metric = m;
-  document.querySelectorAll('.chart-tab').forEach(t=>t.classList.remove('active'));
+
+  document.querySelectorAll('.chart-tab')
+    .forEach(t => t.classList.remove('active'));
+
   if(btn) btn.classList.add('active');
-  if(!history.labels) return;
+
+  if(!history || !history.labels) return;
+
   const c = C_CONFIG[m];
+  const values = Array.isArray(history[m]) ? history[m] : [];
+
   chart.data.labels = history.labels;
-  chart.data.datasets[0].data  = history[m];
+  chart.data.datasets[0].data = values;
   chart.data.datasets[0].label = c.label;
   chart.data.datasets[0].borderColor = c.color;
-  chart.data.datasets[0].backgroundColor = c.color+'18';
+  chart.data.datasets[0].backgroundColor = c.color + '18';
   chart.data.datasets[0].pointBackgroundColor = c.color;
   chart.options.scales.y.min = c.min;
   chart.options.scales.y.max = c.max;
 
-  // ── 기준선 (annotation) ──
   const annotations = {};
+
   if(c.baseLow != null){
     annotations.baseLow = {
-      type:'line', yMin:c.baseLow, yMax:c.baseLow,
-      borderColor:'#94a3b8', borderWidth:1.5, borderDash:[6,4],
-      label:{ display:true, content:`하한 ${c.baseLow}`, position:'start',
-              backgroundColor:'rgba(148,163,184,.85)', color:'#fff', font:{size:9}, padding:3 }
+      type:'line',
+      yMin:c.baseLow,
+      yMax:c.baseLow,
+      borderColor:'#94a3b8',
+      borderWidth:1.5,
+      borderDash:[6,4],
+      label:{
+        display:true,
+        content:`하한 ${c.baseLow}`,
+        position:'start',
+        backgroundColor:'rgba(148,163,184,.85)',
+        color:'#fff',
+        font:{size:9},
+        padding:3
+      }
     };
   }
+
   if(c.baseHigh != null){
     annotations.baseHigh = {
-      type:'line', yMin:c.baseHigh, yMax:c.baseHigh,
-      borderColor:'#f97316', borderWidth:1.5, borderDash:[6,4],
-      label:{ display:true, content:`상한 ${c.baseHigh}`, position:'end',
-              backgroundColor:'rgba(249,115,22,.85)', color:'#fff', font:{size:9}, padding:3 }
+      type:'line',
+      yMin:c.baseHigh,
+      yMax:c.baseHigh,
+      borderColor:'#f97316',
+      borderWidth:1.5,
+      borderDash:[6,4],
+      label:{
+        display:true,
+        content:`상한 ${c.baseHigh}`,
+        position:'end',
+        backgroundColor:'rgba(249,115,22,.85)',
+        color:'#fff',
+        font:{size:9},
+        padding:3
+      }
     };
   }
-  chart.options.plugins.annotation = { annotations };
 
+  chart.options.plugins.annotation = {annotations};
   chart.update();
 }
-if(history.labels) setChart('temp');
 
-// 5초 폴링
+if(history && history.labels) setChart('temp');
+
+/* =========================
+   센서 카드 갱신
+========================= */
+function updateSensorCards(sensor){
+  if(!sensor) return;
+
+  const temp = toNumber(sensor.temperature);
+  const ph = toNumber(sensor.ph);
+  const dissolvedOxygen = toNumber(sensor.dissolved_oxygen);
+  const turbidity = toNumber(sensor.turbidity);
+  const waterLevel = toNumber(sensor.water_level);
+
+  document.getElementById('val-temp').textContent = formatValue(temp);
+  document.getElementById('val-ph').textContent = formatValue(ph);
+  document.getElementById('val-do').textContent = formatValue(dissolvedOxygen);
+  document.getElementById('val-turb').textContent = formatValue(turbidity);
+  document.getElementById('val-level').textContent = formatValue(waterLevel);
+
+  updateBadge(
+    'badge-temp',
+    temp === null ? '미연결' : (temp >= 21 && temp <= 24 ? '● 적정' : '● 주의'),
+    temp === null ? '' : (temp >= 21 && temp <= 24 ? 'badge-ok' : 'badge-danger')
+  );
+
+  updateBadge(
+    'badge-ph',
+    ph === null ? '미연결' : (ph >= 6.5 && ph <= 8.0 ? '● 안정' : '● 확인필요'),
+    ph === null ? '' : (ph >= 6.5 && ph <= 8.0 ? 'badge-ok' : 'badge-warn')
+  );
+
+  updateBadge(
+    'badge-do',
+    dissolvedOxygen === null ? '미연결' : (dissolvedOxygen >= 5 ? '● 정상' : '● 부족'),
+    dissolvedOxygen === null ? '' : (dissolvedOxygen >= 5 ? 'badge-ok' : 'badge-danger')
+  );
+
+  let turbText = '미연결';
+  let turbClass = '';
+  if(turbidity !== null){
+    if(turbidity <= 50){ turbText='● 맑음'; turbClass='badge-ok'; }
+    else if(turbidity <= 100){ turbText='● 탁함'; turbClass='badge-warn'; }
+    else { turbText='● 위험'; turbClass='badge-danger'; }
+  }
+  updateBadge('badge-turb', turbText, turbClass);
+
+  let levelText = '미연결';
+  let levelClass = '';
+  if(waterLevel !== null){
+    if(waterLevel >= 80){ levelText='● 정상'; levelClass='badge-ok'; }
+    else if(waterLevel >= 60){ levelText='● 낮음'; levelClass='badge-warn'; }
+    else { levelText='● 부족'; levelClass='badge-danger'; }
+  }
+  updateBadge('badge-level', levelText, levelClass);
+
+  updateWaterQualityScore(sensor.water_quality_score);
+}
+
+function updateBadge(id, text, cls){
+  const el = document.getElementById(id);
+  if(!el) return;
+
+  el.className = 'sensor-badge' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+}
+
+function updateWaterQualityScore(score){
+  const value = toNumber(score);
+  const valueEl = document.getElementById('waterQualityScore');
+  const barEl = document.getElementById('waterQualityBar');
+
+  if(valueEl) valueEl.textContent = value === null ? '--' : value;
+  if(barEl){
+    const safe = value === null ? 0 : Math.max(0, Math.min(100, value));
+    barEl.style.width = safe + '%';
+    barEl.style.background =
+      safe >= 70 ? '#10b981' :
+      safe >= 40 ? '#f59e0b' : '#ef4444';
+  }
+}
+
+/* =========================
+   5초 폴링
+========================= */
 async function poll(){
   try{
-    const r = await fetch(`/monitoring/api/dashboard-data/${TANK_ID}/`);
-    const d = await r.json();
-    if(d.sensor){
-      const s=d.sensor;
-      const f=v=>(v==null?'--':parseFloat(v).toFixed(2));
-      document.getElementById('val-temp').textContent  = f(s.temperature);
-      document.getElementById('val-ph').textContent    = f(s.ph);
-      document.getElementById('val-do').textContent    = f(s.dissolved_oxygen);
-      document.getElementById('val-turb').textContent  = f(s.turbidity);
-      document.getElementById('val-level').textContent = f(s.water_level);
-    }
-    if(d.history){ history=d.history; setChart(metric); }
+    const r = await fetch(`/monitoring/api/dashboard-data/${TANK_ID}/`, {
+      cache:'no-store'
+    });
 
-    // ✅ 미수신 배너 — 값은 그대로 두고(마지막 정상값 유지) 안내만 표시
+    if(!r.ok) return;
+
+    const d = await r.json();
+    latestDashboard = d;
+
+    if(d.sensor) updateSensorCards(d.sensor);
+
+    if(d.history){
+      history = d.history;
+      setChart(metric);
+    }
+
     const banner = document.getElementById('staleBanner');
+
     if(d.is_stale){
       let ageText = '';
       if(d.age_sec != null){
         const min = Math.floor(d.age_sec / 60);
         ageText = min >= 1 ? ` (${min}분 전 값)` : ' (방금 전 값)';
       }
+
       document.getElementById('staleBannerText').textContent =
         `센서 데이터 수신이 중단되었습니다. 마지막 수신값을 표시 중입니다${ageText}.`;
+
       banner.style.display = 'flex';
-    } else {
+    }else{
       banner.style.display = 'none';
     }
-  }catch{}
+  }catch(e){
+    console.warn('[dashboard poll]', e);
+  }
 }
+
+poll();
 setInterval(poll, 5000);
 
-// ── 상태 경고 ──────────────────────────────────
+/* =========================
+   상태 경고 API
+   GET /monitoring/api/states/active/?tank_id=1
+========================= */
 const LEVEL_STYLE = {
-  DANGER:  { bg:'#fdecea', border:'#ef4444', text:'#b71c1c', badge:'background:#ef4444;color:#fff' },
-  WARNING: { bg:'#fff8e1', border:'#f59e0b', text:'#7a4a00', badge:'background:#f59e0b;color:#fff' },
+  DANGER:{
+    bg:'#fdecea',
+    border:'#ef4444',
+    text:'#b71c1c',
+    badge:'background:#ef4444;color:#fff'
+  },
+  WARNING:{
+    bg:'#fff8e1',
+    border:'#f59e0b',
+    text:'#7a4a00',
+    badge:'background:#f59e0b;color:#fff'
+  }
 };
 
 function renderListItems(ulId, items){
   const ul = document.getElementById(ulId);
-  ul.innerHTML = (items||[]).map(item =>
-    `<li style="font-size:13px;color:#4b5564;padding:5px 10px;background:#f4f7fb;border-radius:8px">• ${item}</li>`
-  ).join('') || '<li style="font-size:13px;color:#a2adbc;padding:5px 10px">정보 없음</li>';
+  if(!ul) return;
+
+  const list = Array.isArray(items) ? items : [];
+
+  ul.innerHTML = list.map(item =>
+    `<li style="font-size:13px;color:#4b5564;padding:5px 10px;background:#f4f7fb;border-radius:8px">• ${esc(item)}</li>`
+  ).join('') ||
+  '<li style="font-size:13px;color:#a2adbc;padding:5px 10px">정보 없음</li>';
 }
 
 function openStateModal(state){
   const s = LEVEL_STYLE[state.level] || LEVEL_STYLE.WARNING;
+
   document.getElementById('stateModalHead').style.background = s.bg;
-  document.getElementById('stateModalCode').textContent  = state.code;
-  document.getElementById('stateModalTitle').textContent = state.title;
-  document.getElementById('stateModalValue').textContent = state.current_value != null ? state.current_value : '--';
-  const dt = state.detected_at ? new Date(state.detected_at).toLocaleString('ko-KR') : '';
-  document.getElementById('stateModalTime').textContent = dt ? `감지: ${dt}` : '';
-  renderListItems('stateModalCauses',     state.causes);
-  renderListItems('stateModalEffects',    state.effects);
-  renderListItems('stateModalActions',    state.actions);
+  document.getElementById('stateModalCode').textContent = state.code || 'STATE';
+  document.getElementById('stateModalTitle').textContent = state.title || '상태 확인';
+  document.getElementById('stateModalValue').textContent =
+    state.current_value != null ? state.current_value : '--';
+
+  const dt = state.detected_at ? formatDate(state.detected_at) : '';
+  document.getElementById('stateModalTime').textContent =
+    dt ? `감지: ${dt}` : '';
+
+  renderListItems('stateModalCauses', state.causes);
+  renderListItems('stateModalEffects', state.effects);
+  renderListItems('stateModalActions', state.actions);
   renderListItems('stateModalPrevention', state.prevention);
+
   const modal = document.getElementById('stateModal');
   modal.style.display = 'flex';
 }
@@ -448,33 +877,569 @@ document.getElementById('stateModal').addEventListener('click', e => {
 
 async function fetchActiveStates(){
   try{
-    const r = await fetch(`/monitoring/api/states/active/?tank_id=${TANK_ID}`);
+    const r = await fetch(
+      `/monitoring/api/states/active/?tank_id=${encodeURIComponent(TANK_ID)}`,
+      {cache:'no-store'}
+    );
+
     if(!r.ok) return;
+
     const d = await r.json();
+    activeStates = Array.isArray(d.states) ? d.states : [];
     const container = document.getElementById('stateAlerts');
+
     container.innerHTML = '';
-    if(!d.states || d.states.length === 0) return;
+
+    if(!Array.isArray(d.states) || d.states.length === 0) return;
+
     d.states.forEach(state => {
       const s = LEVEL_STYLE[state.level] || LEVEL_STYLE.WARNING;
+
       const div = document.createElement('div');
-      div.style.cssText = `display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-radius:16px;border-left:4px solid ${s.border};background:${s.bg};cursor:pointer;gap:12px`;
+
+      div.style.cssText =
+        `display:flex;align-items:center;justify-content:space-between;` +
+        `padding:14px 18px;border-radius:16px;` +
+        `border-left:4px solid ${s.border};background:${s.bg};` +
+        `cursor:pointer;gap:12px`;
+
       div.innerHTML = `
         <div style="display:flex;align-items:center;gap:12px;min-width:0">
-          <span style="font-size:20px;flex:none">${state.level==='DANGER'?'🚨':'⚠️'}</span>
+          <span style="font-size:20px;flex:none">
+            ${state.level === 'DANGER' ? '🚨' : '⚠️'}
+          </span>
           <div style="min-width:0">
-            <span style="font-size:11px;font-weight:900;color:${s.text}">${state.code}</span>
-            <p style="font-size:14px;font-weight:900;color:${s.text};margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${state.title}</p>
+            <span style="font-size:11px;font-weight:900;color:${s.text}">
+              ${esc(state.code || '')}
+            </span>
+            <p style="font-size:14px;font-weight:900;color:${s.text};
+              margin:2px 0 0;white-space:nowrap;overflow:hidden;
+              text-overflow:ellipsis">
+              ${esc(state.title || '상태 확인 필요')}
+            </p>
           </div>
         </div>
-        <button style="flex:none;border:0;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:900;cursor:pointer;${s.badge}">상세 보기 →</button>
+        <button type="button"
+          style="flex:none;border:0;border-radius:10px;padding:7px 14px;
+          font-size:12px;font-weight:900;cursor:pointer;${s.badge}">
+          상세 보기 →
+        </button>
       `;
+
       div.addEventListener('click', () => openStateModal(state));
       container.appendChild(div);
     });
-  }catch(e){ console.warn('[states]', e); }
+  }catch(e){
+    console.warn('[states]', e);
+  }
 }
 
 fetchActiveStates();
 setInterval(fetchActiveStates, 30000);
+
+/* =========================
+   1번째 코드의 환경정보 상세 모달
+   - 기존 ENV_DETAIL_MOCK 제거
+   - active state API + dashboard history 사용
+========================= */
+const environmentDetailModal = document.getElementById('environmentDetailModal');
+const environmentDetailBtn = document.getElementById('environmentDetailBtn');
+const environmentDetailClose = document.getElementById('environmentDetailClose');
+
+const envDetailColorMap = {
+  temperature:'#ff5d63',
+  ph:'#249ee9',
+  do:'#28c943',
+  turbidity:'#f6a11a',
+  waterlevel:'#6b8cff',
+  waterchange:'#7b6cf6'
+};
+
+const envDetailLabelMap = {
+  temperature:'수온',
+  ph:'pH',
+  do:'DO',
+  turbidity:'탁도',
+  waterlevel:'수위',
+  waterchange:'환수'
+};
+
+const envDetailUnitMap = {
+  temperature:'°C',
+  ph:'',
+  do:'mg/L',
+  turbidity:'NTU',
+  waterlevel:'%',
+  waterchange:''
+};
+
+let latestDashboard = null;
+let activeStates = [];
+
+function envDetailLevelLabel(level){
+  return level === 'danger' || level === 'DANGER'
+    ? '위험'
+    : level === 'warning' || level === 'WARNING'
+      ? '경고'
+      : '정상';
+}
+
+function normalizeStateLevel(level){
+  if(!level) return 'normal';
+  const upper = String(level).toUpperCase();
+  if(upper === 'DANGER') return 'danger';
+  if(upper === 'WARNING') return 'warning';
+  return 'normal';
+}
+
+function findStateForSensor(key){
+  const aliases = {
+    temperature:['TEMP','TEMPERATURE','TMP'],
+    ph:['PH'],
+    do:['DO','DISSOLVED_OXYGEN'],
+    turbidity:['TURB','TURBIDITY','NTU'],
+    waterlevel:['LVL','LEVEL','WATER_LEVEL'],
+    waterchange:['WC','WATERCHANGE','WATER_CHANGE']
+  };
+
+  const targets = aliases[key] || [];
+
+  return activeStates.find(state => {
+    const code = String(state.code || '').toUpperCase();
+    return targets.some(prefix => code.startsWith(prefix));
+  }) || null;
+}
+
+function getSensorFromDashboard(key){
+  const s = latestDashboard && latestDashboard.sensor;
+  if(!s) return null;
+
+  if(key === 'temperature') return s.temperature;
+  if(key === 'ph') return s.ph;
+  if(key === 'do') return s.dissolved_oxygen;
+  if(key === 'turbidity') return s.turbidity;
+  if(key === 'waterlevel') return s.water_level;
+
+  return null;
+}
+
+function getTrendFromDashboard(key){
+  const h = latestDashboard && latestDashboard.history;
+  if(!h) return [];
+
+  if(key === 'temperature') return Array.isArray(h.temp) ? h.temp : [];
+  if(key === 'ph') return Array.isArray(h.ph) ? h.ph : [];
+  if(key === 'do') return Array.isArray(h.do) ? h.do : [];
+  if(key === 'turbidity') return Array.isArray(h.turb) ? h.turb : [];
+
+  return [];
+}
+
+function getCurrentState(key){
+  const state = findStateForSensor(key);
+  if(state) return normalizeStateLevel(state.level);
+
+  const value = toNumber(getSensorFromDashboard(key));
+
+  if(value === null) return 'normal';
+
+  if(key === 'temperature'){
+    return value >= 21 && value <= 24 ? 'normal' : 'danger';
+  }
+
+  if(key === 'ph'){
+    return value >= 6.5 && value <= 8.0 ? 'normal' : 'warning';
+  }
+
+  if(key === 'do'){
+    return value >= 5 ? 'normal' : 'danger';
+  }
+
+  if(key === 'turbidity'){
+    if(value <= 50) return 'normal';
+    if(value <= 100) return 'warning';
+    return 'danger';
+  }
+
+  if(key === 'waterlevel'){
+    if(value >= 80) return 'normal';
+    if(value >= 60) return 'warning';
+    return 'danger';
+  }
+
+  return 'normal';
+}
+
+function getNormalRange(key){
+  const ranges = {
+    temperature:`{{ tank.temp_min|default:"20" }} ~ {{ tank.temp_max|default:"26" }} °C`,
+    ph:`{{ tank.ph_min|default:"6.5" }} ~ {{ tank.ph_max|default:"8.0" }}`,
+    do:`{{ tank.do_min|default:"5" }} mg/L 이상`,
+    turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} NTU`,
+    waterlevel:'80 ~ 100 %',
+    waterchange:'설정된 환수 주기 기준'
+  };
+  return ranges[key] || '-';
+}
+
+function getFallbackDescription(key, level){
+  if(level === 'danger') return `${envDetailLabelMap[key]} 수치가 위험 수준입니다.`;
+  if(level === 'warning') return `${envDetailLabelMap[key]} 수치가 권장 범위를 벗어났습니다.`;
+  return `현재 ${envDetailLabelMap[key]} 상태는 정상입니다.`;
+}
+
+function renderEnvDetailStatus(sensor){
+  const level = sensor.level || 'normal';
+
+  const badgeClass =
+    level === 'danger' ? 'env-danger-badge' :
+    level === 'warning' ? 'env-warning-badge' :
+    'env-normal-badge';
+
+  document.getElementById('envDetailStatusBadge').innerHTML =
+    `<span class="env-status-badge ${badgeClass}">
+      <span class="env-status-dot"></span>
+      ${envDetailLevelLabel(level)}
+    </span>`;
+
+  document.getElementById('envDetailStatusDescription').textContent =
+    sensor.description || getFallbackDescription(sensor.key, level);
+
+  const code = document.getElementById('envDetailStateCode');
+  code.textContent = sensor.stateCode || 'STATE-NORMAL-000';
+  code.classList.remove('code-normal','code-warning','code-danger');
+  code.classList.add(
+    level === 'danger' ? 'code-danger' :
+    level === 'warning' ? 'code-warning' :
+    'code-normal'
+  );
+}
+
+function renderEnvDetailList(id, items, level){
+  const el = document.getElementById(id);
+  const card = el.closest('.env-detail-card');
+
+  const list = Array.isArray(items) ? items : [];
+
+  if(level === 'normal'){
+    card.classList.add('normal-card');
+    el.innerHTML =
+      '<div class="env-normal-placeholder">이상 상태 없음</div>';
+    return;
+  }
+
+  card.classList.remove('normal-card');
+
+  el.innerHTML =
+    '<ul class="env-detail-list">' +
+    (list.length
+      ? list.map(item => `<li>${esc(item)}</li>`).join('')
+      : '<li>상세 정보가 없습니다.</li>') +
+    '</ul>';
+}
+
+function makeEnvDetailChart(values, color){
+  const numeric = (Array.isArray(values) ? values : [])
+    .map(Number)
+    .filter(Number.isFinite);
+
+  const line = document.getElementById('envDetailTrendLine');
+  const area = document.getElementById('envDetailTrendArea');
+  const points = document.getElementById('envDetailTrendPoints');
+
+  if(numeric.length === 0){
+    line.setAttribute('points','');
+    area.setAttribute('points','');
+    points.innerHTML = '';
+    ['envY5','envY4','envY3','envY2','envY1']
+      .forEach(id => document.getElementById(id).textContent = '-');
+    return;
+  }
+
+  const width = 800;
+  const height = 216;
+
+  if(numeric.length === 1){
+    numeric.push(numeric[0]);
+  }
+
+  const min = Math.min(...numeric);
+  const max = Math.max(...numeric);
+  const pad = Math.max((max - min) * .2, .5);
+  const lo = min - pad;
+  const hi = max + pad;
+  const step = width / (numeric.length - 1);
+
+  const coords = numeric.map((value,index) => [
+    index * step,
+    height - ((value - lo) / (hi - lo)) * height
+  ]);
+
+  line.setAttribute(
+    'points',
+    coords.map(p => p.join(',')).join(' ')
+  );
+  line.setAttribute('stroke', color);
+
+  area.setAttribute(
+    'points',
+    coords.map(p => p.join(','))
+      .concat([`${width},${height}`,`0,${height}`])
+      .join(' ')
+  );
+  area.setAttribute('fill', color);
+
+  points.innerHTML = '';
+
+  coords.forEach(([x,y]) => {
+    const circle = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'circle'
+    );
+    circle.setAttribute('cx',x);
+    circle.setAttribute('cy',y);
+    circle.setAttribute('r','4');
+    circle.setAttribute('fill',color);
+    points.appendChild(circle);
+  });
+
+  const ticks = [
+    hi,
+    hi - (hi-lo)*.25,
+    hi - (hi-lo)*.5,
+    hi - (hi-lo)*.75,
+    lo
+  ];
+
+  ['envY5','envY4','envY3','envY2','envY1']
+    .forEach((id,index) => {
+      document.getElementById(id).textContent =
+        ticks[index].toFixed(1);
+    });
+}
+
+function buildEnvironmentDetailSensor(key){
+  const state = findStateForSensor(key);
+  const value = key === 'waterchange'
+    ? getWaterChangeDisplayValue()
+    : getSensorFromDashboard(key);
+
+  const level = getCurrentState(key);
+
+  let stateCode = state ? state.code : null;
+  let description = state ? state.description : null;
+
+  const sensor = {
+    key,
+    label:envDetailLabelMap[key],
+    unit:envDetailUnitMap[key],
+    value,
+    normalRange:getNormalRange(key),
+    level,
+    stateCode,
+    description,
+    causes:state ? state.causes : [],
+    effects:state ? state.effects : [],
+    actions:state ? state.actions : [],
+    prevention:state ? state.prevention : [],
+    trend:getTrendFromDashboard(key),
+    lastUpdated:
+      state && state.detected_at
+        ? formatDate(state.detected_at)
+        : getDashboardUpdatedAt(),
+    lastWaterchangeDate:
+      latestDashboard?.last_waterchange_date ||
+      latestDashboard?.lastWaterchangeDate ||
+      '-',
+    nextWaterchangeDate:
+      latestDashboard?.next_waterchange_date ||
+      latestDashboard?.nextWaterchangeDate ||
+      '-'
+  };
+
+  return sensor;
+}
+
+function getWaterChangeDisplayValue(){
+  const el = document.querySelector('.water-change-btn');
+  const text = el ? el.textContent.trim() : '';
+
+  if(text.includes('오늘 환수 완료')) return '오늘 완료';
+
+  const title = document.querySelector('.tank-summary p');
+  if(title){
+    const match = title.textContent.match(/D[+-]\s*\d+/);
+    if(match) return match[0].replace(/\s+/g,' ');
+  }
+
+  return 'D -';
+}
+
+function getDashboardUpdatedAt(){
+  const s = latestDashboard?.sensor;
+  return formatDate(
+    s?.measured_at ||
+    s?.created_at ||
+    s?.timestamp ||
+    latestDashboard?.measured_at ||
+    latestDashboard?.updated_at
+  );
+}
+
+function renderEnvironmentDetailSensor(key){
+  const sensor = buildEnvironmentDetailSensor(key);
+
+  const valueText = key === 'waterchange'
+    ? sensor.value
+    : sensor.value == null
+      ? '--'
+      : `${formatValue(sensor.value)}${sensor.unit ? ' ' + sensor.unit : ''}`;
+
+  document.getElementById('envDetailSensorValue').textContent = valueText;
+  document.getElementById('envDetailNormalRange').textContent =
+    '적정 범위 ' + sensor.normalRange;
+  document.getElementById('envDetailLastUpdated').textContent =
+    sensor.lastUpdated;
+  document.getElementById('envDetailTrendSensorName').textContent =
+    sensor.label;
+
+  const trendCard = document.getElementById('envDetailTrendCard');
+  const waterchangeDates = document.getElementById('envDetailWaterchangeDates');
+  const detailSectionHead = document.getElementById('envDetailSectionHead');
+  const detailGrid = document.getElementById('envDetailGrid');
+
+  if(key === 'waterchange'){
+    trendCard.style.display = 'none';
+    waterchangeDates.style.display = 'grid';
+    detailSectionHead.style.display = 'none';
+    detailGrid.style.display = 'none';
+
+    document.getElementById('envDetailLastWaterchangeDate').textContent =
+      sensor.lastWaterchangeDate;
+    document.getElementById('envDetailNextWaterchangeDate').textContent =
+      sensor.nextWaterchangeDate;
+  }else{
+    trendCard.style.display = 'block';
+    waterchangeDates.style.display = 'none';
+    detailSectionHead.style.display = 'flex';
+    detailGrid.style.display = 'grid';
+
+    makeEnvDetailChart(
+      sensor.trend,
+      envDetailColorMap[key]
+    );
+
+    const labels = latestDashboard?.history?.labels || [];
+    document.getElementById('envDetailXLabels').innerHTML =
+      labels.slice(-6).map(label => `<span>${esc(label)}</span>`).join('');
+  }
+
+  renderEnvDetailStatus(sensor);
+  renderEnvDetailList('envDetailCauses',sensor.causes,sensor.level);
+  renderEnvDetailList('envDetailEffects',sensor.effects,sensor.level);
+  renderEnvDetailList('envDetailActions',sensor.actions,sensor.level);
+  renderEnvDetailList('envDetailPrevention',sensor.prevention,sensor.level);
+
+  document.querySelectorAll('.env-sensor-tab').forEach(btn => {
+    btn.classList.toggle('active',btn.dataset.envSensor === key);
+  });
+}
+
+function openEnvironmentDetail(){
+  renderEnvironmentDetailSensor('temperature');
+  environmentDetailModal.classList.add('open');
+  environmentDetailModal.setAttribute('aria-hidden','false');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeEnvironmentDetail(){
+  environmentDetailModal.classList.remove('open');
+  environmentDetailModal.setAttribute('aria-hidden','true');
+  document.body.style.overflow = '';
+}
+
+environmentDetailBtn.addEventListener('click',openEnvironmentDetail);
+environmentDetailClose.addEventListener('click',closeEnvironmentDetail);
+
+document.querySelectorAll('.env-sensor-tab').forEach(btn => {
+  btn.addEventListener('click',() => {
+    renderEnvironmentDetailSensor(btn.dataset.envSensor);
+  });
+});
+
+environmentDetailModal.addEventListener('click',event => {
+  if(event.target === environmentDetailModal){
+    closeEnvironmentDetail();
+  }
+});
+
+document.addEventListener('keydown',event => {
+  if(event.key === 'Escape' &&
+     environmentDetailModal.classList.contains('open')){
+    closeEnvironmentDetail();
+  }
+});
+
+/* =========================
+   대시보드 API 응답 저장
+   상세 모달은 이 데이터를 사용한다.
+========================= */
+async function refreshDashboardForDetail(){
+  try{
+    const r = await fetch(
+      `/monitoring/api/dashboard-data/${TANK_ID}/`,
+      {cache:'no-store'}
+    );
+    if(r.ok){
+      latestDashboard = await r.json();
+    }
+  }catch(e){
+    console.warn('[detail dashboard]',e);
+  }
+}
+
+async function refreshStatesForDetail(){
+  try{
+    const r = await fetch(
+      `/monitoring/api/states/active/?tank_id=${encodeURIComponent(TANK_ID)}`,
+      {cache:'no-store'}
+    );
+    if(r.ok){
+      const d = await r.json();
+      activeStates = Array.isArray(d.states) ? d.states : [];
+    }
+  }catch(e){
+    console.warn('[detail states]',e);
+  }
+}
+
+/* 최초 상세 모달용 데이터 확보 */
+refreshDashboardForDetail();
+refreshStatesForDetail();
+
+/* 계정/로그아웃 */
+try{
+  const account = JSON.parse(
+    localStorage.getItem('fishTankAccount') || 'null'
+  );
+
+  if(account && account.id){
+    const userName = document.getElementById('userName');
+    const userCircle = document.querySelector('.user-circle');
+
+    if(userName) userName.textContent = account.id + ' 님';
+    if(userCircle) userCircle.textContent = account.id.charAt(0);
+  }
+}catch(e){}
+
+/* 서버 템플릿에 이미 있는 로그아웃 버튼 사용 */
+const logoutBtn = document.getElementById('logoutBtn');
+if(logoutBtn){
+  logoutBtn.addEventListener('click',() => {
+    sessionStorage.removeItem('fishTankLoggedIn');
+    location.href = '/';
+  });
+}
 </script>
+
 {% endblock %}
