@@ -11,14 +11,28 @@
   .tank-summary{padding:22px 22px 18px;border-bottom:1px solid #e4e8ee}
   .sidebar-toggle{width:30px;height:30px;flex:none;border:0;border-radius:8px;background:#f1f5fa;color:#596474;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .sidebar-toggle:hover{background:#dcecff;color:#2572e9}
-  .s-menu{list-style:none;padding:14px}
-  .s-menu a{display:flex;align-items:center;gap:14px;height:48px;padding:0 16px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:15px;margin-bottom:4px}
+  .s-menu{list-style:none;padding:0 6px}
+  .s-menu a{display:flex;align-items:center;height:44px;padding:0 12px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:14px;margin-bottom:2px}
   .s-menu a.active{background:#dcecff;color:#2572e9;font-weight:800}
   .s-menu a:hover{background:#f1f5fa}
   .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
-  .sidebar-bottom a{display:flex;align-items:center;text-decoration:none;white-space:nowrap;font-size:14px;font-weight:800}
-  main{margin-left:var(--sw);padding:40px 48px 80px 48px;transition:margin-left .3s}
+  .sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
+  #mainContent{
+    margin-left:var(--sw);
+    padding:40px 48px 80px 48px;
+    transition:margin-left .3s;
+    box-sizing:border-box;
+    min-width:0;
+  }
+  #mainContent > div{
+    width:100%;
+    max-width:1200px;
+    min-width:0;
+    margin:0 auto;
+    box-sizing:border-box;
+  }
 
+  .page-title{font-size:18px;font-weight:900;letter-spacing:.5px;margin-bottom:32px}
   .stream-wrap{position:relative;background:#111827;border-radius:24px;overflow:hidden;aspect-ratio:16/9;margin-bottom:24px;display:flex;align-items:center;justify-content:center}
   .stream-wrap img{width:100%;height:100%;object-fit:contain;display:block}
   .stream-offline{color:#9ca3af;font-size:14px;font-weight:700;text-align:center;padding:20px}
@@ -28,35 +42,10 @@
   .ctrl-btn{height:44px;padding:0 20px;border:1px solid #dde1ea;border-radius:12px;background:#fff;font-size:13px;font-weight:800;cursor:pointer;color:#333}
   .ctrl-btn.active{background:#30375f;color:#fff;border-color:#30375f}
 
-  .ai-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:24px}
-  .ai-card{background:#fff;border-radius:20px;padding:22px;box-shadow:0 3px 10px rgba(0,0,0,.07)}
-  .ai-card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
-  .ai-card-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#8090a5;margin-bottom:4px}
-  .ai-card-sub{font-size:11px;color:#9ca3af;font-weight:600}
-  .ai-score{font-size:44px;font-weight:900;letter-spacing:-2px;line-height:1;margin:8px 0}
-  .ai-status-label{font-size:14px;font-weight:900;margin-bottom:14px}
-  .ai-badge{font-size:11px;font-weight:900;padding:4px 10px;border-radius:14px}
-  .badge-good{background:#e6f9f0;color:#1a7f5a}
-  .badge-ok{background:#e8f0ff;color:#2572e9}
-  .badge-warn{background:#fff3e0;color:#b75e00}
-  .badge-danger{background:#fdecea;color:#b71c1c}
-  .badge-none{background:#f1f5f9;color:#9ca3af}
-  .sub-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
-  .sub-m{background:#f4f7fb;border-radius:12px;padding:10px;text-align:center}
-  .sub-m-label{font-size:9px;font-weight:900;color:#8090a5;margin-bottom:4px}
-  .sub-m-val{font-size:13px;font-weight:900;color:#333}
-  .fish-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-  .fish-row{background:#f4f7fb;border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700}
-  .fish-bar-wrap{width:100%;background:#e4e8f0;border-radius:6px;height:4px;margin-top:6px}
-  .fish-bar{height:4px;border-radius:6px;background:#536ae8;transition:width .3s}
-  .mini-chart-wrap{height:72px;position:relative;margin:12px 0}
   .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
   .summary-card{background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);text-align:center}
   .summary-label{font-size:11px;font-weight:900;color:#8090a5;margin-bottom:8px}
   .summary-val{font-size:22px;font-weight:900}
-  .empty-note{color:#ccc;font-size:12px;text-align:center;padding:8px}
-
-  @media(max-width:1100px){.ai-grid{grid-template-columns:1fr}}
   @media(max-width:900px){
     .sidebar{display:none}
     main{margin-left:0!important;padding:24px 18px 80px}
@@ -74,6 +63,11 @@
         <p style="color:#7e8997;font-size:13px">실시간 모니터링</p>
       </div>
       <button class="sidebar-toggle" onclick="toggleSb()" id="sbToggle">‹</button>
+    </div>
+    <div class="hide-on-collapse" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+      {% for t in user_tanks %}
+      <a href="{% url 'monitoring:camera_view' %}?tank_id={{ t.id }}" style="font-size:11px;padding:4px 10px;border-radius:16px;border:1px solid {% if tank and t.id == tank.id %}#536ae8{% else %}#dde1ea{% endif %};background:{% if tank and t.id == tank.id %}#e8f0ff{% else %}#fff{% endif %};color:{% if tank and t.id == tank.id %}#536ae8{% else %}#555{% endif %};text-decoration:none;font-weight:700">{{ t.name }}</a>
+      {% endfor %}
     </div>
   </div>
 
@@ -100,7 +94,8 @@
 </aside>
 
 <main id="mainContent">
-  <div style="max-width:1200px;margin:0 auto">
+  <div style="width:100%">
+    <h1 class="page-title">CAMERA</h1>
 
     <!-- 스트리밍 -->
     <div class="stream-wrap" id="streamWrap">
@@ -151,84 +146,6 @@
       </div>
     </div>
 
-    <!-- AI 상세 분석 4카드 -->
-    <div class="ai-grid">
-
-      <!-- FRS -->
-      <div class="ai-card" style="background:linear-gradient(135deg,#fffaf0,#fff8ec)">
-        <div class="ai-card-head">
-          <div>
-            <div class="ai-card-label" style="color:#d97706">🍽️ FRS</div>
-            <div class="ai-card-sub">급이 반응 분석</div>
-          </div>
-          <span class="ai-badge badge-none" id="frsBadge">--</span>
-        </div>
-        <div class="ai-score" id="frsScore">--</div>
-        <div class="ai-status-label" id="frsLabel" style="color:#d97706">--</div>
-        <div class="sub-metrics">
-          <div class="sub-m"><div class="sub-m-label">첫 수면접근</div><div class="sub-m-val" id="frsRt">--</div></div>
-          <div class="sub-m"><div class="sub-m-label">활동증가</div><div class="sub-m-val" id="frsAct">--</div></div>
-          <div class="sub-m"><div class="sub-m-label">수면접근</div><div class="sub-m-val" id="frsSurf">--</div></div>
-        </div>
-      </div>
-
-      <!-- ABR -->
-      <div class="ai-card" style="background:linear-gradient(135deg,#fff5f5,#fff0f0)">
-        <div class="ai-card-head">
-          <div>
-            <div class="ai-card-label" style="color:#dc2626">⚠️ ABR</div>
-            <div class="ai-card-sub">이상행동 분석</div>
-          </div>
-          <span class="ai-badge badge-none" id="abrBadge">--</span>
-        </div>
-        <div class="ai-score" id="abrRate">--</div>
-        <div style="font-size:13px;color:#9ca3af;margin-bottom:14px">전체 이상행동율</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-          <div class="sub-m"><div class="sub-m-label">이상 감지</div><div class="sub-m-val" id="abrCount">-- 회</div></div>
-        </div>
-        <div style="font-size:11px;font-weight:900;color:#8090a5;margin-bottom:8px">개체별 ABR</div>
-        <div class="fish-list" id="abrFishList"><div class="empty-note">로딩 중...</div></div>
-      </div>
-
-      <!-- 활동 패턴 -->
-      <div class="ai-card" style="background:linear-gradient(135deg,#f0f7ff,#ebf4ff)">
-        <div class="ai-card-head">
-          <div>
-            <div class="ai-card-label" style="color:#2563eb">📊 활동 패턴</div>
-            <div class="ai-card-sub">개체별 활동 분석</div>
-          </div>
-          <span class="ai-badge badge-none" id="actBadge">--</span>
-        </div>
-        <div class="ai-score" style="color:#2563eb" id="actValue">--</div>
-        <div style="font-size:13px;color:#9ca3af;margin-bottom:14px">최근 30분 평균 (px/s)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-          <div class="sub-m"><div class="sub-m-label">Baseline 대비</div><div class="sub-m-val" id="actBaseline">--</div></div>
-          <div class="sub-m"><div class="sub-m-label">주요 구역</div><div class="sub-m-val" id="actZone">--</div></div>
-        </div>
-        <div class="mini-chart-wrap"><canvas id="actMiniChart"></canvas></div>
-        <div style="font-size:11px;font-weight:900;color:#8090a5;margin-bottom:8px">개체별 활동량</div>
-        <div class="fish-list" id="actFishList"><div class="empty-note">로딩 중...</div></div>
-      </div>
-
-      <!-- 성장 추정 -->
-      <div class="ai-card" style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5)">
-        <div class="ai-card-head">
-          <div>
-            <div class="ai-card-label" style="color:#059669">📏 성장 추정</div>
-            <div class="ai-card-sub">개체별 체장 분석</div>
-          </div>
-          <span class="ai-badge badge-none" id="growthStageBadge">--</span>
-        </div>
-        <div class="ai-score" style="color:#059669" id="growthAvg">--</div>
-        <div style="font-size:13px;color:#9ca3af;margin-bottom:14px">평균 체장 (cm)</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;background:#f0fdf4;border-radius:12px;padding:10px 14px;margin-bottom:12px">
-          <div><div style="font-size:10px;color:#6b7280;font-weight:800">평균 성장률</div><div id="growthRate" style="font-size:14px;font-weight:900;color:#059669">-- cm/day</div></div>
-        </div>
-        <div style="font-size:11px;font-weight:900;color:#8090a5;margin-bottom:8px">개체별 체장</div>
-        <div class="fish-list" id="growthFishList"><div class="empty-note">로딩 중...</div></div>
-      </div>
-
-    </div>
   </div>
 </main>
 
@@ -238,7 +155,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 const TANK_ID = {{ tank.id|default:1 }};
 
@@ -284,7 +200,7 @@ async function sf(url){try{const r=await fetch(url);return r.ok?await r.json():n
 
 const ZONE_KO={TOP:'상층',MID:'중층',BOT:'하층'};
 
-// 요약 + 활동 개체별
+// AI 요약 카드
 async function fetchBeh(){
   const d=await sf(`/monitoring/api/behavior/latest/?tank_id=${TANK_ID}`);
   const STATUS_KO={EXCELLENT:'매우 좋음',GOOD:'좋음',NORMAL:'정상',WARNING:'주의',POOR:'나쁨'};
@@ -295,146 +211,20 @@ async function fetchBeh(){
     document.getElementById('sumActivity').textContent='--';
     document.getElementById('sumZone').textContent='--';
     document.getElementById('sumStatus').textContent='데이터 없음';
-    document.getElementById('actFishList').innerHTML='<div class="empty-note">아직 수신된 데이터가 없습니다</div>';
     return;
   }
 
   document.getElementById('sumCount').textContent=(d.fish_count??'--')+'마리';
   document.getElementById('sumActivity').textContent=f2(d.activity_level);
   document.getElementById('sumZone').textContent=ZONE_KO[d.dominant_zone]||d.dominant_zone||'--';
+
   const el=document.getElementById('sumStatus');
   el.textContent=STATUS_KO[d.status]||d.status||'--';
   el.style.color=STATUS_C[d.status]||'#6b7280';
-
-  const fish=d.fish||[];
-  document.getElementById('actFishList').innerHTML = fish.length
-    ? fish.map(f=>`
-      <div class="fish-row">
-        <span style="min-width:56px">Fish #${f.fish_id}</span>
-        <span style="flex:1;text-align:right;color:#333">${f2(f.activity_level)} px/s</span>
-        <span style="margin-left:10px;font-size:11px;padding:2px 8px;border-radius:10px;background:#f0f4ff;color:#536ae8;min-width:40px;text-align:center">${ZONE_KO[f.dominant_zone]||f.dominant_zone}</span>
-      </div>`).join('')
-    : '<div class="empty-note">개체별 데이터 없음</div>';
-
-  document.getElementById('actValue').textContent=f2(d.activity_level);
-  document.getElementById('actZone').textContent=ZONE_KO[d.dominant_zone]||d.dominant_zone||'--';
 }
 
-// FRS
-async function fetchFRS(){
-  const d=await sf(`/monitoring/api/frs/?tank_id=${TANK_ID}`);
-  if(!d){
-    document.getElementById('frsScore').textContent='데이터 없음';
-    document.getElementById('frsLabel').textContent='';
-    document.getElementById('frsBadge').textContent='--';
-    document.getElementById('frsBadge').className='ai-badge badge-none';
-    return;
-  }
-  document.getElementById('frsScore').textContent=Math.round(d.score)+' / 100';
-  document.getElementById('frsLabel').textContent=d.status||'--';
-  document.getElementById('frsRt').textContent=f2(d.response_time_sec)+'초';
-  document.getElementById('frsAct').textContent=(d.activity_increase_percent>=0?'+':'')+f2(d.activity_increase_percent)+'%';
-  document.getElementById('frsSurf').textContent=(d.surface_visits??'--')+'회';
-  const b=document.getElementById('frsBadge');
-  const score=d.score;
-  b.textContent=score>=70?'양호':score>=40?'주의':'위험';
-  b.className='ai-badge '+(score>=70?'badge-good':score>=40?'badge-warn':'badge-danger');
-}
-
-// ABR
-async function fetchABR(){
-  const d=await sf(`/monitoring/api/abr/?tank_id=${TANK_ID}`);
-  if(!d){
-    document.getElementById('abrRate').textContent='데이터 없음';
-    document.getElementById('abrCount').textContent='--';
-    document.getElementById('abrBadge').textContent='--';
-    document.getElementById('abrBadge').className='ai-badge badge-none';
-    document.getElementById('abrFishList').innerHTML='<div class="empty-note">데이터 없음</div>';
-    return;
-  }
-  document.getElementById('abrRate').textContent=d.abr_rate.toFixed(1)+'%';
-  document.getElementById('abrCount').textContent=(d.anomaly_count??0)+' 회';
-  const b=document.getElementById('abrBadge');
-  b.textContent=d.status;
-  b.className='ai-badge '+(d.status==='정상'?'badge-good':d.status==='주의'?'badge-warn':'badge-danger');
-
-  const fish=d.fish||[];
-  const SC={정상:'#10b981',관찰:'#f59e0b',위험:'#ef4444'};
-  document.getElementById('abrFishList').innerHTML = fish.length
-    ? fish.map(f=>`
-      <div class="fish-row">
-        <span>Fish #${f.fish_id}</span>
-        <div style="flex:1;margin:0 12px">
-          <div class="fish-bar-wrap"><div class="fish-bar" style="width:${Math.min(f.abr_rate*3,100)}%;background:${SC[f.status]||'#536ae8'}"></div></div>
-        </div>
-        <span style="color:${SC[f.status]||'#536ae8'};min-width:56px;text-align:right">${f.abr_rate.toFixed(1)}% ${f.status}</span>
-      </div>`).join('')
-    : '<div class="empty-note">개체별 데이터 없음</div>';
-}
-
-// 활동 미니차트 (24시간 패턴)
-let actChart=null;
-async function fetchAct(){
-  const d=await sf(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
-  if(!d){
-    document.getElementById('actBaseline').textContent='--';
-    document.getElementById('actBadge').textContent='--';
-    document.getElementById('actBadge').className='ai-badge badge-none';
-    return;
-  }
-  const delta=d.compared_to_baseline;
-  const bel=document.getElementById('actBaseline');
-  bel.textContent=(delta>=0?'+':'')+f2(delta)+'%';
-  bel.style.color=delta>=0?'#10b981':'#ef4444';
-  const sb=document.getElementById('actBadge');
-  sb.textContent=Math.abs(delta)<=30?'정상':delta<-30?'활동저하':'과활동';
-  sb.className='ai-badge '+(Math.abs(delta)<=30?'badge-ok':delta<-30?'badge-danger':'badge-warn');
-
-  const hourly=d.hourly_activity||[];
-  const labels=hourly.map((_,i)=>`${i}시`);
-  if(!actChart){
-    actChart=new Chart(document.getElementById('actMiniChart').getContext('2d'),{
-      type:'line',data:{labels,datasets:[{data:hourly,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',borderWidth:2,pointRadius:0,tension:.4,fill:true}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:8},color:'#94a3b8'}}},animation:{duration:200}}
-    });
-  } else {
-    actChart.data.labels=labels;
-    actChart.data.datasets[0].data=hourly;
-    actChart.update();
-  }
-}
-
-// 성장
-async function fetchGrowth(){
-  const d=await sf(`/monitoring/api/growth/latest-all/?tank_id=${TANK_ID}`);
-  if(!d){
-    document.getElementById('growthAvg').textContent='데이터 없음';
-    document.getElementById('growthRate').textContent='--';
-    document.getElementById('growthStageBadge').textContent='--';
-    document.getElementById('growthFishList').innerHTML='<div class="empty-note">데이터 없음</div>';
-    return;
-  }
-  document.getElementById('growthAvg').textContent=f2(d.avg_length);
-  document.getElementById('growthRate').textContent='+'+f2(d.avg_rate)+' cm/day';
-  const fish=d.fish||[];
-  document.getElementById('growthStageBadge').textContent = fish[0]?.growth_stage || '--';
-  document.getElementById('growthStageBadge').className='ai-badge badge-good';
-
-  const max=Math.max(...fish.map(f=>f.estimated_length),0.1);
-  document.getElementById('growthFishList').innerHTML = fish.length
-    ? fish.map(f=>`
-      <div style="background:#f4f7fb;border-radius:10px;padding:8px 12px;margin-bottom:6px">
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;margin-bottom:5px">
-          <span>Fish #${f.fish_id}</span>
-          <div><span style="color:#333">${f2(f.estimated_length)} cm</span><span style="color:#10b981;margin-left:10px;font-size:11px">+${f2(f.growth_rate)}/day</span></div>
-        </div>
-        <div class="fish-bar-wrap"><div class="fish-bar" style="width:${(f.estimated_length/max*100).toFixed(1)}%;background:#10b981"></div></div>
-      </div>`).join('')
-    : '<div class="empty-note">개체별 데이터 없음</div>';
-}
-
-async function fetchAll(){await Promise.allSettled([fetchBeh(),fetchFRS(),fetchABR(),fetchGrowth()]);}
-fetchAll();fetchAct();
-setInterval(fetchAll,30000);setInterval(fetchAct,60000);
+// 요약 데이터 갱신
+fetchBeh();
+setInterval(fetchBeh,30000);
 </script>
 {% endblock %}

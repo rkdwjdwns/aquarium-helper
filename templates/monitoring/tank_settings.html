@@ -69,7 +69,7 @@
             </div>
 
             <div class="bg-slate-50 rounded-[2rem] p-6">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">탁도 최댓값 (NTU)</p>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">탁도 최댓값 (PPM)</p>
                 <input type="number" name="turbidity_max" value="{{ tank.turbidity_max }}" step="1"
                        class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
             </div>
@@ -127,12 +127,12 @@
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <p class="text-[10px] text-slate-400 font-bold mb-1">켜짐 기준 (NTU 이상)</p>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">켜짐 기준 (PPM 이상)</p>
                         <input type="number" name="filter_on_ntu" value="{{ tank.filter_on_ntu }}" step="1"
                                class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
                     </div>
                     <div>
-                        <p class="text-[10px] text-slate-400 font-bold mb-1">꺼짐 기준 (NTU 이하)</p>
+                        <p class="text-[10px] text-slate-400 font-bold mb-1">꺼짐 기준 (PPM 이하)</p>
                         <input type="number" name="filter_off_ntu" value="{{ tank.filter_off_ntu }}" step="1"
                                class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400">
                     </div>

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block extra_css %}
 <style>
-  :root{--sw:330px}
+  :root{--sw:270px}
   .sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
   .sidebar.collapsed{width:44px;overflow:hidden}
   .sidebar.collapsed .hide-on-collapse{display:none!important}
@@ -17,7 +17,24 @@
   .s-menu a:hover{background:#f1f5fa}
   .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
   .sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
-  main{margin-left:var(--sw);padding:40px 5vw 80px;transition:all .3s;width:calc(100vw - var(--sw))}
+  #mainContent{
+    margin-left:var(--sw);
+    padding:40px 48px 80px 48px;
+    transition:margin-left .3s;
+    box-sizing:border-box;
+    min-width:0;
+  }
+  #mainContent > div{
+    width:100%;
+    max-width:1200px;
+    min-width:0;
+    margin:0 auto;
+    box-sizing:border-box;
+  }
+  .card{min-width:0;max-width:100%;box-sizing:border-box}
+  .bottom-grid{min-width:0}
+  .bottom-grid > .card{min-width:0}
+  canvas{max-width:100%!important}
 
   .page-title{font-size:18px;font-weight:900;letter-spacing:.5px;margin-bottom:32px}
   .card{background:#fff;border-radius:24px;box-shadow:0 2px 9px rgba(0,0,0,.06);margin-bottom:24px}
@@ -40,7 +57,7 @@
   .bar-val{font-size:9px;color:#aaa}
 
   /* 하단 그리드 */
-  .bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .bottom-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;min-width:0}
 
   /* 활동량 라인 차트 */
   .line-chart-wrap{padding:20px 24px}
@@ -57,7 +74,13 @@
   .empty-note{color:#ccc;font-size:12px;text-align:center;padding:16px}
 
   @media(max-width:1000px){.bottom-grid{grid-template-columns:1fr}}
-  @media(max-width:900px){.sidebar{display:none}main{margin-left:0!important;padding:24px 0 80px}}
+  @media(max-width:900px){
+    .sidebar{display:none}
+    #mainContent{
+      margin-left:0!important;
+      padding:24px 18px 80px;
+    }
+  }
 </style>
 {% endblock %}
 
@@ -97,7 +120,7 @@
   </div>
 </aside>
 
-<main id="mainContent">
+<div id="mainContent">
   <div style="width:100%">
     <h1 class="page-title">FISH DATA</h1>
 
@@ -145,7 +168,7 @@
 
     </div>
   </div>
-</main>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -157,7 +180,8 @@ function toggleSb(){
   const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');
   const c=sb.classList.contains('collapsed');
   document.getElementById('sbToggle').textContent=c?'›':'‹';
-  document.getElementById('mainContent').style.marginLeft=c?'44px':'var(--sw)';
+  const main=document.getElementById('mainContent');
+  main.style.marginLeft=c?'44px':'var(--sw)';
 }
 
 function f2(v){const n=parseFloat(v);return isNaN(n)?'--':n.toFixed(2);}
