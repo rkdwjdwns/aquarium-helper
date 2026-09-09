@@ -43,10 +43,10 @@
   .badge-warn{background:#fff3e0;color:#b75e00}
   .badge-danger{background:#fdecea;color:#b71c1c}
 
-  .device-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
-  .device-card{background:#fff;border-radius:20px;padding:18px;box-shadow:0 4px 10px rgba(0,0,0,.07);text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s}
+  .device-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:28px}
+  .device-card{background:#fff;border-radius:20px;padding:22px 20px;min-height:120px;box-shadow:0 4px 10px rgba(0,0,0,.07);text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .device-card.on{border-color:#536ae8;box-shadow:0 4px 14px rgba(83,106,232,.25)}
-  .device-icon{font-size:28px;margin-bottom:8px}
+  .device-icon{font-size:30px;margin-bottom:10px}
   .device-name{font-size:13px;font-weight:900;color:#333}
   .device-state{font-size:11px;font-weight:800;margin-top:4px}
   .device-card.on .device-state{color:#536ae8}
@@ -334,11 +334,6 @@
           <div class="device-icon">❄️</div>
           <div class="device-name">냉각팬</div>
           <div class="device-state">{% if cooling_on %}ON{% else %}OFF{% endif %}</div>
-        </div>
-        <div class="device-card {% if air_pump_on %}on{% endif %}" onclick="toggleDevice('AIR_PUMP')">
-          <div class="device-icon">🫧</div>
-          <div class="device-name">에어펌프</div>
-          <div class="device-state">{% if air_pump_on %}ON{% else %}OFF{% endif %}</div>
         </div>
         <div class="device-card {% if light_on %}on{% endif %}" onclick="toggleDevice('LIGHT')">
           <div class="device-icon">💡</div>

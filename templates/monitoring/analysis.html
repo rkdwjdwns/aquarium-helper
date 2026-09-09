@@ -49,8 +49,8 @@
   .growth-card-actions{position:absolute;top:22px;right:22px;display:flex;align-items:center;gap:8px}
   .growth-card-actions .growth-switch{display:flex;gap:6px;margin:0}
   .growth-card-actions .detail-btn{position:static}
-  .growth-switch button,.growth-fish-btn{border:1px solid #b7c3d0;background:#fff;color:#51606f;border-radius:9px;padding:6px 10px;font-size:11px;font-weight:900;cursor:pointer}
-  .growth-switch button.active,.growth-fish-btn.active{background:#176b45;border-color:#176b45;color:#fff}
+  .growth-fish-btn{border:1px solid #b7c3d0;background:#fff;color:#51606f;border-radius:9px;padding:6px 10px;font-size:11px;font-weight:900;cursor:pointer}
+  .growth-fish-btn.active{background:#176b45;border-color:#176b45;color:#fff}
 
   /* 삭제된 요소로 생긴 여백 보정: 회색 정보 패널만 조정 */
   .frs-card .three-col{
@@ -82,22 +82,135 @@
     justify-content:center;
   }
 
-  /* 성장 카드: 회색 패널 크기는 유지하고 패널 묶음만 카드 중앙 쪽으로 이동 */
-  .growth-card .two-col:first-of-type{
-    margin-top:42px;
+  /* 성장 카드: 상세창 그래프를 카드 안에 직접 표시 */
+  .growth-card{
+    min-height:520px;
   }
-  .growth-card .two-col{
-    gap:14px;
-    margin-bottom:14px;
-  }
-  .growth-card .panel{
-    min-height:88px;
-    padding:18px 16px;
+
+  .growth-chart-controls{
     display:flex;
-    flex-direction:column;
-    justify-content:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin:18px 0 10px;
+    font-size:11px;
+    color:#374151;
   }
-  .error-text{font-size:12px;color:#ef4444;font-weight:800;margin-top:8px}
+  .growth-chart-controls label{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .growth-chart-controls input{accent-color:#2563eb}
+  .growth-chart-toolbar{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:12px;
+    margin:18px 0 10px;
+  }
+  .growth-chart-toolbar .growth-chart-controls{
+    flex:1;
+    margin:0;
+  }
+  .growth-period-select{
+    flex:none;
+    min-width:116px;
+    font-weight:800;
+    color:#475569;
+  }
+  .growth-card-chart{
+    height:335px;
+    position:relative;
+    margin-top:4px;
+  }
+  .growth-card-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-top:10px;
+    font-size:10px;
+    color:#667085;
+  }
+  .growth-card-legend span{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .growth-line-sample{
+    width:18px;
+    height:0;
+    border-top:3px solid #2563eb;
+    display:inline-block;
+  }
+  .growth-line-sample.future{
+    border-top-style:dashed;
+    border-top-color:#ff5b7f;
+  }
+  .growth-line-sample.comet{
+    border-top-width:2px;
+    border-top-color:#7e57c2;
+  }
+  .growth-point-sample{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:#10b981;
+    box-shadow:0 0 0 3px rgba(16,185,129,.16);
+    display:inline-block;
+  }
+
+
+  .growth-summary-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin:10px 0 14px;
+  }
+  .growth-summary-item{
+    background:#f4f7fb;
+    border-radius:12px;
+    padding:10px 11px;
+    min-width:0;
+  }
+  .growth-summary-item .label{
+    font-size:9px;
+    color:#9ca3af;
+    font-weight:900;
+    margin-bottom:4px;
+  }
+  .growth-summary-item strong{
+    font-size:13px;
+    color:#374151;
+  }
+  .growth-current-summary{
+    display:flex;
+    align-items:flex-end;
+    gap:8px;
+    margin:2px 0 4px;
+  }
+  .growth-current-summary .value{
+    font-size:34px;
+    line-height:1;
+    font-weight:900;
+    color:#059669;
+  }
+  .growth-current-summary .value small{
+    font-size:18px;
+    font-weight:700;
+    color:#9ca3af;
+    margin-left:3px;
+  }
+  .growth-current-summary .error{
+    font-size:11px;
+    color:#64748b;
+    font-weight:800;
+    padding-bottom:3px;
+  }
+  .growth-main-toggle:disabled + span{
+    color:#a8b0bb;
+  }
 
   /* 상세 모달 */
   .detail-modal{position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,.42);display:none;align-items:center;justify-content:center;padding:28px}
@@ -273,29 +386,55 @@
 
       <!-- 성장 분석 -->
       <article class="analysis-card growth-card" style="border-top:4px solid #10b981">
-        <div class="growth-card-actions">
-          <div class="growth-switch">
-            <button type="button" class="active" data-growth-summary="Fish A">Fish A</button>
-            <button type="button" data-growth-summary="Fish B">Fish B</button>
-          </div>
-          <button type="button" class="detail-btn growth-detail-btn" id="growthDetailBtn">상세 보기 →</button>
-        </div>
-
         <div class="card-title">성장 분석</div>
-        <div class="card-sub">실측 비율 기반 추정 체장 · 성장용 별도 ID 사용</div>
+        <div class="card-sub">평균 체장 · 주간 성장 이력 </div>
 
-        <div class="big-number" style="color:#059669" id="growthCurrentMain">--</div>
-        <div class="big-sub">추정 체장 · 오차범위 포함</div>
+        <div class="growth-current-summary">
+          <div class="value" id="growthAvgCurrent">--<small>cm</small></div>
+        </div>
+        <div class="big-sub" id="growthAvgDate">현재 평균 추정체장</div>
 
-        <div class="two-col">
-          <div class="panel"><div class="panel-label">추정 성장률</div><strong id="growthRateMain">--</strong></div>
-          <div class="panel"><div class="panel-label">예상 성체 체장</div><strong id="growthAdultMain">--</strong></div>
+        <div class="growth-summary-grid">
+          <div class="growth-summary-item">
+            <div class="label">사육기간</div>
+            <strong id="growthPeriod">--</strong>
+          </div>
+          <div class="growth-summary-item">
+            <div class="label">평균 성장속도</div>
+            <strong id="growthSpeed">--</strong>
+          </div>
+          <div class="growth-summary-item">
+            <div class="label">오차범위</div>
+            <strong id="growthErrorRange">--</strong>
+          </div>
         </div>
-        <div class="two-col">
-          <div class="panel"><div class="panel-label">성장 상태</div><strong class="green" id="growthStatusMain">--</strong></div>
-          <div class="panel"><div class="panel-label">사용 모델</div><strong id="growthModelMain">--</strong></div>
+
+        <div class="growth-chart-toolbar">
+          <div class="growth-chart-controls">
+            <label><input type="checkbox" class="growth-main-toggle" value="past" checked> <span>우리 성장 이력</span></label>
+            <label><input type="checkbox" class="growth-main-toggle" value="error" checked> <span>오차범위</span></label>
+            <label><input type="checkbox" class="growth-main-toggle" value="future" checked> <span>향후 vBGF 예측</span></label>
+            <label><input type="checkbox" class="growth-main-toggle" value="comet" checked> <span>참고 성장</span></label>
+          </div>
+
+          <select id="growthPeriodSelect" class="select growth-period-select" aria-label="성장 그래프 표시 기간">
+            <option value="30">앞으로 30일</option>
+            <option value="90">앞으로 3개월</option>
+            <option value="180" selected>앞으로 6개월</option>
+            <option value="365">앞으로 1년</option>
+          </select>
         </div>
-        
+
+        <div class="growth-card-chart">
+          <canvas id="growthMainChart"></canvas>
+        </div>
+
+        <div class="growth-card-legend">
+          <span><i class="growth-line-sample"></i>우리 성장 이력</span>
+          <span><i class="growth-line-sample future"></i>향후 vBGF 예측</span>
+          <span><i class="growth-line-sample comet"></i>참고 성장</span>
+          <span>음영 = 각 곡선 오차범위</span>
+        </div>
       </article>
     </div>
   </div>
@@ -386,83 +525,6 @@
   </section>
 </div>
 
-<!-- 성장 상세 -->
-<div class="detail-modal" id="growthModal">
-  <section class="detail-window">
-    <div class="detail-head">
-      <h2>성장예측 분석</h2>
-      <button class="close-detail" data-close="growthModal">나가기</button>
-    </div>
-
-    <h3 class="section-title2">성장 정보</h3>
-    <p class="section-desc">Fish A / Fish B는 성장 분석용 별도 ID이며, 체장은 영상 속 실측 비율을 이용한 추정값입니다.</p>
-
-    <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:12px">
-      <button type="button" class="growth-fish-btn active" data-growth-detail="Fish A">Fish A</button>
-      <button type="button" class="growth-fish-btn" data-growth-detail="Fish B">Fish B</button>
-    </div>
-
-    <div class="detail-three">
-      <div class="white-card"><div style="font-size:11px;color:#8a94a3">현재 추정 체장</div><strong id="growthCurrent" style="font-size:27px">--</strong><div class="error-text" id="growthError">--</div></div>
-      <div class="white-card"><div style="font-size:11px;color:#8a94a3">추정 성장률</div><strong id="growthDaily" style="font-size:27px">--</strong><div style="font-size:11px;color:#8a94a3;margin-top:8px">최근 측정 구간 기준</div></div>
-      <div class="white-card"><div style="font-size:11px;color:#8a94a3">예상 성체 체장</div><strong id="growthAdult" style="font-size:27px">--</strong><div style="font-size:11px;color:#8a94a3;margin-top:8px">예상 성장곡선 기준</div></div>
-    </div>
-
-    <div class="detail-two">
-      <div class="white-card">
-        <h3 style="margin-bottom:12px">개체별 성장 추이 및 예측</h3>
-
-        <div class="growth-layer-controls">
-          <label><input type="checkbox" class="growth-layer-toggle" value="actual" checked> 실제측정값</label>
-          <label><input type="checkbox" class="growth-layer-toggle" value="vbgf" checked> vBGF 예측</label>
-          <label><input type="checkbox" class="growth-layer-toggle" value="linear"> 선형회귀 비교</label>
-          <label><input type="checkbox" class="growth-layer-toggle" value="confidence"> 신뢰구간</label>
-          <label><input type="checkbox" class="growth-layer-toggle" value="validation"> 검증 데이터</label>
-        </div>
-
-        <div class="growth-legend">
-          <span><i class="legend-dot legend-actual"></i>실제 측정값</span>
-          <span><i class="legend-line legend-vbgf"></i>vBGF 예측곡선</span>
-          <span><i class="legend-line legend-linear"></i>선형회귀</span>
-          <span><i class="legend-band"></i>신뢰구간</span>
-          <span><i class="legend-validation"></i>검증 데이터</span>
-        </div>
-
-        <div style="height:330px;position:relative"><canvas id="growthDetailChart"></canvas></div>
-        <p style="font-size:11px;color:#8a94a3;margin-top:10px">
-          실제 측정값은 실측 비율 기반 추정값이며, vBGF 예측·선형회귀·신뢰구간·검증 데이터를 선택적으로 비교할 수 있습니다.
-        </p>
-      </div>
-
-      <div class="white-card" style="background:#f1fff5">
-        <h3 style="margin-bottom:15px">성장 상태</h3>
-        <strong id="growthState" class="green" style="font-size:22px">--</strong>
-        <table class="table" style="margin-top:14px">
-          <tr><td>사용 모델</td><td id="growthModel">--</td></tr>
-          <tr><td>오차 범위</td><td id="growthModelError">--</td></tr>
-          <tr><td>마지막 추정</td><td id="growthLastMeasured">--</td></tr>
-          <tr><td>데이터 구분</td><td>실측 비율 기반 추정</td></tr>
-        </table>
-      </div>
-    </div>
-
-    <h3 class="section-title2">향후 예상 체장</h3>
-    <div class="detail-four">
-      <div class="white-card" style="text-align:center"><div style="font-size:11px;color:#8a94a3">30일 후</div><strong id="future30" style="font-size:20px">--</strong></div>
-      <div class="white-card" style="text-align:center"><div style="font-size:11px;color:#8a94a3">90일 후</div><strong id="future90" style="font-size:20px">--</strong></div>
-      <div class="white-card" style="text-align:center"><div style="font-size:11px;color:#8a94a3">180일 후</div><strong id="future180" style="font-size:20px">--</strong></div>
-      <div class="white-card" style="text-align:center"><div style="font-size:11px;color:#8a94a3">예상 성체</div><strong id="futureAdult" style="font-size:20px">--</strong></div>
-    </div>
-
-    <div class="white-card table-scroll">
-      <h3 style="margin-bottom:12px">측정 데이터</h3>
-      <table class="table">
-        <thead><tr><th>측정일</th><th>성장 ID</th><th>추정 체장</th><th>오차범위</th><th>구분</th></tr></thead>
-        <tbody id="growthMeasureBody"></tbody>
-      </table>
-    </div>
-  </section>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -479,9 +541,7 @@ let ACTIVITY_ROWS = [];
 let GROWTH_ROWS = [];
 let activityChartInst = null;
 let feedingEventChartInst = null;
-let growthDetailChartInst = null;
-let selectedGrowthMain = "Fish A";
-let selectedGrowthDetail = "Fish A";
+let growthMainChartInst = null;
 
 function toggleSb(){
   const sb=document.getElementById('sidebar');
@@ -704,36 +764,306 @@ function renderFRSMain(){
       : `최근 분석 기록 ${sc.toFixed(1)}점 · ${formatTime(displayRow.timestamp)}`;
 }
 
-function getGrowthGrouped(){
-  const groups={};
-  GROWTH_ROWS.forEach(r=>{
-    if(!groups[r.fish_label]) groups[r.fish_label]=[];
-    groups[r.fish_label].push(r);
-  });
-  Object.values(groups).forEach(arr=>arr.sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp)));
-  return groups;
+function parseGrowthDate(v){
+  if(!v) return null;
+  const d=new Date(v+"T00:00:00");
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function growthLatest(fish){
-  const groups=getGrowthGrouped();
-  const arr=groups[fish]||[];
-  return arr.length?arr[arr.length-1]:null;
+function formatGrowthDate(v){
+  const d=parseGrowthDate(v);
+  if(!d) return "--";
+  return `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-function renderGrowthMain(fish=selectedGrowthMain){
-  selectedGrowthMain=fish;
-  document.querySelectorAll("[data-growth-summary]").forEach(b=>b.classList.toggle("active",b.dataset.growthSummary===fish));
-  const groups=getGrowthGrouped();
-  const arr=groups[fish]||[];
+function renderGrowthMain(){
+  const arr=[...GROWTH_ROWS]
+    .filter(r=>r.date)
+    .sort((a,b)=>parseGrowthDate(a.date)-parseGrowthDate(b.date));
+
   if(!arr.length) return;
-  const latest=arr[arr.length-1];
 
-  document.getElementById("growthCurrentMain").innerHTML=
-    `${num(latest.actual_length_cm || latest.estimated_length_cm,0).toFixed(1)}<small>cm ±${num(latest.error_cm,0).toFixed(1)}</small>`;
-  document.getElementById("growthRateMain").textContent=`+${num(latest.growth_rate_cm_day,0).toFixed(2)} cm/day`;
-  document.getElementById("growthAdultMain").textContent=`${num(latest.predicted_adult_cm,0).toFixed(1)} cm`;
-  document.getElementById("growthStatusMain").textContent=latest.growth_status||"--";
-  document.getElementById("growthModelMain").textContent=latest.model_name||"--";
+  const currentRow =
+    arr.find(r=>r.phase==="current_anchor") ||
+    [...arr].reverse().find(r=>r.observed_average_length_cm!=="");
+
+  const historyRows=arr.filter(
+    r=>r.phase==="history" || r.phase==="current_anchor"
+  );
+
+  if(!currentRow || !historyRows.length) return;
+
+  const first=historyRows[0];
+  const current=num(currentRow.observed_average_length_cm,null);
+  const currentError=num(currentRow.observed_error_cm,0);
+  const firstValue=num(first.observed_average_length_cm,null);
+
+  document.getElementById("growthAvgCurrent").innerHTML=
+    current===null ? "--" : `${current.toFixed(2)}<small>cm</small>`;
+
+  document.getElementById("growthErrorRange").textContent=
+    current===null ? "--" : `±${currentError.toFixed(2)} cm`;
+
+  document.getElementById("growthAvgDate").textContent=
+    `${formatGrowthDate(currentRow.date)} 기준 현재 평균 추정체장`;
+
+  const startDate=parseGrowthDate(first.date);
+  const currentDate=parseGrowthDate(currentRow.date);
+  const days=(startDate && currentDate)
+    ? Math.max(1,(currentDate-startDate)/(1000*60*60*24))
+    : null;
+
+  document.getElementById("growthPeriod").textContent=
+    days===null ? "--" : `${Math.round(days)}일`;
+
+  const speed=(days && firstValue!==null && current!==null)
+    ? (current-firstValue)/days
+    : null;
+
+  document.getElementById("growthSpeed").textContent=
+    speed===null ? "--" : `+${speed.toFixed(3)} cm/day`;
+
+  const futureDays=Number(document.getElementById("growthPeriodSelect")?.value || 180);
+  renderGrowthMainChart(arr,currentRow,futureDays);
+}
+
+function renderGrowthMainChart(arr,currentRow,futureDays=180){
+  const toggles={};
+  document.querySelectorAll(".growth-main-toggle").forEach(
+    c=>toggles[c.value]=c.checked
+  );
+
+  // 과거(history)와 현재점(current_anchor)은 모두 유지하고,
+  // prediction 데이터만 현재점 이후 선택한 기간까지 제한한다.
+  const anchorDate=parseGrowthDate(currentRow.date);
+  const cutoffDate=anchorDate
+    ? new Date(anchorDate.getTime()+futureDays*24*60*60*1000)
+    : null;
+
+  arr=arr.filter(r=>{
+    if(r.phase==="history" || r.phase==="current_anchor") return true;
+    if(r.phase!=="prediction") return true;
+
+    const d=parseGrowthDate(r.date);
+    return !cutoffDate || (d && d<=cutoffDate);
+  });
+
+  const labels=arr.map(r=>formatGrowthDate(r.date));
+
+  // 관측값: history + current_anchor만 실선으로 표시
+  const observed=arr.map(r=>
+    (r.phase==="history" || r.phase==="current_anchor")
+      ? num(r.observed_average_length_cm,null)
+      : null
+  );
+
+  const observedLower=arr.map(r=>
+    (r.phase==="history" || r.phase==="current_anchor")
+      ? num(r.observed_lower_cm,null)
+      : null
+  );
+
+  const observedUpper=arr.map(r=>
+    (r.phase==="history" || r.phase==="current_anchor")
+      ? num(r.observed_upper_cm,null)
+      : null
+  );
+
+  // vBGF: current_anchor + prediction 구간을 점선으로 연결
+  const vbgf=arr.map(r=>
+    (r.phase==="current_anchor" || r.phase==="prediction")
+      ? num(r.vbgf_predicted_length_cm,null)
+      : null
+  );
+
+  const vbgfLower=arr.map(r=>
+    (r.phase==="current_anchor" || r.phase==="prediction")
+      ? num(r.vbgf_prediction_lower_cm,null)
+      : null
+  );
+
+  const vbgfUpper=arr.map(r=>
+    (r.phase==="current_anchor" || r.phase==="prediction")
+      ? num(r.vbgf_prediction_upper_cm,null)
+      : null
+  );
+
+  // 코메트 참고곡선: CSV 전체 날짜 범위
+  const comet=arr.map(r=>num(r.comet_reference_length_cm,null));
+  const cometLower=arr.map(r=>num(r.comet_reference_lower_cm,null));
+  const cometUpper=arr.map(r=>num(r.comet_reference_upper_cm,null));
+
+  if(growthMainChartInst) growthMainChartInst.destroy();
+
+  const datasets=[
+    // 관측 오차범위
+    {
+      label:"관측 오차 상한",
+      data:observedUpper,
+      borderColor:"rgba(37,99,235,0)",
+      backgroundColor:"rgba(37,99,235,.18)",
+      pointRadius:0,
+      fill:"+1",
+      hidden:!toggles.error
+    },
+    {
+      label:"관측 오차 하한",
+      data:observedLower,
+      borderColor:"rgba(37,99,235,0)",
+      backgroundColor:"rgba(37,99,235,.18)",
+      pointRadius:0,
+      fill:false,
+      hidden:!toggles.error
+    },
+
+    // vBGF 오차범위
+    {
+      label:"vBGF 예측 오차 상한",
+      data:vbgfUpper,
+      borderColor:"rgba(255,91,127,0)",
+      backgroundColor:"rgba(255,91,127,.16)",
+      pointRadius:0,
+      fill:"+1",
+      hidden:!(toggles.error && toggles.future)
+    },
+    {
+      label:"vBGF 예측 오차 하한",
+      data:vbgfLower,
+      borderColor:"rgba(255,91,127,0)",
+      backgroundColor:"rgba(255,91,127,.16)",
+      pointRadius:0,
+      fill:false,
+      hidden:!(toggles.error && toggles.future)
+    },
+
+    // 코메트 참고 오차범위
+    {
+      label:"코메트 참고 오차 상한",
+      data:cometUpper,
+      borderColor:"rgba(126,87,194,0)",
+      backgroundColor:"rgba(126,87,194,.06)",
+      pointRadius:0,
+      fill:"+1",
+      hidden:!(toggles.error && toggles.comet)
+    },
+    {
+      label:"코메트 참고 오차 하한",
+      data:cometLower,
+      borderColor:"rgba(126,87,194,0)",
+      backgroundColor:"rgba(126,87,194,.06)",
+      pointRadius:0,
+      fill:false,
+      hidden:!(toggles.error && toggles.comet)
+    },
+
+    // 우리 과거 성장: 실선
+    {
+      label:"우리 성장 이력",
+      data:observed,
+      borderColor:"#2563eb",
+      backgroundColor:"#2563eb",
+      borderWidth:3,
+      pointRadius:2.5,
+      pointHoverRadius:5,
+      tension:.22,
+      spanGaps:false,
+      fill:false,
+      hidden:!toggles.past
+    },
+
+    // 우리 미래 vBGF: 점선
+    {
+      label:"향후 vBGF 예측",
+      data:vbgf,
+      borderColor:"#ff5b7f",
+      backgroundColor:"#ff5b7f",
+      borderWidth:2.5,
+      borderDash:[7,5],
+      pointRadius:0,
+      tension:.25,
+      spanGaps:false,
+      fill:false,
+      hidden:!toggles.future
+    },
+
+    // 코메트 참고: 얇은 비교선
+    {
+      label:"코메트 참고 성장",
+      data:comet,
+      borderColor:"#7e57c2",
+      backgroundColor:"#7e57c2",
+      borderWidth:1.5,
+      pointRadius:0,
+      tension:.22,
+      spanGaps:false,
+      fill:false,
+      hidden:!toggles.comet
+    }
+  ];
+
+  const currentAnchorPlugin={
+    id:"growthCurrentAnchor",
+    afterDatasetsDraw(chart){
+      const currentIndex=arr.findIndex(r=>r.phase==="current_anchor");
+      if(currentIndex<0 || !toggles.past) return;
+
+      const meta=chart.getDatasetMeta(6);
+      const point=meta.data[currentIndex];
+      if(!point) return;
+
+      const value=num(currentRow.observed_average_length_cm,null);
+      if(value===null) return;
+
+      const ctx=chart.ctx;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(point.x,point.y,6,0,Math.PI*2);
+      ctx.fillStyle="#10b981";
+      ctx.fill();
+      ctx.lineWidth=2;
+      ctx.strokeStyle="#ffffff";
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+
+  growthMainChartInst=new Chart(document.getElementById("growthMainChart"),{
+    type:"line",
+    data:{labels,datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:"index",intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label:(ctx)=>{
+              if(ctx.raw===null) return "";
+              if(ctx.dataset.label.includes("오차")) return "";
+              return `${ctx.dataset.label}: ${Number(ctx.raw).toFixed(2)} cm`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{display:false},
+          ticks:{
+            font:{size:9},
+            maxRotation:0,
+            autoSkip:true,
+            maxTicksLimit:12
+          }
+        },
+        y:{
+          ticks:{font:{size:9},callback:v=>v+"cm"},
+          grid:{color:"rgba(0,0,0,.05)"}
+        }
+      }
+    },
+    plugins:[currentAnchorPlugin]
+  });
 }
 
 function renderFeedingSelect(){
@@ -904,153 +1234,6 @@ function renderFeedingEventChart(rows){
   });
 }
 
-function renderGrowthDetail(fish=selectedGrowthDetail){
-  selectedGrowthDetail=fish;
-  document.querySelectorAll("[data-growth-detail]").forEach(b=>b.classList.toggle("active",b.dataset.growthDetail===fish));
-  const groups=getGrowthGrouped();
-  const arr=groups[fish]||[];
-  if(!arr.length) return;
-  const latest=arr[arr.length-1];
-
-  const current=num(latest.actual_length_cm || latest.estimated_length_cm,0);
-  const err=num(latest.error_cm,0);
-  document.getElementById("growthCurrent").textContent=current.toFixed(1)+"cm";
-  document.getElementById("growthError").textContent=`오차범위 ±${err.toFixed(1)}cm`;
-  document.getElementById("growthDaily").textContent=`+${num(latest.growth_rate_cm_day,0).toFixed(2)}cm/day`;
-  document.getElementById("growthAdult").textContent=num(latest.predicted_adult_cm,0).toFixed(1)+"cm";
-  document.getElementById("growthState").textContent=latest.growth_status||"--";
-  document.getElementById("growthModel").textContent=latest.model_name||"--";
-  document.getElementById("growthModelError").textContent=`±${err.toFixed(1)}cm`;
-  document.getElementById("growthLastMeasured").textContent=formatTime(latest.timestamp);
-  document.getElementById("future30").textContent=num(latest.predicted_30d_cm,0).toFixed(1)+"cm";
-  document.getElementById("future90").textContent=num(latest.predicted_90d_cm,0).toFixed(1)+"cm";
-  document.getElementById("future180").textContent=num(latest.predicted_180d_cm,0).toFixed(1)+"cm";
-  document.getElementById("futureAdult").textContent=num(latest.predicted_adult_cm,0).toFixed(1)+"cm";
-
-  document.getElementById("growthMeasureBody").innerHTML=arr.map(r=>`
-    <tr>
-      <td>${formatTime(r.timestamp)}</td>
-      <td>${r.fish_label}</td>
-      <td>${num(r.actual_length_cm || r.estimated_length_cm,0).toFixed(1)}cm</td>
-      <td>±${num(r.error_cm,0).toFixed(1)}cm</td>
-      <td>실측 비율 기반 추정</td>
-    </tr>`).join("");
-
-  renderGrowthDetailChart(arr, latest);
-}
-
-function renderGrowthDetailChart(arr, latest){
-  const labels=arr.map(r=>formatTime(r.timestamp).slice(0,5));
-
-  const actual=arr.map(r=>num(r.actual_length_cm, null));
-  const vbgf=arr.map(r=>num(r.vbgf_length_cm, null));
-  const linear=arr.map(r=>num(r.linear_length_cm, null));
-  const confLow=arr.map(r=>num(r.confidence_low_cm, null));
-  const confHigh=arr.map(r=>num(r.confidence_high_cm, null));
-  const validation=arr.map(r=>r.is_validation==="1" ? num(r.actual_length_cm, null) : null);
-
-  const toggles={};
-  document.querySelectorAll(".growth-layer-toggle").forEach(c=>toggles[c.value]=c.checked);
-
-  if(growthDetailChartInst) growthDetailChartInst.destroy();
-
-  const datasets=[
-    {
-      label:"신뢰구간 상한",
-      data:confHigh,
-      borderColor:"rgba(255,91,127,0)",
-      backgroundColor:"rgba(255,91,127,.14)",
-      pointRadius:0,
-      fill:"+1",
-      hidden:!toggles.confidence
-    },
-    {
-      label:"신뢰구간 하한",
-      data:confLow,
-      borderColor:"rgba(255,91,127,0)",
-      backgroundColor:"rgba(255,91,127,.14)",
-      pointRadius:0,
-      fill:false,
-      hidden:!toggles.confidence
-    },
-    {
-      label:"vBGF 예측",
-      data:vbgf,
-      borderColor:"#ff5b7f",
-      backgroundColor:"#ff5b7f",
-      borderWidth:2.5,
-      pointRadius:0,
-      tension:.28,
-      fill:false,
-      hidden:!toggles.vbgf
-    },
-    {
-      label:"선형회귀 비교",
-      data:linear,
-      borderColor:"#7e57c2",
-      backgroundColor:"#7e57c2",
-      borderWidth:2,
-      borderDash:[7,5],
-      pointRadius:0,
-      tension:0,
-      fill:false,
-      hidden:!toggles.linear
-    },
-    {
-      label:"실제측정값",
-      data:actual,
-      borderColor:"#42a5f5",
-      backgroundColor:"#42a5f5",
-      borderWidth:1.5,
-      pointRadius:4,
-      pointHoverRadius:6,
-      tension:.12,
-      fill:false,
-      hidden:!toggles.actual
-    },
-    {
-      label:"검증 데이터",
-      data:validation,
-      borderColor:"#10b981",
-      backgroundColor:"#fff",
-      pointBorderColor:"#10b981",
-      pointBackgroundColor:"#fff",
-      pointBorderWidth:2.5,
-      pointRadius:6,
-      showLine:false,
-      hidden:!toggles.validation
-    }
-  ];
-
-  growthDetailChartInst=new Chart(document.getElementById("growthDetailChart"),{
-    type:"line",
-    data:{labels,datasets},
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      interaction:{mode:"index",intersect:false},
-      plugins:{
-        legend:{display:false},
-        tooltip:{
-          callbacks:{
-            label:(ctx)=>{
-              if(ctx.raw===null) return "";
-              return `${ctx.dataset.label}: ${Number(ctx.raw).toFixed(2)} cm`;
-            }
-          }
-        }
-      },
-      scales:{
-        x:{grid:{display:false},ticks:{font:{size:9}}},
-        y:{
-          ticks:{font:{size:9},callback:v=>v+"cm"},
-          grid:{color:"rgba(0,0,0,.05)"}
-        }
-      }
-    }
-  });
-}
-
 async function loadCSV(){
   try{
     const [feedingRes, abrRes, activityRes, growthRes] = await Promise.all([
@@ -1077,10 +1260,9 @@ async function loadCSV(){
     renderSummary();
     renderActivity();
     renderFRSMain();
-    renderGrowthMain("Fish A");
+    renderGrowthMain();
     renderFeedingSelect();
     renderFeedingTables(7);
-    renderGrowthDetail("Fish A");
   }catch(err){
     console.error(err);
     document.querySelectorAll(".footer-panel").forEach(el=>{
@@ -1091,17 +1273,15 @@ async function loadCSV(){
 }
 
 document.getElementById("feedingDetailBtn").addEventListener("click",()=>document.getElementById("feedingModal").classList.add("open"));
-document.getElementById("growthDetailBtn").addEventListener("click",()=>document.getElementById("growthModal").classList.add("open"));
 document.querySelectorAll(".close-detail").forEach(btn=>btn.addEventListener("click",()=>document.getElementById(btn.dataset.close).classList.remove("open")));
 document.querySelectorAll(".detail-modal").forEach(modal=>modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.remove("open")}));
 
 document.getElementById("feedingTimeSelect").addEventListener("change",e=>renderFeedingDetail(Number(e.target.value)));
 document.getElementById("feedingPeriodSelect").addEventListener("change",e=>renderFeedingTables(Number(e.target.value)));
-document.querySelectorAll("[data-growth-summary]").forEach(btn=>btn.addEventListener("click",()=>renderGrowthMain(btn.dataset.growthSummary)));
-document.querySelectorAll("[data-growth-detail]").forEach(btn=>btn.addEventListener("click",()=>renderGrowthDetail(btn.dataset.growthDetail)));
-document.querySelectorAll(".growth-layer-toggle").forEach(cb=>{
-  cb.addEventListener("change",()=>renderGrowthDetail(selectedGrowthDetail));
+document.querySelectorAll(".growth-main-toggle").forEach(cb=>{
+  cb.addEventListener("change",()=>renderGrowthMain());
 });
+document.getElementById("growthPeriodSelect").addEventListener("change",()=>renderGrowthMain());
 
 loadCSV();
 </script>
