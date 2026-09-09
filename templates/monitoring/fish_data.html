@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block extra_css %}
 <style>
   :root{--sw:270px}
@@ -59,18 +60,19 @@
   /* 하단 그리드 */
   .bottom-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;min-width:0}
 
-  /* 활동량 라인 차트 */
-  .line-chart-wrap{padding:20px 24px}
-  .legend{display:flex;gap:14px;margin-bottom:14px;font-size:11px;color:#555;font-weight:700}
-  .legend i{display:inline-block;width:20px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
-
-  /* 성장 */
-  .growth-list{padding:16px 24px}
-  .g-row{display:grid;grid-template-columns:70px 1fr 80px;align-items:center;margin-bottom:12px;gap:10px}
-  .g-label{font-size:12px;font-weight:700;color:#606976}
-  .g-track{height:28px;background:#f0f3f7;border-radius:8px;overflow:hidden}
-  .g-bar{height:100%;border-radius:8px;display:flex;align-items:center;padding-left:10px;font-size:11px;font-weight:900;color:#fff}
-  .g-val{font-size:13px;font-weight:900;color:#333;text-align:right}
+  /* 영역 분포 */
+  .zone-table-wrap{padding:20px 24px}
+  .zone-table{width:100%;border-collapse:collapse;font-size:12px}
+  .zone-table th,.zone-table td{padding:13px 12px;border-bottom:1px solid #e8edf2;text-align:left}
+  .zone-table th{background:#f5f7fa;color:#52606d;font-weight:900}
+  .zone-table td:nth-child(2){font-weight:900;text-align:center;width:110px}
+  .zone-table tr:last-child td{border-bottom:0}
+  .zone-chart-wrap{padding:20px 24px 22px}
+  .zone-legend{display:flex;justify-content:center;gap:22px;margin-bottom:12px;font-size:11px;font-weight:800;color:#52606d}
+  .zone-legend span{display:flex;align-items:center;gap:6px}
+  .zone-legend i{display:inline-block;width:18px;height:8px;border-radius:2px}
+  .zone-chart-shell{height:245px;position:relative}
+  .zone-note{font-size:11px;color:#9ca3af;margin-top:10px}
   .empty-note{color:#ccc;font-size:12px;text-align:center;padding:16px}
 
   @media(max-width:1000px){.bottom-grid{grid-template-columns:1fr}}
@@ -141,31 +143,34 @@
     </div>
 
     <div class="bottom-grid">
-
-      <!-- 활동 패턴 (ActivityPattern 기반) -->
       <div class="card">
         <div class="card-head">
-          <div class="card-title">↗ 시간대별 활동 패턴 <span>(24시간 · ActivityPattern)</span></div>
+          <div class="card-title">▥ 시간대별 수조 영역 분포 <span>(24시간)</span></div>
         </div>
-        <div class="line-chart-wrap">
-          <div class="legend">
-            <span><i style="background:#3b82f6"></i>전체 어항 평균 활동량 (px/s)</span>
+        <div class="zone-chart-wrap">
+          <div class="zone-legend">
+            <span><i style="background:#2f80b9"></i>TOP</span>
+            <span><i style="background:#ff8c2a"></i>MID</span>
+            <span><i style="background:#43a843"></i>BOT</span>
           </div>
-          <div style="height:180px;position:relative"><canvas id="actChart"></canvas></div>
-          <div style="margin-top:10px;font-size:12px;color:#9ca3af" id="actMeta">데이터를 불러오는 중...</div>
+          <div class="zone-chart-shell"><canvas id="zoneChart"></canvas></div>
+          <div class="zone-note">각 시간대의 TOP / MID / BOT 체류 비율 합계는 100%입니다.</div>
         </div>
       </div>
 
-      <!-- 성장 추이 -->
       <div class="card">
         <div class="card-head">
-          <div class="card-title">📏 개체별 성장 추정</div>
+          <div class="card-title">▦ 영역 해설 <span>(시간대별 영역 분포 기반 자동 해석)</span></div>
         </div>
-        <div class="growth-list" id="growthList">
-          <div class="empty-note">데이터를 불러오는 중...</div>
+        <div class="zone-table-wrap">
+          <table class="zone-table">
+            <thead><tr><th>영역</th><th>평균 비율</th><th>해설</th></tr></thead>
+            <tbody id="zoneSummaryBody">
+              <tr><td colspan="3" class="empty-note">데이터를 불러오는 중...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
-
     </div>
   </div>
 </div>
@@ -175,6 +180,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 const TANK_ID = {{ tank.id|default:1 }};
+const ZONE_CSV_URL = "{% static 'monitoring/data/zone_distribution_mock.csv' %}";
 
 function toggleSb(){
   const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');
@@ -186,6 +192,24 @@ function toggleSb(){
 
 function f2(v){const n=parseFloat(v);return isNaN(n)?'--':n.toFixed(2);}
 async function sf(url){try{const r=await fetch(url);return r.ok?await r.json():null;}catch{return null;}}
+
+function parseCSV(text){
+  const rows=[]; let row=[], cell='', quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i], next=text[i+1];
+    if(ch==='"'){ if(quoted && next==='"'){cell+='"';i++;} else quoted=!quoted; }
+    else if(ch===',' && !quoted){row.push(cell);cell='';}
+    else if((ch==='\n'||ch==='\r') && !quoted){
+      if(ch==='\r' && next==='\n') i++;
+      row.push(cell);cell='';
+      if(row.some(v=>v!=='')) rows.push(row);
+      row=[];
+    }else cell+=ch;
+  }
+  if(cell!==''||row.length){row.push(cell);rows.push(row);}
+  const headers=rows.shift().map(h=>h.replace(/^\uFEFF/,'').trim());
+  return rows.map(r=>Object.fromEntries(headers.map((h,i)=>[h,(r[i]??'').trim()])));
+}
 
 const maxH=220;
 
@@ -240,78 +264,125 @@ async function fetchFeeding(){
 }
 
 // ──────────────────────────────────────────────
-// 활동 패턴 (/monitoring/api/pattern/)
+// 영역 분포 CSV
 // ──────────────────────────────────────────────
-let actChartInst=null;
+let zoneChartInst=null;
 
-async function fetchActivity(){
-  const d=await sf(`/monitoring/api/pattern/?tank_id=${TANK_ID}`);
-  const ctx=document.getElementById('actChart').getContext('2d');
-  const meta=document.getElementById('actMeta');
+async function fetchZoneDistribution(){
+  try{
+    const r=await fetch(ZONE_CSV_URL,{cache:'no-store'});
+    if(!r.ok) throw new Error(`zone csv HTTP ${r.status}`);
+    const rows=parseCSV(await r.text());
+    const hourly=rows.filter(r=>r.row_type==='hourly').sort((a,b)=>Number(a.hour)-Number(b.hour));
 
-  if(!d){
-    meta.textContent='아직 수신된 활동 패턴 데이터가 없습니다.';
-    if(actChartInst){actChartInst.destroy();actChartInst=null;}
-    return;
-  }
+    const zoneKeys=[
+      {zone:'TOP', key:'top_pct'},
+      {zone:'MID', key:'mid_pct'},
+      {zone:'BOT', key:'bot_pct'}
+    ];
 
-  const hourly=d.hourly_activity||[];
-  const labels=hourly.map((_,i)=>`${i}시`);
-  const delta=d.compared_to_baseline;
-  meta.textContent=`현재 시간대 활동량 ${f2(d.current_hour_activity)} px/s · baseline 대비 ${delta>=0?'+':''}${f2(delta)}%`;
-
-  if(!actChartInst){
-    actChartInst=new Chart(ctx,{
-      type:'line',
-      data:{labels,datasets:[{data:hourly,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',borderWidth:2.5,pointRadius:2,tension:.4,fill:true}]},
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false}},
-        scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#94a3b8'}},
-                y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10},color:'#94a3b8'}}}}
+    const avgMap={};
+    zoneKeys.forEach(z=>{
+      const vals=hourly.map(r=>Number(r[z.key])).filter(Number.isFinite);
+      avgMap[z.zone]=vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
     });
-  } else {
-    actChartInst.data.labels=labels;
-    actChartInst.data.datasets[0].data=hourly;
-    actChartInst.update();
+
+    const ranked=[...zoneKeys].sort((a,b)=>avgMap[b.zone]-avgMap[a.zone]);
+    const highest=ranked[0]?.zone;
+    const second=ranked[1]?.zone;
+    const lowest=ranked[2]?.zone;
+
+    function percentile(values,p){
+      const arr=[...values].filter(Number.isFinite).sort((a,b)=>a-b);
+      if(!arr.length) return 0;
+      const idx=(arr.length-1)*p;
+      const lo=Math.floor(idx), hi=Math.ceil(idx);
+      if(lo===hi) return arr[lo];
+      return arr[lo]+(arr[hi]-arr[lo])*(idx-lo);
+    }
+
+    function formatActivePeriod(zone){
+      const zoneInfo=zoneKeys.find(z=>z.zone===zone);
+      if(!zoneInfo) return '특정 시간대 활동 증가';
+      const vals=hourly.map(r=>Number(r[zoneInfo.key]));
+      const threshold=percentile(vals,.75);
+
+      const activeHours=hourly
+        .filter(r=>Number(r[zoneInfo.key])>=threshold)
+        .map(r=>Number(r.hour))
+        .sort((a,b)=>a-b);
+
+      if(!activeHours.length) return '특정 시간대 활동 증가';
+
+      // 가장 긴 연속 시간대 구간을 선택
+      const ranges=[];
+      let start=activeHours[0], prev=activeHours[0];
+
+      for(let i=1;i<activeHours.length;i++){
+        const h=activeHours[i];
+        if(h===prev+1){
+          prev=h;
+        }else{
+          ranges.push([start,prev]);
+          start=prev=h;
+        }
+      }
+      ranges.push([start,prev]);
+
+      ranges.sort((a,b)=>(b[1]-b[0])-(a[1]-a[0]));
+      const best=ranges[0];
+      const startText=String(best[0]).padStart(2,'0');
+      const endText=String(best[1]).padStart(2,'0');
+
+      return best[0]===best[1]
+        ? `${startText}시경 활동 비율이 상대적으로 높음`
+        : `${startText}~${endText}시 활동 비율이 상대적으로 높음`;
+    }
+
+    function zoneDescription(zone){
+      if(zone===highest) return '주활동 영역';
+      if(zone===lowest) return '최근 카메라 기준에서는 체류 비율이 낮음';
+      if(zone===second) return formatActivePeriod(zone);
+      return '-';
+    }
+
+    document.getElementById('zoneSummaryBody').innerHTML = zoneKeys.map(z=>`
+      <tr>
+        <td><strong>${z.zone}</strong></td>
+        <td>${avgMap[z.zone].toFixed(1)}%</td>
+        <td>${zoneDescription(z.zone)}</td>
+      </tr>`).join('');
+
+    const labels=hourly.map(r=>`${r.hour}시`);
+    const top=hourly.map(r=>Number(r.top_pct));
+    const mid=hourly.map(r=>Number(r.mid_pct));
+    const bot=hourly.map(r=>Number(r.bot_pct));
+
+    if(zoneChartInst) zoneChartInst.destroy();
+    zoneChartInst=new Chart(document.getElementById('zoneChart'),{
+      type:'line',
+      data:{labels,datasets:[
+        {label:'TOP',data:top,borderColor:'#2f80b9',backgroundColor:'#2f80b9',pointRadius:0,borderWidth:0,tension:.25,fill:true,stack:'zone'},
+        {label:'MID',data:mid,borderColor:'#ff8c2a',backgroundColor:'#ff8c2a',pointRadius:0,borderWidth:0,tension:.25,fill:true,stack:'zone'},
+        {label:'BOT',data:bot,borderColor:'#43a843',backgroundColor:'#43a843',pointRadius:0,borderWidth:0,tension:.25,fill:true,stack:'zone'}
+      ]},
+      options:{
+        responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.raw).toFixed(1)}%`}}},
+        scales:{
+          x:{stacked:true,grid:{display:false},ticks:{color:'#64748b',font:{size:9},callback:(v,i)=>i%2===0?labels[i]:''}},
+          y:{stacked:true,min:0,max:100,ticks:{stepSize:20,color:'#64748b',font:{size:9},callback:v=>v+'%'},title:{display:true,text:'비율 (%)',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}}
+        }
+      }
+    });
+  }catch(e){
+    console.error('[zone csv]',e);
+    document.getElementById('zoneSummaryBody').innerHTML='<tr><td colspan="3" class="empty-note">영역 분포 CSV를 불러오지 못했습니다.</td></tr>';
   }
-}
-
-// ──────────────────────────────────────────────
-// 성장 추이 (/monitoring/api/growth/latest-all/)
-// ──────────────────────────────────────────────
-async function fetchGrowth(){
-  const d=await sf(`/monitoring/api/growth/latest-all/?tank_id=${TANK_ID}`);
-  const wrap=document.getElementById('growthList');
-
-  if(!d || !d.fish || !d.fish.length){
-    wrap.innerHTML='<div class="empty-note">아직 수신된 성장 데이터가 없습니다.</div>';
-    return;
-  }
-
-  const colors=['#3b82f6','#10b981','#f59e0b'];
-  const max=Math.max(...d.fish.map(f=>f.estimated_length), 0.1);
-
-  let html='';
-  d.fish.forEach((f,i)=>{
-    const pct=Math.max((f.estimated_length/max*100), 4).toFixed(1);
-    html+=`
-      <div class="g-row">
-        <div class="g-label">Fish #${f.fish_id}</div>
-        <div class="g-track"><div class="g-bar" style="width:${pct}%;background:${colors[i%colors.length]}">${f2(f.estimated_length)} cm</div></div>
-        <div class="g-val">+${f2(f.growth_rate)}/day</div>
-      </div>`;
-  });
-
-  html+=`<div style="margin-top:18px;padding:14px;background:#f4f7fb;border-radius:14px;font-size:13px;font-weight:700;color:#555">
-    평균 체장: <strong style="color:#10b981">${f2(d.avg_length)} cm</strong>
-    &nbsp;·&nbsp; 평균 성장률: <strong style="color:#3b82f6">+${f2(d.avg_rate)} cm/day</strong>
-  </div>`;
-
-  wrap.innerHTML=html;
 }
 
 async function loadAll(){
-  await Promise.allSettled([fetchFeeding(), fetchActivity(), fetchGrowth()]);
+  await Promise.allSettled([fetchFeeding(), fetchZoneDistribution()]);
 }
 loadAll();
 setInterval(loadAll, 30000);

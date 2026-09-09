@@ -1,8 +1,8 @@
-﻿timestamp,activity_index,behavior_quality,quality_good_pct,quality_fair_pct,quality_poor_pct
-2026-09-08 21:00:00+09:00,96.0,GOOD,,,
-2026-09-08 21:05:00+09:00,103.5,GOOD,,,
-2026-09-08 21:10:00+09:00,109.2,FAIR,,,
-2026-09-08 21:15:00+09:00,114.8,GOOD,,,
-2026-09-08 21:20:00+09:00,111.6,GOOD,,,
-2026-09-08 21:25:00+09:00,121.3,FAIR,,,
-2026-09-08 21:30:00+09:00,118.4,GOOD,62.0,28.0,10.0
+﻿timestamp,activity_index,behavior_quality,quality_good_pct,quality_fair_pct,quality_poor_pct,activity_grade
+2026-09-08 21:00:00+09:00,96.0,GOOD,,,,NORMAL
+2026-09-08 21:05:00+09:00,103.5,GOOD,,,,NORMAL
+2026-09-08 21:10:00+09:00,109.2,FAIR,,,,NORMAL
+2026-09-08 21:15:00+09:00,114.8,GOOD,,,,HIGH
+2026-09-08 21:20:00+09:00,111.6,GOOD,,,,NORMAL
+2026-09-08 21:25:00+09:00,121.3,FAIR,,,,HIGH
+2026-09-08 21:30:00+09:00,118.4,GOOD,62.0,28.0,10.0,HIGH
