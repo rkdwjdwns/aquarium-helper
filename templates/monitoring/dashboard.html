@@ -58,9 +58,19 @@
   .chart-tab{font-size:11px;font-weight:800;padding:4px 12px;border-radius:14px;border:0;cursor:pointer;background:#f0f4ff;color:#536ae8}
   .chart-tab.active{background:#536ae8;color:#fff}
 
-  .water-change-btn{width:100%;height:52px;border:0;border-radius:16px;font-size:16px;font-weight:900;cursor:pointer;margin-bottom:28px}
-  .wc-pending{background:#263f50;color:#fff}
-  .wc-done{background:#10b981;color:#fff}
+  .water-change-btn{width:100%;height:52px;border:0;border-radius:16px;font-size:15px;font-weight:900;cursor:pointer;margin-bottom:28px;background:#263f50;color:#fff;transition:all .2s}
+  .water-change-btn:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(38,63,80,.18)}
+  .water-change-btn.checked{
+    background:#10b981;
+    color:#fff;
+    cursor:default;
+    box-shadow:none;
+    transform:none;
+  }
+  .water-change-btn.checked:hover{
+    transform:none;
+    box-shadow:none;
+  }
 
   .log-list{display:flex;flex-direction:column;gap:6px}
   .log-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600}
@@ -154,6 +164,15 @@
     .environment-detail-text-btn:hover{
       color:#145fd7; text-decoration:underline;
     }
+
+  .water-change-standalone{
+    display:block;
+    width:100%;
+    height:58px;
+    margin:0 0 28px;
+    border-radius:18px;
+    font-size:16px;
+  }
 </style>
 {% endblock %}
 
@@ -342,6 +361,15 @@
         </div>
       </div>
     </div>
+
+    <!-- 환수 기록 버튼 -->
+    <button
+      type="button"
+      class="water-change-btn water-change-standalone"
+      id="waterChangeCheckBtn"
+      onclick="checkWaterChange()">
+      ✓ 환수 체크 하기
+    </button>
 
 
 
@@ -552,26 +580,144 @@ async function toggleDevice(type){
 /* =========================
    환수
 ========================= */
-async function doWaterChange(){
-  if(!confirm('환수를 완료하셨습니까?')) return;
+function localDateKey(value){
+  if(!value) return null;
+
+  // YYYY-MM-DD가 포함된 서버 날짜는 시간대 변환 없이 날짜 부분을 우선 사용
+  const raw=String(value).trim();
+  const match=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(match) return `${match[1]}-${match[2]}-${match[3]}`;
+
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime())) return null;
+
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayLocalDateKey(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+const WATER_CHANGE_STORAGE_KEY = `waterChangeChecked:${TANK_ID}`;
+
+function isWaterChangeCheckedLocallyToday(){
+  try{
+    return localStorage.getItem(WATER_CHANGE_STORAGE_KEY) === todayLocalDateKey();
+  }catch(e){
+    return false;
+  }
+}
+
+function saveWaterChangeCheckedToday(){
+  try{
+    localStorage.setItem(WATER_CHANGE_STORAGE_KEY, todayLocalDateKey());
+  }catch(e){
+    console.warn('[water-change-storage]', e);
+  }
+}
+
+function clearOldWaterChangeCheck(){
+  try{
+    const saved=localStorage.getItem(WATER_CHANGE_STORAGE_KEY);
+    if(saved && saved !== todayLocalDateKey()){
+      localStorage.removeItem(WATER_CHANGE_STORAGE_KEY);
+    }
+  }catch(e){}
+}
+
+function setWaterChangeButtonCompleted(){
+  const btn=document.getElementById('waterChangeCheckBtn');
+  if(!btn) return;
+  btn.classList.add('checked');
+  btn.textContent='✓ 환수 체크 완료';
+  btn.disabled=true;
+  btn.setAttribute('aria-disabled','true');
+  btn.title='오늘 환수 기록이 이미 완료되었습니다.';
+}
+
+function setWaterChangeButtonReady(){
+  const btn=document.getElementById('waterChangeCheckBtn');
+  if(!btn) return;
+  btn.classList.remove('checked');
+  btn.textContent='✓ 환수 체크 하기';
+  btn.disabled=false;
+  btn.removeAttribute('aria-disabled');
+  btn.title='';
+}
+
+function updateWaterChangeCheckState(data){
+  const lastWaterchange=
+    data?.last_waterchange_date ||
+    data?.lastWaterchangeDate ||
+    null;
+
+  const serverCheckedToday =
+    localDateKey(lastWaterchange) === todayLocalDateKey();
+
+  // POST 직후 대시보드 API가 아직 이전 환수일을 반환하더라도
+  // 오늘 브라우저에서 성공 처리한 기록을 우선하여 완료 상태를 유지한다.
+  const localCheckedToday = isWaterChangeCheckedLocallyToday();
+
+  if(serverCheckedToday || localCheckedToday){
+    if(serverCheckedToday) saveWaterChangeCheckedToday();
+    setWaterChangeButtonCompleted();
+  }else{
+    setWaterChangeButtonReady();
+  }
+}
+
+async function checkWaterChange(){
+  const btn=document.getElementById('waterChangeCheckBtn');
+
+  if(btn?.classList.contains('checked') || isWaterChangeCheckedLocallyToday()){
+    setWaterChangeButtonCompleted();
+    return;
+  }
+
+  if(!confirm('환수를 완료한 것으로 체크할까요?\n체크하면 현재 날짜가 최근 환수일로 기록됩니다.')) return;
+
+  if(btn){
+    btn.disabled=true;
+    btn.textContent='환수 기록 중...';
+  }
+
+  let completed=false;
 
   try{
-    const r = await fetch(`/monitoring/water-change/${TANK_ID}/`, {
+    const r=await fetch(`/monitoring/water-change/${TANK_ID}/`,{
       method:'POST',
       headers:{'X-CSRFToken':CSRF}
     });
+    const d=await r.json();
 
-    const d = await r.json();
+    if(d.status==='success'){
+      completed=true;
+      saveWaterChangeCheckedToday();
+      setWaterChangeButtonCompleted();
 
-    if(d.status === 'success'){
-      location.reload();
+      // 즉시 reload하지 않는다.
+      // 5초 폴링에서 서버 데이터가 갱신되더라도 localStorage와 함께 완료 상태가 유지된다.
+      if(latestDashboard){
+        latestDashboard.last_waterchange_date = todayLocalDateKey();
+        latestDashboard.lastWaterchangeDate = todayLocalDateKey();
+      }
       return;
     }
 
-    alert(d.message || '환수 처리에 실패했습니다.');
+    alert(d.message||'환수일 기록에 실패했습니다.');
   }catch(e){
-    console.error('[water-change]', e);
-    alert('환수 처리 중 오류가 발생했습니다.');
+    console.error('[water-change-check]',e);
+    alert('환수일 기록 중 오류가 발생했습니다.');
+  }finally{
+    // 성공했을 때는 절대로 버튼을 다시 활성화하지 않는다.
+    if(!completed) setWaterChangeButtonReady();
   }
 }
 
@@ -899,6 +1045,8 @@ async function poll(){
     const d = await r.json();
     latestDashboard = d;
 
+    updateWaterChangeCheckState(d);
+
     if(d.sensor) updateSensorCards(d.sensor);
 
     if(d.history){
@@ -925,6 +1073,11 @@ async function poll(){
   }catch(e){
     console.warn('[dashboard poll]', e);
   }
+}
+
+clearOldWaterChangeCheck();
+if(isWaterChangeCheckedLocallyToday()){
+  setWaterChangeButtonCompleted();
 }
 
 poll();
@@ -1385,7 +1538,7 @@ function getWaterChangeDisplayValue(){
   const el = document.querySelector('.water-change-btn');
   const text = el ? el.textContent.trim() : '';
 
-  if(text.includes('오늘 환수 완료')) return '오늘 완료';
+  if(text.includes('환수 체크 완료')) return '오늘 완료';
 
   const title = document.querySelector('.tank-summary p');
   if(title){
