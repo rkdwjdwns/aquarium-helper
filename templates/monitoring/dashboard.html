@@ -874,13 +874,14 @@ function setChart(m, btn){
 
   if(btn) btn.classList.add('active');
 
-  if(!history || !history.labels) return;
+  // dashboard(5)와 동일하게 API가 반환한 history 데이터를 그대로 사용
+  if(!history || !Array.isArray(history.labels)) return;
 
   const c = C_CONFIG[m];
-  const trend24 = build24HourTrend(history, m);
+  const values = Array.isArray(history[m]) ? history[m] : [];
 
-  chart.data.labels = trend24.labels;
-  chart.data.datasets[0].data = trend24.values;
+  chart.data.labels = history.labels;
+  chart.data.datasets[0].data = values;
   chart.data.datasets[0].label = c.label;
   chart.data.datasets[0].borderColor = c.color;
   chart.data.datasets[0].backgroundColor = c.color + '18';
