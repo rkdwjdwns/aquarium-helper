@@ -101,10 +101,13 @@
     <!-- Raspberry Pi 카메라 데모 영상 -->
     <div class="stream-wrap" id="streamWrap" style="position:relative;overflow:hidden;background:#0b1220">
       <video id="demoStream"
-             src="{% static 'monitoring/videos/pi_camera_demo.mp4' %}"
-             poster="{% static 'monitoring/videos/pi_camera_demo.mp4' %}"
              autoplay muted loop playsinline preload="auto"
+             webkit-playsinline="true"
+             disablepictureinpicture
+             controlslist="nodownload noplaybackrate"
              style="width:100%;height:100%;object-fit:cover;display:block;background:#0b1220">
+        <source src="{% static 'monitoring/videos/pi_camera_demo.mp4' %}" type="video/mp4">
+        브라우저에서 영상을 재생할 수 없습니다.
       </video>
       <div class="stream-overlay">
         <div class="live-badge">
@@ -229,20 +232,49 @@ async function fetchBeh(){
 fetchBeh();
 setInterval(fetchBeh,30000);
 
-// 데모 영상은 정적 파일을 직접 로드해 브라우저 자동재생을 안정적으로 시작합니다.
+// 카메라 페이지 진입 즉시 데모 영상을 자동 재생합니다.
 const demoVideo=document.getElementById('demoStream');
+
+async function startDemoStream(){
+  if(!demoVideo) return;
+
+  demoVideo.muted=true;
+  demoVideo.defaultMuted=true;
+  demoVideo.playsInline=true;
+  demoVideo.setAttribute('muted','');
+  demoVideo.setAttribute('autoplay','');
+  demoVideo.setAttribute('playsinline','');
+
+  try{
+    await demoVideo.play();
+  }catch(e){
+    setTimeout(()=>demoVideo.play().catch(()=>{}),300);
+  }
+}
+
 if(demoVideo){
-  demoVideo.addEventListener('loadeddata',()=>demoVideo.play().catch(()=>{}));
+  demoVideo.addEventListener('loadedmetadata',startDemoStream);
+  demoVideo.addEventListener('canplay',startDemoStream);
+
   demoVideo.addEventListener('playing',()=>{
     const dot=document.getElementById('liveDot');
-    if(dot){dot.style.background='#ef4444';dot.style.animation='pulse 1s infinite';}
+    if(dot){
+      dot.style.background='#ef4444';
+      dot.style.animation='pulse 1s infinite';
+    }
   });
+
   demoVideo.addEventListener('error',()=>{
     const dot=document.getElementById('liveDot');
-    if(dot){dot.style.background='#6b7280';dot.style.animation='none';}
+    if(dot){
+      dot.style.background='#6b7280';
+      dot.style.animation='none';
+    }
   });
+
   demoVideo.load();
-  demoVideo.play().catch(()=>{});
+  startDemoStream();
+  window.addEventListener('load',startDemoStream);
 }
 </script>
 {% endblock %}
