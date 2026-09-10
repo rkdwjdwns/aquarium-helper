@@ -1,4 +1,4 @@
-﻿venv/
+venv/
 .venv/
 env/
 *.sqlite3
@@ -10,10 +10,27 @@ staticfiles/
 node_modules/
 package-lock.json
 package.json
+
+# Android/IDE generated files
+android/.gradle/
+android/.idea/
+android/app/build/
+
+# Model weights / large binary data
 goldfish_ai/models/*.pt
-data/
-# 미디어 및 대용량 동영상 파일 제외
+/data/
 /media/
 *.MOV
 *.mp4
 *.avi
+
+# Runtime/raw AI data are not versioned
+goldfish_ai/data/*
+!goldfish_ai/data/activity_baseline_v2.csv
+!goldfish_ai/data/dashboard_rules_v2.json
+!goldfish_ai/data/presentation/
+!goldfish_ai/data/presentation/*.csv
+
+# Runtime generated decision history is local data
+# If a presentation snapshot is intentionally committed, remove this line temporarily.
+goldfish_ai/data/presentation/ai_control_decisions.csv

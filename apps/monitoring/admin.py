@@ -12,7 +12,7 @@ class TankAdmin(admin.ModelAdmin):
 
 @admin.register(SensorReading)
 class SensorReadingAdmin(admin.ModelAdmin):
-    list_display = ['id', 'tank', 'temperature', 'ph', 'dissolved_oxygen', 'turbidity', 'created_at']
+    list_display = ['id', 'tank', 'temperature', 'ph', 'dissolved_oxygen', 'tds_ppm', 'created_at']
 
 @admin.register(FishBehavior)
 class FishBehaviorAdmin(admin.ModelAdmin):

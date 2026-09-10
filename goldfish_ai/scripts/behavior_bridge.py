@@ -100,7 +100,7 @@ class BehaviorBridge:
         is_anomaly = bool(
             v2.get("dashboard_ready")
             and abr_pct is not None
-            and float(abr_pct) > warning_pct
+            and float(abr_pct) >= warning_pct
         )
 
         if v2.get("analysis_quality") == "POOR":
