@@ -156,10 +156,10 @@
     /* 환경 상태 카드 상세보기 */
     .sensor-grid{position:relative;}
     .environment-detail-text-btn{
-      position:absolute; top:-10px; right:2px;
+      position:absolute; top:-28px; right:2px;
       border:0; background:transparent; padding:0;
       color:#2879ed; font-size:12px; font-weight:800;
-      cursor:pointer; white-space:nowrap; line-height:1.4;
+      cursor:pointer; line-height:1.4;
     }
     .environment-detail-text-btn:hover{
       color:#145fd7; text-decoration:underline;
@@ -431,6 +431,7 @@
             <div class="env-range-text">센서 데이터 기준</div>
           </div>
         </section>
+
 
 
         <div class="env-detail-section-head" id="envDetailSectionHead">
@@ -1206,6 +1207,8 @@ const envDetailColorMap = {
   ph:'#249ee9',
   do:'#28c943',
   turbidity:'#f6a11a',
+  waterlevel:'#6b8cff',
+  waterchange:'#7b6cf6'
 };
 
 const envDetailLabelMap = {
@@ -1213,6 +1216,8 @@ const envDetailLabelMap = {
   ph:'pH',
   do:'DO',
   turbidity:'탁도',
+  waterlevel:'수위',
+  waterchange:'환수'
 };
 
 const envDetailUnitMap = {
@@ -1220,6 +1225,8 @@ const envDetailUnitMap = {
   ph:'',
   do:'mg/L',
   turbidity:'PPM',
+  waterlevel:'%',
+  waterchange:''
 };
 
 let latestDashboard = null;
@@ -1247,6 +1254,8 @@ function findStateForSensor(key){
     ph:['PH'],
     do:['DO','DISSOLVED_OXYGEN'],
     turbidity:['TURB','TURBIDITY','NTU'],
+    waterlevel:['LVL','LEVEL','WATER_LEVEL'],
+    waterchange:['WC','WATERCHANGE','WATER_CHANGE']
   };
 
   const targets = aliases[key] || [];
@@ -1265,6 +1274,8 @@ function getSensorFromDashboard(key){
   if(key === 'ph') return s.ph;
   if(key === 'do') return s.dissolved_oxygen;
   if(key === 'turbidity') return s.turbidity;
+  if(key === 'waterlevel') return s.water_level;
+
   return null;
 }
 
@@ -1311,6 +1322,11 @@ function getCurrentState(key){
     return 'danger';
   }
 
+  if(key === 'waterlevel'){
+    if(value >= 80) return 'normal';
+    if(value >= 60) return 'warning';
+    return 'danger';
+  }
 
   return 'normal';
 }
@@ -1321,11 +1337,8 @@ function getNormalRange(key){
     ph:`{{ tank.ph_min|default:"6.5" }} ~ {{ tank.ph_max|default:"8.0" }}`,
     do:`{{ tank.do_min|default:"5" }} mg/L 이상`,
     turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} NTU`,
-<<<<<<< HEAD
-=======
     waterlevel:'80 ~ 100 %',
     waterchange:'설정된 환수 주기 기준'
->>>>>>> a36847010d70e8cb395e9ac6c9e77884c2cc77a3
   };
   return ranges[key] || '-';
 }
@@ -1468,7 +1481,9 @@ function makeEnvDetailChart(values, color){
 
 function buildEnvironmentDetailSensor(key){
   const state = findStateForSensor(key);
-  const value = getSensorFromDashboard(key);
+  const value = key === 'waterchange'
+    ? getWaterChangeDisplayValue()
+    : getSensorFromDashboard(key);
 
   const level = getCurrentState(key);
 
@@ -1492,14 +1507,20 @@ function buildEnvironmentDetailSensor(key){
     lastUpdated:
       state && state.detected_at
         ? formatDate(state.detected_at)
-        : getDashboardUpdatedAt()
+        : getDashboardUpdatedAt(),
+    lastWaterchangeDate:
+      latestDashboard?.last_waterchange_date ||
+      latestDashboard?.lastWaterchangeDate ||
+      '-',
+    nextWaterchangeDate:
+      latestDashboard?.next_waterchange_date ||
+      latestDashboard?.nextWaterchangeDate ||
+      '-'
   };
 
   return sensor;
 }
 
-<<<<<<< HEAD
-=======
 function getWaterChangeDisplayValue(){
   const el = document.querySelector('.water-change-btn');
   const text = el ? el.textContent.trim() : '';
@@ -1514,7 +1535,6 @@ function getWaterChangeDisplayValue(){
 
   return 'D -';
 }
->>>>>>> a36847010d70e8cb395e9ac6c9e77884c2cc77a3
 
 function getDashboardUpdatedAt(){
   const s = latestDashboard?.sensor;
@@ -1545,34 +1565,31 @@ function renderEnvironmentDetailSensor(key){
     sensor.label;
 
   const trendCard = document.getElementById('envDetailTrendCard');
+  const waterchangeDates = document.getElementById('envDetailWaterchangeDates');
   const detailSectionHead = document.getElementById('envDetailSectionHead');
   const detailGrid = document.getElementById('envDetailGrid');
 
-  trendCard.style.display = 'block';
-  detailSectionHead.style.display = 'flex';
-  detailGrid.style.display = 'grid';
+  if(key === 'waterchange'){
+    trendCard.style.display = 'none';
+    waterchangeDates.style.display = 'grid';
+    detailSectionHead.style.display = 'none';
+    detailGrid.style.display = 'none';
 
-  makeEnvDetailChart(
-    sensor.trend,
-    envDetailColorMap[key]
-  );
+    document.getElementById('envDetailLastWaterchangeDate').textContent =
+      sensor.lastWaterchangeDate;
+    document.getElementById('envDetailNextWaterchangeDate').textContent =
+      sensor.nextWaterchangeDate;
+  }else{
+    trendCard.style.display = 'block';
+    waterchangeDates.style.display = 'none';
+    detailSectionHead.style.display = 'flex';
+    detailGrid.style.display = 'grid';
 
-  const historyKey = {
-    temperature:'temp',
-    ph:'ph',
-    do:'do',
-    turbidity:'turb'
-  }[key];
+    makeEnvDetailChart(
+      sensor.trend,
+      envDetailColorMap[key]
+    );
 
-<<<<<<< HEAD
-  const labels24 = historyKey && latestDashboard?.history
-    ? build24HourTrend(latestDashboard.history, historyKey).labels
-    : [];
-
-  document.getElementById('envDetailXLabels').innerHTML =
-    labels24.filter((_,i)=>i % 2 === 0)
-      .map(label => `<span>${esc(label)}</span>`).join('');
-=======
     const historyKey = {
       temperature:'temp',
       ph:'ph',
@@ -1589,7 +1606,6 @@ function renderEnvironmentDetailSensor(key){
       labels24.filter((_,i)=>i % 2 === 0)
         .map(label => `<span>${esc(label)}</span>`).join('');
   }
->>>>>>> a36847010d70e8cb395e9ac6c9e77884c2cc77a3
 
   renderEnvDetailStatus(sensor);
   renderEnvDetailList('envDetailCauses',sensor.causes,sensor.level);

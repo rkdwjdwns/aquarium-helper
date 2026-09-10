@@ -218,15 +218,6 @@ const maxH=220;
 // ──────────────────────────────────────────────
 let FEED=null; // {labels, am, pm}
 
-function getMockFeed(){
-  const days = ['9/4','9/5','9/6','9/7','9/8','9/9','9/10'];
-  return {
-    labels: days,
-    am: [1.20, 1.45, 1.10, 1.65, 1.35, 1.55, 1.40],
-    pm: [0.85, 1.05, 0.95, 1.20, 1.00, 1.25, 1.10]
-  };
-}
-
 function renderFeed(key){
   const bars=document.getElementById('feedingBars');
   const yWrap=document.getElementById('feedingY');
@@ -268,23 +259,16 @@ function setFeed(key,btn){
 }
 
 async function fetchFeeding(){
-  const data = await sf(`/monitoring/api/feeding/chart/?tank_id=${TANK_ID}`);
-  // API 데이터가 없거나 응답 형식이 달라도 화면에는 최근 7일 테스트 데이터가 표시되도록 처리
-  if(data && Array.isArray(data.labels) && data.labels.length){
-    FEED = data;
-  }else if(data && Array.isArray(data.days) && data.days.length){
-    FEED = {
-      labels: data.days,
-      am: data.am || data.morning || data.morning_g || [],
-      pm: data.pm || data.afternoon || data.afternoon_g || []
-    };
-  }else{
-    FEED = getMockFeed();
-  }
+  FEED = await sf(`/monitoring/api/feeding/chart/?tank_id=${TANK_ID}`);
 
-  // 일부 API 응답에서 AM/PM 배열이 빠지는 경우도 보정
-  if(!FEED.am || FEED.am.length !== FEED.labels.length) FEED.am = getMockFeed().am;
-  if(!FEED.pm || FEED.pm.length !== FEED.labels.length) FEED.pm = getMockFeed().pm;
+  // API에 급이 데이터가 없을 때도 화면/발표용 그래프가 비어 보이지 않도록 예시 데이터 사용
+  if(!FEED || !Array.isArray(FEED.labels) || FEED.labels.length < 7){
+    FEED = {
+      labels:['09/04','09/05','09/06','09/07','09/08','09/09','09/10'],
+      am:[1.8,2.1,1.6,2.3,1.9,2.2,2.0],
+      pm:[2.2,2.0,2.5,2.1,2.4,2.3,2.6]
+    };
+  }
   renderFeed('all');
 }
 
