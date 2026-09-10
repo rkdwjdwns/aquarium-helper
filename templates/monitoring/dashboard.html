@@ -329,7 +329,7 @@
     <!-- 트렌드 차트 -->
     <div class="chart-card">
       <div class="chart-title">
-        📈 수질 트렌드 (최근 24시간)
+        📈 수질 트렌드 (최근 12회)
         <div class="chart-tabs">
           <button class="chart-tab active" onclick="setChart('temp',this)">수온</button>
           <button class="chart-tab" onclick="setChart('ph',this)">pH</button>
@@ -735,104 +735,6 @@ const C_CONFIG = {
 let metric = 'temp';
 let history = {{ chart_history|safe|default:"{}" }};
 
-/*
- * 수질 트렌드 표시 기준
- * - 최근 24시간 범위
- * - 2시간 간격 12포인트
- * - history.timestamps가 있으면 우선 사용
- * - 없으면 history.labels의 날짜/시간을 해석
- * - 각 목표 시각에서 가장 가까운 측정값을 사용하되 ±60분을 넘으면 null 처리
- */
-function parseHistoryTimes(h){
-  const raw = Array.isArray(h?.timestamps) && h.timestamps.length
-    ? h.timestamps
-    : (Array.isArray(h?.labels) ? h.labels : []);
-
-  if(!raw.length) return [];
-
-  const now = new Date();
-  let previous = null;
-  let dayOffset = 0;
-
-  return raw.map((value, index)=>{
-    const s = String(value ?? '').trim();
-
-    // ISO 또는 브라우저에서 직접 파싱 가능한 날짜/시간
-    const direct = new Date(s);
-    if(!Number.isNaN(direct.getTime())) return direct;
-
-    // HH:mm / HH:mm:ss 형식
-    const m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-    if(m){
-      const hour = Number(m[1]);
-      const minute = Number(m[2]);
-      const second = Number(m[3] || 0);
-
-      const d = new Date(now);
-      d.setHours(hour, minute, second, 0);
-
-      // labels가 시간순일 때 자정을 넘긴 경우 날짜를 하루 증가시킴
-      if(previous && d.getTime() + dayOffset * 86400000 < previous.getTime() - 12 * 3600000){
-        dayOffset += 1;
-      }
-      d.setDate(d.getDate() + dayOffset);
-      previous = d;
-      return d;
-    }
-
-    return null;
-  });
-}
-
-function build24HourTrend(h, key){
-  const values = Array.isArray(h?.[key]) ? h[key] : [];
-  const times = parseHistoryTimes(h);
-
-  // 현재 시각을 2시간 경계로 내림
-  const end = new Date();
-  end.setMinutes(0,0,0);
-  end.setHours(Math.floor(end.getHours()/2)*2);
-
-  // 12포인트: 현재 기준 22시간 전 ~ 현재, 모두 최근 24시간 범위 안
-  const targets = Array.from({length:12}, (_,i)=>
-    new Date(end.getTime() - (11-i) * 2 * 60 * 60 * 1000)
-  );
-
-  const labels = targets.map(d =>
-    `${String(d.getHours()).padStart(2,'0')}:00`
-  );
-
-  // 시간축을 해석할 수 없으면 기존 데이터를 억지로 24시간 데이터처럼 표시하지 않음.
-  if(!times.length || times.length !== values.length || times.some(t=>!t)){
-    return {
-      labels,
-      values:Array(12).fill(null)
-    };
-  }
-
-  const maxDistance = 60 * 60 * 1000; // 목표시각 ±60분
-
-  const sampled = targets.map(target=>{
-    let bestIndex = -1;
-    let bestDistance = Infinity;
-
-    times.forEach((time,i)=>{
-      const d = Math.abs(time.getTime() - target.getTime());
-      if(d < bestDistance){
-        bestDistance = d;
-        bestIndex = i;
-      }
-    });
-
-    if(bestIndex < 0 || bestDistance > maxDistance) return null;
-
-    const n = Number(values[bestIndex]);
-    return Number.isFinite(n) ? n : null;
-  });
-
-  return {labels, values:sampled};
-}
-
 const chartEl = document.getElementById('trendChart');
 const ctx = chartEl.getContext('2d');
 
@@ -874,8 +776,7 @@ function setChart(m, btn){
 
   if(btn) btn.classList.add('active');
 
-  // dashboard(5)와 동일하게 API가 반환한 history 데이터를 그대로 사용
-  if(!history || !Array.isArray(history.labels)) return;
+  if(!history || !history.labels) return;
 
   const c = C_CONFIG[m];
   const values = Array.isArray(history[m]) ? history[m] : [];
@@ -1273,17 +1174,12 @@ function getTrendFromDashboard(key){
   const h = latestDashboard && latestDashboard.history;
   if(!h) return [];
 
-  const map = {
-    temperature:'temp',
-    ph:'ph',
-    do:'do',
-    turbidity:'turb'
-  };
+  if(key === 'temperature') return Array.isArray(h.temp) ? h.temp : [];
+  if(key === 'ph') return Array.isArray(h.ph) ? h.ph : [];
+  if(key === 'do') return Array.isArray(h.do) ? h.do : [];
+  if(key === 'turbidity') return Array.isArray(h.turb) ? h.turb : [];
 
-  const historyKey = map[key];
-  if(!historyKey) return [];
-
-  return build24HourTrend(h, historyKey).values;
+  return [];
 }
 
 function getCurrentState(key){
@@ -1544,20 +1440,9 @@ function renderEnvironmentDetailSensor(key){
 
   makeEnvDetailChart(sensor.trend, envDetailColorMap[key]);
 
-  const historyKey = {
-    temperature:'temp',
-    ph:'ph',
-    do:'do',
-    turbidity:'turb'
-  }[key];
-
-  const labels24 = historyKey && latestDashboard?.history
-    ? build24HourTrend(latestDashboard.history, historyKey).labels
-    : [];
-
+  const labels = latestDashboard?.history?.labels || [];
   document.getElementById('envDetailXLabels').innerHTML =
-    labels24.filter((_,i)=>i % 2 === 0)
-      .map(label => `<span>${esc(label)}</span>`).join('');
+    labels.slice(-6).map(label => `<span>${esc(label)}</span>`).join('');
 
   renderEnvDetailStatus(sensor);
   renderEnvDetailList('envDetailCauses',sensor.causes,sensor.level);
@@ -1656,7 +1541,7 @@ try{
     if(userCircle) userCircle.textContent = account.id.charAt(0);
   }
 }catch(e){}
-
+  
 /* 서버 템플릿에 이미 있는 로그아웃 버튼 사용 */
 const logoutBtn = document.getElementById('logoutBtn');
 if(logoutBtn){
