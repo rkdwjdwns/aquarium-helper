@@ -1,36 +1,75 @@
+# Python virtual environments
 venv/
 .venv/
 env/
-*.sqlite3
+
+# Python cache and test artifacts
 __pycache__/
 *.py[cod]
-.env
-staticfiles/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
+# Django runtime files
+*.sqlite3
+staticfiles/
+/media/
+*.log
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Node.js generated files
 node_modules/
 package-lock.json
 package.json
 
-# Android/IDE generated files
+# Android / Gradle generated and local files
 android/.gradle/
 android/.idea/
 android/app/build/
+android/build/
+android/local.properties
+*.apk
+*.aab
 
-# Model weights / large binary data
+# IDE, editor and operating-system files
+.vscode/
+*.swp
+*.swo
+*.swx
+*~
+.DS_Store
+Thumbs.db
+
+# Accidentally copied Git repository
+aquarium-helper.git/
+
+# Model weights and large binary data
 goldfish_ai/models/*.pt
 /data/
-/media/
 *.MOV
 *.mp4
 *.avi
 
-# Runtime/raw AI data are not versioned
+# Runtime/raw AI data are not versioned by default
 goldfish_ai/data/*
+
+# Runtime baseline and rules required by the application
 !goldfish_ai/data/activity_baseline_v2.csv
 !goldfish_ai/data/dashboard_rules_v2.json
+
+# Cleaned/merged project datasets uploaded intentionally
+!goldfish_ai/data/processed/
+!goldfish_ai/data/processed/*.csv
+!goldfish_ai/data/processed/README.md
+
+# Presentation datasets uploaded intentionally
 !goldfish_ai/data/presentation/
 !goldfish_ai/data/presentation/*.csv
+!goldfish_ai/data/presentation/README.md
 
-# Runtime generated decision history is local data
-# If a presentation snapshot is intentionally committed, remove this line temporarily.
+# Runtime-generated decision history remains local
 goldfish_ai/data/presentation/ai_control_decisions.csv
