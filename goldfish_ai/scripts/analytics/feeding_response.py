@@ -1,432 +1,352 @@
+"""Operational feeding-response score (FRS v2).
+
+FRS v2 was calibrated from real project logs and intentionally removes the old
+TOP-zone component because the latest camera/ROI made that signal nearly
+constant around feeding times.
+
+Score = 70% activity response + 30% response latency.
+It is an operational feeding-response indicator, not a health diagnosis and not
+an automatic feeding-amount controller.
 """
-analytics/feeding_response.py — 급이 반응 점수(FRS) 계산 모듈
-금붕어 자동 사육 AI 시스템 (v2.0)
-
-역할:
-    - 급이 이벤트 전후 행동 데이터를 슬라이싱
-    - sub-score 3개 계산 → 가중합 → 0~100 정규화 → FRS 반환
-    - 결과를 data/frs_history.csv에 누적 저장
-
-FRS 구성:
-    S1 (반응 시간)    : 급이 후 첫 수면(TOP zone) 접근까지 걸린 시간
-                        빠를수록 높은 점수 (최대 during_sec 기준 역정규화)
-    S2 (활동량 증가)  : post 평균 speed / pre 평균 speed 비율
-                        증가율이 클수록 높은 점수
-    S3 (수면 접근률)  : post 구간 중 TOP zone 프레임 비율
-                        비율이 높을수록 높은 점수
-
-    FRS = (w1×S1 + w2×S2 + w3×S3) × 100   (0~100 클리핑)
-
-사용 예:
-    from analytics.feeding_response import FeedingResponseAnalyzer
-    analyzer = FeedingResponseAnalyzer(cfg["analytics"]["frs"], cfg["storage"])
-    frs = analyzer.compute(feeding_ts=event.timestamp, frame_buffer=buf)
-    print(f"FRS: {frs.score:.1f}점")
-"""
-
 from __future__ import annotations
 
 import csv
+import math
+import statistics
 import time
-from collections import deque
-from dataclasses import dataclass, asdict
+from collections import defaultdict, deque
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from scripts.analytics.behavior_v2 import BehaviorV2Analyzer
 
-# ─────────────────────────────────────────────────────────────────────────
-# 프레임 단위 행동 데이터 (파이프라인이 매 프레임 push)
-# ─────────────────────────────────────────────────────────────────────────
+
 @dataclass
 class FrameData:
-    timestamp:  float        # Unix time
-    fish_id:    int
-    zone:       str          # "TOP" / "MID" / "BOT"
+    timestamp: float
+    fish_id: int
+    zone: str
     speed_px_s: float
-    activity:   float
+    activity: float
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# FRS 결과
-# ─────────────────────────────────────────────────────────────────────────
 @dataclass
 class FRSResult:
-    feeding_ts:   float       # 급이 이벤트 timestamp
+    # Legacy-compatible fields first.
+    feeding_ts: float
     datetime_str: str
-    s1_response_time: float   # 반응 시간 sub-score (0~1)
-    s2_activity_inc:  float   # 활동량 증가 sub-score (0~1)
-    s3_surface_visit: float   # 수면 접근률 sub-score (0~1)
-    score:        float       # 최종 FRS (0~100)
-    pre_avg_speed:  float     # 참고값: pre 평균 속도
-    post_avg_speed: float     # 참고값: post 평균 속도
-    post_top_ratio: float     # 참고값: post TOP zone 비율
-    first_surface_sec: Optional[float]  # 첫 수면 접근까지 걸린 시간(초)
+    s1_response_time: float
+    s2_activity_inc: float
+    s3_surface_visit: float
+    score: float
+    pre_avg_speed: float
+    post_avg_speed: float
+    post_top_ratio: float
+    first_surface_sec: Optional[float]
     note: str = ""
+    # v2 fields.
+    version: str = "v2"
+    status: str = "OK"
+    pre_samples: int = 0
+    post_samples: int = 0
+    pre_activity_index: float = 0.0
+    post_peak60_activity_index: float = 0.0
+    activity_increase_pct: float = 0.0
+    response_threshold_index: float = 0.0
+    response_latency_sec: float = 0.0
+    activity_score: float = 0.0
+    latency_score: float = 0.0
+    zone_component_used: bool = False
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# FRS 계산기
-# ─────────────────────────────────────────────────────────────────────────
 class FeedingResponseAnalyzer:
-    """
-    매 프레임 FrameData를 push() 로 받아 원형 버퍼에 보관.
-    급이 이벤트 발생 후 post_window_sec 경과 시 compute()로 FRS 계산.
-
-    버퍼 크기:
-        (pre_window_sec + post_window_sec) × fps_ref 만큼 보관.
-        오래된 데이터는 자동 삭제.
-    """
-
     CSV_FIELDS = [
-        "feeding_ts", "datetime_str",
+        "feeding_ts", "datetime_str", "version", "status",
+        "score", "pre_samples", "post_samples",
+        "pre_activity_index", "post_peak60_activity_index",
+        "activity_increase_pct", "response_threshold_index",
+        "response_latency_sec", "activity_score", "latency_score",
+        "zone_component_used",
+        # legacy transport/debug fields
         "s1_response_time", "s2_activity_inc", "s3_surface_visit",
-        "score",
         "pre_avg_speed", "post_avg_speed", "post_top_ratio",
         "first_surface_sec", "note",
     ]
 
     def __init__(self, frs_cfg: dict, storage_cfg: dict):
-        """
-        Args:
-            frs_cfg:     config.yaml analytics.frs 섹션
-            storage_cfg: config.yaml storage 섹션
-        """
-        raw_w1 = float(frs_cfg.get("w1", 0.33))
-        raw_w2 = float(frs_cfg.get("w2", 0.33))
-        raw_w3 = float(frs_cfg.get("w3", 0.34))
-        weight_sum = raw_w1 + raw_w2 + raw_w3
-        if weight_sum <= 0:
-            raw_w1, raw_w2, raw_w3, weight_sum = 0.33, 0.33, 0.34, 1.0
-        # 설정 오타로 가중치 합이 1이 아니어도 최종 점수가 왜곡되지 않게 정규화한다.
-        self.w1 = raw_w1 / weight_sum
-        self.w2 = raw_w2 / weight_sum
-        self.w3 = raw_w3 / weight_sum
-        self.pre_sec = float(frs_cfg.get("before_sec", 60.0))
-        self.post_sec = float(frs_cfg.get("during_sec", 180.0))
+        self.version = str(frs_cfg.get("version", "v2"))
+        self.pre_sec = float(frs_cfg.get("before_sec", 300.0))
+        self.post_sec = float(frs_cfg.get("during_sec", 300.0))
         self.fps_ref = float(frs_cfg.get("fps_ref", 14.0))
-        self.expected_fish_count = max(1, int(frs_cfg.get("expected_fish_count", 2)))
-        self.min_pre_coverage_ratio = min(1.0, max(0.0, float(
-            frs_cfg.get("min_pre_coverage_ratio", 0.8)
-        )))
-        self.min_post_coverage_ratio = min(1.0, max(0.0, float(
-            frs_cfg.get("min_post_coverage_ratio", 0.8)
-        )))
-        self.min_detected_fish_ratio = min(1.0, max(0.0, float(
-            frs_cfg.get("min_detected_fish_ratio", 0.5)
-        )))
-        # 실제 Pi 처리 FPS가 fps_ref보다 낮아도 정상적인 연속 관측이면 계산할 수 있게 한다.
-        # 단, 지나치게 희소한 데이터로 점수를 만드는 것은 막는다.
-        self.min_frame_rate_ratio = min(1.0, max(0.05, float(
-            frs_cfg.get("min_frame_rate_ratio", 0.35)
-        )))
+        self.expected_fish_count = max(1, int(frs_cfg.get("quality_expected_fish_count", 2)))
+        self.activity_weight = float(frs_cfg.get("activity_weight", 0.7))
+        self.latency_weight = float(frs_cfg.get("latency_weight", 0.3))
+        weight_sum = self.activity_weight + self.latency_weight
+        if weight_sum <= 0:
+            self.activity_weight, self.latency_weight, weight_sum = 0.7, 0.3, 1.0
+        self.activity_weight /= weight_sum
+        self.latency_weight /= weight_sum
+        self.activity_full_response_pct = float(frs_cfg.get("activity_full_response_pct", 50.0))
+        self.latency_max_sec = float(frs_cfg.get("latency_max_sec", self.post_sec))
+        self.min_pre_bins = int(frs_cfg.get("min_pre_bins", 24))
+        self.min_post_bins = int(frs_cfg.get("min_post_bins", 24))
+        self.baseline_csv = str(frs_cfg.get("baseline_csv", "data/activity_baseline_v2.csv"))
         self.last_skip_reason = ""
 
         output_dir = Path(storage_cfg.get("output_dir", "data"))
         self.csv_path = output_dir / "frs_history.csv"
         self.csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # 원형 버퍼: 프레임당 여러 마리 데이터가 push되므로 expected_fish_count를 반영한다.
-        maxlen = int((self.pre_sec + self.post_sec) * self.fps_ref * self.expected_fish_count * 1.5)
+        # Keep enough rows for the 5m pre + 5m post windows with multiple fish.
+        maxlen = int((self.pre_sec + self.post_sec + 120.0) * self.fps_ref * self.expected_fish_count * 1.5)
         self._buffer: deque[FrameData] = deque(maxlen=maxlen)
-        self._computed_feeding_ts: set[float] = self._load_computed_keys()
-
-    # ══════════════════════════════════════════════════════════════════════
-    # Public API
-    # ══════════════════════════════════════════════════════════════════════
+        self._computed_feeding_ts = self._load_computed_keys()
+        self._baseline = BehaviorV2Analyzer(
+            {"quality_expected_fish_count": self.expected_fish_count},
+            baseline_csv=self.baseline_csv,
+        ).baseline
 
     def push(self, frame_data: FrameData):
-        """매 프레임 호출. 파이프라인 features dict → FrameData로 변환 후 전달."""
         self._buffer.append(frame_data)
 
-    def push_from_features(
-        self,
-        timestamp: float,
-        features: dict,
-    ):
-        """
-        demo_pipeline.py의 features dict를 직접 받아 push.
-
-        Args:
-            timestamp: 현재 프레임 Unix time
-            features:  {fish_id: {zone, speed_px_s, activity, ...}, ...}
-        """
+    def push_from_features(self, timestamp: float, features: dict):
         for fid, feat in features.items():
             self._buffer.append(FrameData(
-                timestamp  = timestamp,
-                fish_id    = int(fid),
-                zone       = feat.get("zone",       "MID"),
-                speed_px_s = float(feat.get("speed_px_s", 0.0)),
-                activity   = float(feat.get("activity",   0.0)),
+                timestamp=float(timestamp),
+                fish_id=int(fid),
+                zone=str(feat.get("zone", "MID")),
+                speed_px_s=float(feat.get("speed_px_s", 0.0)),
+                activity=float(feat.get("activity", 0.0)),
             ))
 
-    def compute(
-        self,
-        feeding_ts: float,
-        note: str = "",
-    ) -> Optional[FRSResult]:
-        """
-        급이 이벤트 timestamp 기준으로 FRS 계산.
+    def is_ready(self, feeding_ts: float) -> bool:
+        return time.time() >= feeding_ts + self.post_sec
 
-        pre  구간: [feeding_ts - pre_sec,  feeding_ts)
-        post 구간: [feeding_ts,            feeding_ts + post_sec]
-
-        버퍼에 post 구간 데이터가 충분히 쌓이지 않은 경우 None 반환.
-
-        Returns:
-            FRSResult or None
-        """
+    def compute(self, feeding_ts: float, note: str = "") -> Optional[FRSResult]:
         self.last_skip_reason = ""
-        key = round(feeding_ts, 4)
+        key = round(float(feeding_ts), 4)
         if key in self._computed_feeding_ts:
             self.last_skip_reason = "already_computed"
             return None
-
-        now = time.time()
-        # post 구간이 아직 완료되지 않음
-        if now < feeding_ts + self.post_sec:
+        if time.time() < feeding_ts + self.post_sec:
             self.last_skip_reason = "post_window_incomplete"
             return None
 
-        pre_frames  = self._slice(feeding_ts - self.pre_sec,  feeding_ts)
-        post_frames = self._slice(feeding_ts,                  feeding_ts + self.post_sec)
+        pre_frames = self._slice(feeding_ts - self.pre_sec, feeding_ts)
+        post_frames = self._slice(feeding_ts, feeding_ts + self.post_sec)
+        pre_bins = self._activity_bins(pre_frames)
+        post_bins = self._activity_bins(post_frames)
+        pre_ready = [b for b in pre_bins if b["ready"]]
+        post_ready = [b for b in post_bins if b["ready"]]
 
-        if not pre_frames or not post_frames:
-            self.last_skip_reason = "pre_or_post_empty"
+        if len(pre_ready) < self.min_pre_bins or len(post_ready) < self.min_post_bins:
+            self.last_skip_reason = (
+                f"insufficient_5s_bins(pre={len(pre_ready)},post={len(post_ready)})"
+            )
             return None
 
-        if not self._coverage_ok(
-            pre_frames, self.pre_sec, self.min_pre_coverage_ratio
-        ):
-            self.last_skip_reason = "pre_coverage_insufficient"
+        pre_idx = statistics.median(b["activity_index"] for b in pre_ready)
+        rolling60 = self._rolling_median(post_ready, window_sec=60, min_bins=6)
+        if not rolling60:
+            self.last_skip_reason = "post_rolling60_insufficient"
             return None
-        if not self._coverage_ok(
-            post_frames, self.post_sec, self.min_post_coverage_ratio
-        ):
-            self.last_skip_reason = "post_coverage_insufficient"
-            return None
+        post_peak = max(v for _, v in rolling60)
+        act_pct = ((post_peak / pre_idx) - 1.0) * 100.0 if pre_idx > 1e-9 else 0.0
 
-        # ── sub-score 계산 ─────────────────────────────────────────────
+        hour = BehaviorV2Analyzer._local_hour(feeding_ts)
+        base = self._baseline.get(hour, {})
+        med = float(base.get("activity_median", 0.0) or 0.0)
+        q75 = float(base.get("activity_q75", med) or med)
+        q75_index = 100.0 * q75 / med if med > 1e-9 else 115.0
+        threshold = max(pre_idx * 1.15, q75_index)
 
-        # S1: 반응 시간 — 급이 후 첫 TOP zone 접근까지 걸린 시간 (역정규화)
-        first_surface_sec = self._first_top_zone_sec(
-            pre_frames, post_frames, feeding_ts
+        rolling30 = self._rolling_median(post_ready, window_sec=30, min_bins=3)
+        latency = self.latency_max_sec
+        for ts, value in rolling30:
+            if value >= threshold:
+                latency = max(0.0, min(self.latency_max_sec, ts - feeding_ts))
+                break
+
+        activity_score = self._clip100(
+            act_pct / max(self.activity_full_response_pct, 1e-9) * 100.0
         )
-        if first_surface_sec is None:
-            s1 = 0.0   # post 구간 내 수면 접근 없음
-        else:
-            # 빠를수록 1에 가깝게 (post_sec 기준 선형 역정규화)
-            s1 = max(0.0, 1.0 - first_surface_sec / self.post_sec)
+        latency_score = self._clip100(
+            (self.latency_max_sec - latency) / max(self.latency_max_sec, 1e-9) * 100.0
+        )
+        score = self._clip100(
+            self.activity_weight * activity_score + self.latency_weight * latency_score
+        )
 
-        # S2: 활동량 증가율 — post/pre 평균 speed 비율
-        pre_avg_speed  = self._avg_speed(pre_frames)
+        pre_avg_speed = self._avg_speed(pre_frames)
         post_avg_speed = self._avg_speed(post_frames)
-        if pre_avg_speed < 1e-6:
-            # pre 구간에 움직임 없으면 post 활동 자체를 점수화
-            s2 = min(1.0, post_avg_speed / 200.0)
-        else:
-            ratio = post_avg_speed / pre_avg_speed
-            # ratio 1.0(변화없음)→0점, 3.0(3배 증가)→1점으로 클리핑
-            s2 = min(1.0, max(0.0, (ratio - 1.0) / 2.0))
-
-        # S3: 수면 접근률 — post 구간 TOP zone 프레임 비율
-        post_top_ratio = self._top_zone_ratio(post_frames)
-        s3 = post_top_ratio   # 이미 0~1
-
-        # ── 최종 FRS ──────────────────────────────────────────────────
-        score = min(100.0, max(0.0, (self.w1 * s1 + self.w2 * s2 + self.w3 * s3) * 100))
-
         result = FRSResult(
-            feeding_ts        = round(feeding_ts, 4),
-            datetime_str      = datetime.fromtimestamp(feeding_ts).strftime("%Y-%m-%d %H:%M:%S"),
-            s1_response_time  = round(s1,              4),
-            s2_activity_inc   = round(s2,              4),
-            s3_surface_visit  = round(s3,              4),
-            score             = round(score,           2),
-            pre_avg_speed     = round(pre_avg_speed,   2),
-            post_avg_speed    = round(post_avg_speed,  2),
-            post_top_ratio    = round(post_top_ratio,  4),
-            first_surface_sec = round(first_surface_sec, 2) if first_surface_sec is not None else None,
-            note              = note,
+            feeding_ts=round(feeding_ts, 4),
+            datetime_str=datetime.fromtimestamp(feeding_ts).strftime("%Y-%m-%d %H:%M:%S"),
+            # Legacy compatibility: these fields now carry the two v2 components.
+            s1_response_time=round(latency_score / 100.0, 4),
+            s2_activity_inc=round(activity_score / 100.0, 4),
+            s3_surface_visit=0.0,
+            score=round(score, 2),
+            pre_avg_speed=round(pre_avg_speed, 2),
+            post_avg_speed=round(post_avg_speed, 2),
+            post_top_ratio=0.0,
+            first_surface_sec=round(latency, 2),
+            note=(note + " | FRS v2: activity 70% + latency 30%; zone excluded").strip(" |"),
+            version="v2",
+            status="OK",
+            pre_samples=len(pre_ready),
+            post_samples=len(post_ready),
+            pre_activity_index=round(pre_idx, 3),
+            post_peak60_activity_index=round(post_peak, 3),
+            activity_increase_pct=round(act_pct, 3),
+            response_threshold_index=round(threshold, 3),
+            response_latency_sec=round(latency, 1),
+            activity_score=round(activity_score, 2),
+            latency_score=round(latency_score, 2),
+            zone_component_used=False,
         )
         self._save_csv(result)
         self._computed_feeding_ts.add(key)
-        print(f"[FRS] 계산 완료  score={score:.1f}  "
-              f"S1={s1:.2f} S2={s2:.2f} S3={s3:.2f}  "
-              f"({result.datetime_str})")
+        print(
+            f"[FRS v2] score={result.score:.1f} activity={result.activity_score:.1f} "
+            f"latency={result.response_latency_sec:.0f}s ({result.datetime_str})"
+        )
         return result
 
-    def is_ready(self, feeding_ts: float) -> bool:
-        """post 구간 데이터가 충분히 쌓였는지 확인."""
-        return time.time() >= feeding_ts + self.post_sec
-
     def load_history(self) -> list[FRSResult]:
-        """CSV 전체를 FRSResult 리스트로 반환 (AmountAdvisor용)."""
         if not self.csv_path.exists():
             return []
-        results = []
-        with open(self.csv_path, encoding="utf-8") as f:
+        out: list[FRSResult] = []
+        with open(self.csv_path, newline="", encoding="utf-8-sig") as f:
             for row in csv.DictReader(f):
                 try:
-                    results.append(FRSResult(
-                        feeding_ts        = float(row["feeding_ts"]),
-                        datetime_str      = row["datetime_str"],
-                        s1_response_time  = float(row["s1_response_time"]),
-                        s2_activity_inc   = float(row["s2_activity_inc"]),
-                        s3_surface_visit  = float(row["s3_surface_visit"]),
-                        score             = float(row["score"]),
-                        pre_avg_speed     = float(row["pre_avg_speed"]),
-                        post_avg_speed    = float(row["post_avg_speed"]),
-                        post_top_ratio    = float(row["post_top_ratio"]),
-                        first_surface_sec = float(row["first_surface_sec"]) if row.get("first_surface_sec") else None,
-                        note              = row.get("note", ""),
-                    ))
-                except (ValueError, KeyError, TypeError):
+                    out.append(self._row_to_result(row))
+                except Exception:
                     continue
-        return results
+        return out
 
-    # ══════════════════════════════════════════════════════════════════════
-    # Private
-    # ══════════════════════════════════════════════════════════════════════
+    def _row_to_result(self, row: dict) -> FRSResult:
+        # New v2 history.
+        if row.get("version") == "v2" or "activity_score" in row:
+            return FRSResult(
+                feeding_ts=float(row.get("feeding_ts", 0) or 0),
+                datetime_str=row.get("datetime_str", ""),
+                s1_response_time=float(row.get("s1_response_time", 0) or 0),
+                s2_activity_inc=float(row.get("s2_activity_inc", 0) or 0),
+                s3_surface_visit=float(row.get("s3_surface_visit", 0) or 0),
+                score=float(row.get("score", 0) or 0),
+                pre_avg_speed=float(row.get("pre_avg_speed", 0) or 0),
+                post_avg_speed=float(row.get("post_avg_speed", 0) or 0),
+                post_top_ratio=float(row.get("post_top_ratio", 0) or 0),
+                first_surface_sec=self._optional_float(row.get("first_surface_sec")),
+                note=row.get("note", ""),
+                version=row.get("version", "v2"),
+                status=row.get("status", "OK"),
+                pre_samples=int(float(row.get("pre_samples", 0) or 0)),
+                post_samples=int(float(row.get("post_samples", 0) or 0)),
+                pre_activity_index=float(row.get("pre_activity_index", 0) or 0),
+                post_peak60_activity_index=float(row.get("post_peak60_activity_index", 0) or 0),
+                activity_increase_pct=float(row.get("activity_increase_pct", 0) or 0),
+                response_threshold_index=float(row.get("response_threshold_index", 0) or 0),
+                response_latency_sec=float(row.get("response_latency_sec", 0) or 0),
+                activity_score=float(row.get("activity_score", 0) or 0),
+                latency_score=float(row.get("latency_score", 0) or 0),
+                zone_component_used=str(row.get("zone_component_used", "false")).lower() == "true",
+            )
+        # Old v1 history remains readable for AmountAdvisor/history screens.
+        return FRSResult(
+            feeding_ts=float(row.get("feeding_ts", 0) or 0),
+            datetime_str=row.get("datetime_str", ""),
+            s1_response_time=float(row.get("s1_response_time", 0) or 0),
+            s2_activity_inc=float(row.get("s2_activity_inc", 0) or 0),
+            s3_surface_visit=float(row.get("s3_surface_visit", 0) or 0),
+            score=float(row.get("score", 0) or 0),
+            pre_avg_speed=float(row.get("pre_avg_speed", 0) or 0),
+            post_avg_speed=float(row.get("post_avg_speed", 0) or 0),
+            post_top_ratio=float(row.get("post_top_ratio", 0) or 0),
+            first_surface_sec=self._optional_float(row.get("first_surface_sec")),
+            note=row.get("note", "legacy FRS"),
+            version="v1",
+        )
+
+    def _activity_bins(self, frames: list[FrameData]) -> list[dict]:
+        grouped: dict[int, list[FrameData]] = defaultdict(list)
+        for f in frames:
+            grouped[int(f.timestamp // 5) * 5].append(f)
+        out = []
+        for ts in sorted(grouped):
+            g = grouped[ts]
+            # Same timestamp is one video frame; it may contain multiple fish.
+            counts: dict[float, int] = defaultdict(int)
+            for f in g:
+                counts[round(f.timestamp, 3)] += 1
+            fc = list(counts.values())
+            if not fc:
+                continue
+            min_detected = max(1, self.expected_fish_count - 1)
+            pct_ge = sum(c >= min_detected for c in fc) / len(fc)
+            pct_gt = sum(c > self.expected_fish_count for c in fc) / len(fc)
+            good = pct_ge >= 0.50 and pct_gt < 0.10
+            fair = pct_ge >= 0.10 and pct_gt < 0.25
+            ready = len(fc) >= 10 and (good or fair)
+            act = statistics.median(max(0.0, f.activity) for f in g)
+            hour = BehaviorV2Analyzer._local_hour(ts)
+            base = self._baseline.get(hour, {})
+            med = float(base.get("activity_median", 0.0) or 0.0)
+            idx = 100.0 * act / med if med > 1e-9 else 0.0
+            out.append({"ts": float(ts), "activity": act, "activity_index": min(250.0, max(0.0, idx)), "ready": ready})
+        return out
+
+    @staticmethod
+    def _rolling_median(bins: list[dict], window_sec: int, min_bins: int) -> list[tuple[float, float]]:
+        out: list[tuple[float, float]] = []
+        for i, b in enumerate(bins):
+            values = [
+                x["activity_index"] for x in bins[: i + 1]
+                if 0 <= b["ts"] - x["ts"] < window_sec
+            ]
+            if len(values) >= min_bins:
+                out.append((b["ts"], float(statistics.median(values))))
+        return out
 
     def _slice(self, start_ts: float, end_ts: float) -> list[FrameData]:
         return [f for f in self._buffer if start_ts <= f.timestamp < end_ts]
 
-    def _avg_speed(self, frames: list[FrameData]) -> float:
-        # 정지(0px/s)도 급이 반응 분석에 의미가 있으므로 평균에서 제외하지 않는다.
-        speeds = [max(0.0, f.speed_px_s) for f in frames]
-        return sum(speeds) / len(speeds) if speeds else 0.0
+    @staticmethod
+    def _avg_speed(frames: list[FrameData]) -> float:
+        return statistics.mean(max(0.0, f.speed_px_s) for f in frames) if frames else 0.0
 
-    def _coverage_ok(
-        self,
-        frames: list[FrameData],
-        window_sec: float,
-        required_ratio: float,
-    ) -> bool:
-        if not frames:
-            return False
-        timestamps = sorted({round(frame.timestamp, 4) for frame in frames})
-        if not timestamps:
-            return False
+    @staticmethod
+    def _clip100(value: float) -> float:
+        return min(100.0, max(0.0, float(value)))
 
-        # 1) 분석 구간의 시간 범위가 실제로 채워졌는지 확인한다.
-        observed_span = max(0.0, timestamps[-1] - timestamps[0])
-        required_span = max(
-            0.0,
-            window_sec * required_ratio - 1.0 / max(self.fps_ref, 1.0),
-        )
-        if observed_span < required_span:
-            return False
-
-        # 2) fps_ref(목표 FPS)를 고정 행 수로 강제하면 실제 Pi가 9~12 FPS일 때
-        #    충분한 데이터가 있어도 실패한다. 대신 최소 관측 FPS만 검사한다.
-        minimum_unique_frames = max(
-            2,
-            int(
-                window_sec
-                * self.fps_ref
-                * self.min_frame_rate_ratio
-                * required_ratio
-            ),
-        )
-        if len(timestamps) < minimum_unique_frames:
-            return False
-
-        # 3) 각 관측 프레임에 평균적으로 몇 마리가 포함됐는지 검사한다.
-        average_detected_fish = len(frames) / len(timestamps)
-        minimum_detected_fish = (
-            self.expected_fish_count * self.min_detected_fish_ratio
-        )
-        return average_detected_fish >= minimum_detected_fish
-
-    def _top_zone_ratio(self, frames: list[FrameData]) -> float:
-        if not frames:
-            return 0.0
-        top_count = sum(1 for f in frames if f.zone == "TOP")
-        return top_count / len(frames)
-
-    def _first_top_zone_sec(
-        self,
-        pre_frames: list[FrameData],
-        post_frames: list[FrameData],
-        feeding_ts: float,
-    ) -> Optional[float]:
-        """급이 후 최초의 비TOP→TOP 진입까지 걸린 시간.
-
-        급이 직전부터 이미 TOP에 있던 개체를 0초 반응으로 처리하면 FRS가
-        과대평가될 수 있으므로, 개체별 직전 zone을 이어받아 TOP 진입 전이를 찾는다.
-        pre 데이터가 없는 신규 ID는 첫 TOP 관측을 진입으로 허용한다.
-        """
-        previous_zone: dict[int, str] = {}
-        for frame in sorted(pre_frames, key=lambda item: item.timestamp):
-            previous_zone[frame.fish_id] = frame.zone
-
-        for frame in sorted(post_frames, key=lambda item: item.timestamp):
-            previous = previous_zone.get(frame.fish_id)
-            if frame.zone == "TOP" and previous != "TOP":
-                return max(0.0, frame.timestamp - feeding_ts)
-            previous_zone[frame.fish_id] = frame.zone
-        return None
+    @staticmethod
+    def _optional_float(value) -> Optional[float]:
+        if value in (None, "", "None", "nan"):
+            return None
+        return float(value)
 
     def _load_computed_keys(self) -> set[float]:
-        """재시작 후에도 같은 feeding_ts가 중복 저장되지 않도록 기존 CSV 키를 로드."""
         if not self.csv_path.exists():
             return set()
         keys: set[float] = set()
-        with open(self.csv_path, encoding="utf-8") as f:
-            for row in csv.DictReader(f):
-                try:
-                    keys.add(round(float(row["feeding_ts"]), 4))
-                except (ValueError, KeyError, TypeError):
-                    pass
+        try:
+            with open(self.csv_path, newline="", encoding="utf-8-sig") as f:
+                for row in csv.DictReader(f):
+                    try:
+                        keys.add(round(float(row.get("feeding_ts", 0)), 4))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         return keys
 
     def _save_csv(self, result: FRSResult):
-        write_header = not self.csv_path.exists()
+        exists = self.csv_path.exists() and self.csv_path.stat().st_size > 0
         with open(self.csv_path, "a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=self.CSV_FIELDS)
-            if write_header:
+            writer = csv.DictWriter(f, fieldnames=self.CSV_FIELDS, extrasaction="ignore")
+            if not exists:
                 writer.writeheader()
-            row = asdict(result)
-            row["first_surface_sec"] = result.first_surface_sec if result.first_surface_sec is not None else ""
-            writer.writerow(row)
-
-
-# ─────────────────────────────────────────────────────────────────────────
-# 단독 실행 테스트
-# ─────────────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    import random
-
-    frs_cfg = {
-        "w1": 0.33, "w2": 0.33, "w3": 0.34,
-        "before_sec": 60.0, "during_sec": 180.0, "fps_ref": 14.0,
-    }
-    storage_cfg = {"output_dir": "data"}
-
-    analyzer = FeedingResponseAnalyzer(frs_cfg, storage_cfg)
-    now = time.time()
-
-    # pre 구간 데이터 생성 (조용한 상태)
-    for i in range(60 * 14):
-        ts = now - 240 + i / 14.0
-        analyzer.push(FrameData(ts, fish_id=1, zone="MID",
-                                speed_px_s=random.uniform(10, 50), activity=30.0))
-
-    # 급이 이벤트 시각
-    feeding_ts = now - 180
-
-    # post 구간 데이터 생성 (활성화 + 수면 접근)
-    for i in range(180 * 14):
-        ts = feeding_ts + i / 14.0
-        zone = "TOP" if i > 20 * 14 else "MID"
-        analyzer.push(FrameData(ts, fish_id=1, zone=zone,
-                                speed_px_s=random.uniform(80, 300), activity=150.0))
-
-    result = analyzer.compute(feeding_ts=feeding_ts, note="테스트")
-    if result:
-        print(f"\n최종 FRS: {result.score}점")
-        print(f"  S1(반응시간): {result.s1_response_time}")
-        print(f"  S2(활동증가): {result.s2_activity_inc}")
-        print(f"  S3(수면접근): {result.s3_surface_visit}")
-        print(f"  첫 수면 접근: {result.first_surface_sec}초")
+            writer.writerow(asdict(result))

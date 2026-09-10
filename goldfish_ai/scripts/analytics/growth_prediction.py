@@ -411,10 +411,17 @@ class GrowthPredictionAnalyzer:
         fry_cfg = growth_stage.get("fry", {}) if isinstance(growth_stage.get("fry"), dict) else {}
         juvenile_cfg = growth_stage.get("juvenile", {}) if isinstance(growth_stage.get("juvenile"), dict) else {}
 
-        # demo_pipeline의 평탄화 cfg도 허용한다.
+        # Ratio-based calibration is preferred for the fixed 30cm tank view.
+        # If the visible inner-tank width is measured in pixels, derive the
+        # conversion from the same image instead of hard-coding px->cm.
         px_to_cm_ratio = camera.get(
             "px_to_cm_ratio", config.get("px_to_cm_ratio", 0.0)
         )
+        reference_cm = _safe_float(growth.get("reference_real_length_cm"))
+        reference_px = _safe_float(growth.get("reference_length_px"))
+        if (not px_to_cm_ratio or float(px_to_cm_ratio) <= 0) and reference_cm and reference_px:
+            if reference_cm > 0 and reference_px > 0:
+                px_to_cm_ratio = reference_cm / reference_px
         expected_fish_count = growth.get(
             "expected_fish_count",
             pipeline.get(
