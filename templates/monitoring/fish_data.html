@@ -260,15 +260,6 @@ function setFeed(key,btn){
 
 async function fetchFeeding(){
   FEED = await sf(`/monitoring/api/feeding/chart/?tank_id=${TANK_ID}`);
-
-  // API에 급이 데이터가 없을 때도 화면/발표용 그래프가 비어 보이지 않도록 예시 데이터 사용
-  if(!FEED || !Array.isArray(FEED.labels) || FEED.labels.length < 7){
-    FEED = {
-      labels:['09/04','09/05','09/06','09/07','09/08','09/09','09/10'],
-      am:[1.8,2.1,1.6,2.3,1.9,2.2,2.0],
-      pm:[2.2,2.0,2.5,2.1,2.4,2.3,2.6]
-    };
-  }
   renderFeed('all');
 }
 
