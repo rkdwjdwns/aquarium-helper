@@ -1,7 +1,7 @@
 camera:
   source: 0
   backend: picamera2
-  px_to_cm_ratio: 0.0
+  px_to_cm_ratio: 0.0  # legacy fallback; ratio calibration is preferred
 model:
   path: models/goldfish_finetuned_best.pt
   imgsz: 416
@@ -25,14 +25,16 @@ sensor:
   timeout_sec: 1.0
   send_interval_hz: 0.1
   sample_count: 10
+  value4_type: tds_ppm
+  backend_turbidity_compat: false
 water_quality:
   temperature_c:
     min: 21.0
     max: 24.0
     actuator_heat_on: 21.5
     actuator_heat_off: 24.0
-    actuator_cool_on: -999.0
-    actuator_cool_off: 999.0
+    actuator_cool_on: 24.0
+    actuator_cool_off: 23.0
   ph:
     min: 6.5
     max: 8.0
@@ -42,13 +44,9 @@ water_quality:
     min: 5.0
     max: 8.0
     critical_min: 4.0
-    actuator_on: 6.0
-    actuator_off: 8.0
-  turbidity_ntu:
-    max: 50.0
-    stress_level: 100.0
-    actuator_filter_on: 50.0
-    actuator_filter_off: 20.0
+  tds_ppm:
+    monitor_only: true
+    display_unit: ppm
 lighting:
   day_hours: 8
   on_hour: 8
@@ -70,36 +68,64 @@ growth_stage:
 feeding:
   complete_within_sec: 60
   leftover_check_sec: 300
-  overfeeding_delta_ntu: 10.0
   max_daily_meals: 5
   times:
   - 08:00
   - '18:00'
   tolerance_sec: 30
   allow_early_trigger: false
+  overfeeding_by_turbidity_enabled: false
 analytics:
   frs:
-    w1: 0.33
-    w2: 0.33
-    w3: 0.34
-    before_sec: 60.0
-    during_sec: 180.0
-    amount_history_size: 3
-    min_pre_coverage_ratio: 0.8
-    min_post_coverage_ratio: 0.8
-    min_detected_fish_ratio: 0.5
-    min_frame_rate_ratio: 0.35
+    version: v2
+    activity_weight: 0.7
+    latency_weight: 0.3
+    before_sec: 300.0
+    during_sec: 300.0
+    activity_full_response_pct: 50.0
+    latency_max_sec: 300.0
+    baseline_csv: data/activity_baseline_v2.csv
+    quality_expected_fish_count: 2
+    min_pre_bins: 24
+    min_post_bins: 24
+    zone_component_used: false
+    fps_ref: 14.0
+    amount_advisor_enabled: false
   abr:
-    sigma_threshold: 2.0
-    baseline_days: 3
+    version: v2
+    window_sec: 300
+    baseline_low_quantile: 0.01
+    baseline_high_quantile: 0.99
+    warning_pct: 13.0
   detection:
     missing_frame_threshold: 10
     iou_overlap_threshold: 0.0
     representative_lost_sec: 5.0
-turbidity_feedback:
-  alpha: 0.5
-  eta: 0.8
-  k: 2.0
+  activity_v2:
+    enabled: true
+    baseline_csv: data/activity_baseline_v2.csv
+    bucket_sec: 5
+    min_frames_per_bin: 10
+    quality_expected_fish_count: 2
+    index_clip_max: 250
+    abr_window_sec: 300
+    abr_min_bins: 12
+    abr_warning_pct: 13.0
+    quality_window_sec: 600
+ai_control:
+  enabled: true
+  light_rest:
+    enabled: true
+    abr_threshold_pct: 13.0
+    consecutive_alerts: 2
+    rest_minutes: 20
+    cooldown_minutes: 30
+    allowed_quality:
+    - GOOD
+    - FAIR
+    require_schedule_on: true
+    decision_log_csv: data/presentation/ai_control_decisions.csv
+
 server:
   enabled: true
   mock: false
@@ -118,8 +144,13 @@ storage:
   flush_every: 30
   baseline_csv: data/activity_baseline.csv
   feeding_events_csv: data/feeding_events.csv
+  baseline_v2_csv: data/activity_baseline_v2.csv
+  frs_history_csv: data/frs_history.csv
 growth_prediction:
   enabled: true
+  measurement_mode: tank_ratio
+  reference_real_length_cm: 30.0
+  reference_length_px: 0.0  # set after measuring visible tank inner width in the fixed camera view
   expected_fish_count: 2
   measurement_field: bbox_long_side_px
   allow_size_index_fallback: false
@@ -137,7 +168,7 @@ growth_prediction:
   max_measurement_jump_cm: 1.0
   aggregation_window_sec: 3600
   min_samples_per_record: 30
-  aggregation_quantile: 0.75
+  aggregation_quantile: 0.5
   max_overlap_iou: 0.15
   stable_id_max_lost_sec: 10.0
   stable_id_max_distance_px: 120.0
