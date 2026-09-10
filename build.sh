@@ -11,7 +11,7 @@ echo "=== 상태 진단 코드(StateCode) 초기화 ==="
 python manage.py seed_state_codes
 
 echo "=== 오래된 데이터 정리 (2주 이상) ==="
-python manage.py cleanup_old_data --weeks=2
+python manage.py cleanup_old_data --weeks=2 || echo "⚠️ 데이터 정리 실패 — 배포는 계속 진행합니다"
 
 echo "=== 관리자 계정 자동 생성 ==="
 python manage.py shell << 'EOF'
