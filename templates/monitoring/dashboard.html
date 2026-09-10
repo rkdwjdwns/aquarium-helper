@@ -153,16 +153,31 @@
   }
 
 
-    /* 환경 상태 카드 상세보기 */
-    .sensor-grid{position:relative;margin-top:52px;}
+    /* 환경 상태 카드 상세보기
+       알림 개수에 따라 높이가 달라져도 겹치지 않도록 일반 흐름에 배치 */
+    .sensor-grid{position:relative;margin-top:0;}
+    .environment-detail-row{
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+      min-height:24px;
+      margin:0 2px 10px 0;
+    }
     .environment-detail-text-btn{
-      position:absolute; top:-34px; right:2px;
-      border:0; background:transparent; padding:0;
-      color:#2879ed; font-size:12px; font-weight:800;
-      cursor:pointer; line-height:1.4;
+      position:static;
+      border:0;
+      background:transparent;
+      padding:2px 0;
+      color:#2879ed;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+      line-height:1.4;
+      white-space:nowrap;
     }
     .environment-detail-text-btn:hover{
-      color:#145fd7; text-decoration:underline;
+      color:#145fd7;
+      text-decoration:underline;
     }
 
   .water-change-standalone{
@@ -267,9 +282,13 @@
       </div>
     </div>
 
+    <!-- 센서 카드 상세보기 -->
+    <div class="environment-detail-row">
+      <button type="button" id="environmentDetailBtn" class="environment-detail-text-btn">상세 보기 →</button>
+    </div>
+
     <!-- 센서 카드 -->
     <div class="sensor-grid">
-      <button type="button" id="environmentDetailBtn" class="environment-detail-text-btn">상세 보기 →</button>
       <div class="sensor-card">
         <div class="sensor-label">🌡️ 수온</div>
         <div><span id="val-temp" class="sensor-value">{{ latest.temperature|floatformat:2|default:"--" }}</span><span class="sensor-unit">°C</span></div>

@@ -49,13 +49,53 @@
   /* 급이 차트 */
   .feeding-chart-wrap{padding:24px 28px;height:260px;display:flex;align-items:flex-end;gap:8px;position:relative}
   .feeding-y{position:absolute;left:12px;top:16px;bottom:28px;display:flex;flex-direction:column;justify-content:space-between;font-size:10px;color:#999}
-  .feeding-bars{display:flex;align-items:flex-end;justify-content:space-around;width:100%;height:100%;padding:0 8px}
+  .feeding-bars{display:flex;align-items:flex-end;justify-content:space-around;width:100%;height:100%;padding:14px 8px 0}
   .bar-grp{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
   .bar-stack{width:60%;max-width:48px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden;background:#f0f2f5}
   .seg-a{background:#c5b2ff}
   .seg-b{background:#7755d9}
   .bar-lbl{font-size:10px;color:#888;margin-top:5px}
   .bar-val{font-size:9px;color:#aaa}
+
+  /* 급이량 탭 전환 애니메이션 */
+  .feeding-bars.is-switching .bar-grp{
+    animation:feedBarGroupIn .42s ease both;
+  }
+  .feeding-bars.is-switching .bar-grp:nth-child(1){animation-delay:.02s}
+  .feeding-bars.is-switching .bar-grp:nth-child(2){animation-delay:.05s}
+  .feeding-bars.is-switching .bar-grp:nth-child(3){animation-delay:.08s}
+  .feeding-bars.is-switching .bar-grp:nth-child(4){animation-delay:.11s}
+  .feeding-bars.is-switching .bar-grp:nth-child(5){animation-delay:.14s}
+  .feeding-bars.is-switching .bar-grp:nth-child(6){animation-delay:.17s}
+  .feeding-bars.is-switching .bar-grp:nth-child(7){animation-delay:.20s}
+
+  .feeding-bars.is-switching .bar-stack{
+    animation:feedBarGrow .48s cubic-bezier(.22,.8,.3,1) both;
+    transform-origin:bottom;
+  }
+  .feeding-bars.is-switching .bar-val{
+    animation:feedValueFade .35s ease both;
+  }
+  .feeding-y.is-switching span{
+    animation:feedAxisFade .35s ease both;
+  }
+
+  @keyframes feedBarGrow{
+    from{transform:scaleY(.12);opacity:.35}
+    to{transform:scaleY(1);opacity:1}
+  }
+  @keyframes feedBarGroupIn{
+    from{opacity:0;transform:translateY(10px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  @keyframes feedValueFade{
+    from{opacity:0;transform:translateY(5px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  @keyframes feedAxisFade{
+    from{opacity:.15}
+    to{opacity:1}
+  }
 
   /* 하단 그리드 */
   .bottom-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;min-width:0}
@@ -129,7 +169,7 @@
     <!-- 급이량 차트 -->
     <div class="card">
       <div class="card-head">
-        <div class="card-title">▥ 일별 급이량 <span>(최근 7일 · 오전/오후 구간 합계)</span></div>
+        <div class="card-title">▥ 일별 급이량 <span>(어제 기준 최근 7일 · 오전/오후 구간 합계)</span></div>
         <div class="time-tabs">
           <button class="active" onclick="setFeed('all',this)">전체</button>
           <button onclick="setFeed('am',this)">오전</button>
@@ -180,6 +220,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 const TANK_ID = {{ tank.id|default:1 }};
+const FEEDING_CSV_URL = "{% static 'monitoring/data/feeding_analysis_mock.csv' %}";
 const ZONE_CSV_URL = "{% static 'monitoring/data/zone_distribution_mock.csv' %}";
 
 function toggleSb(){
@@ -211,12 +252,54 @@ function parseCSV(text){
   return rows.map(r=>Object.fromEntries(headers.map((h,i)=>[h,(r[i]??'').trim()])));
 }
 
-const maxH=220;
+const maxH=176;
+
+function niceFeedAxisMax(value){
+  const v=Number(value);
+  if(!Number.isFinite(v) || v<=0) return 0.5;
+
+  // 최고 막대가 차트 천장에 붙지 않도록 약 15% 여유를 둔다.
+  const padded=v*1.15;
+  const exponent=Math.floor(Math.log10(padded));
+  const base=Math.pow(10,exponent);
+  const fraction=padded/base;
+
+  let niceFraction;
+  if(fraction<=1) niceFraction=1;
+  else if(fraction<=2) niceFraction=2;
+  else if(fraction<=2.5) niceFraction=2.5;
+  else if(fraction<=5) niceFraction=5;
+  else niceFraction=10;
+
+  return niceFraction*base;
+}
 
 // ──────────────────────────────────────────────
-// 급이량 차트 (/monitoring/api/feeding/chart/)
+// 급이량 차트 (feeding_analysis CSV 기반)
 // ──────────────────────────────────────────────
 let FEED=null; // {labels, am, pm}
+
+function playFeedSwitchAnimation(){
+  const bars=document.getElementById('feedingBars');
+  const yWrap=document.getElementById('feedingY');
+
+  if(!bars || !yWrap) return;
+
+  bars.classList.remove('is-switching');
+  yWrap.classList.remove('is-switching');
+
+  // 같은 애니메이션을 연속 클릭해도 다시 재생되게 강제 reflow
+  void bars.offsetWidth;
+  void yWrap.offsetWidth;
+
+  bars.classList.add('is-switching');
+  yWrap.classList.add('is-switching');
+
+  window.setTimeout(()=>{
+    bars.classList.remove('is-switching');
+    yWrap.classList.remove('is-switching');
+  },700);
+}
 
 function renderFeed(key){
   const bars=document.getElementById('feedingBars');
@@ -230,9 +313,12 @@ function renderFeed(key){
     if(key==='pm') return FEED.pm[i];
     return FEED.am[i]+FEED.pm[i];
   });
-  const maxV = Math.max(...totals, 0.1);
+  const dataMax = Math.max(...totals, 0);
+  const maxV = niceFeedAxisMax(dataMax);
 
-  yWrap.innerHTML = [1,0.75,0.5,0.25,0].map(r=>`<span>${(maxV*r).toFixed(2)}</span>`).join('');
+  yWrap.innerHTML = [1,0.75,0.5,0.25,0]
+    .map(r=>`<span>${(maxV*r).toFixed(2)}</span>`)
+    .join('');
 
   bars.innerHTML='';
   FEED.labels.forEach((day,i)=>{
@@ -250,6 +336,8 @@ function renderFeed(key){
       <div class="bar-lbl">${day}</div>
     </div>`;
   });
+
+  playFeedSwitchAnimation();
 }
 
 function setFeed(key,btn){
@@ -258,9 +346,84 @@ function setFeed(key,btn){
   renderFeed(key);
 }
 
+function parseFeedDateTime(value){
+  if(!value) return null;
+
+  // CSV 예: 2026-09-08 18:00:00+09:00
+  // 브라우저 호환성을 위해 날짜/시간 사이 공백을 T로 변환
+  const normalized=String(value).trim().replace(' ','T');
+  const d=new Date(normalized);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatFeedDay(date){
+  return `${date.getMonth()+1}/${date.getDate()}`;
+}
+
 async function fetchFeeding(){
-  FEED = await sf(`/monitoring/api/feeding/chart/?tank_id=${TANK_ID}`);
-  renderFeed('all');
+  try{
+    const r=await fetch(FEEDING_CSV_URL,{cache:'no-store'});
+    if(!r.ok) throw new Error(`feeding csv HTTP ${r.status}`);
+
+    const rows=parseCSV(await r.text())
+      .map(row=>({
+        ...row,
+        _date:parseFeedDateTime(row.timestamp),
+        _amount:Number(row.feed_amount_g)
+      }))
+      .filter(row=>row._date && Number.isFinite(row._amount));
+
+    if(!rows.length){
+      FEED={labels:[],am:[],pm:[]};
+      renderFeed('all');
+      return;
+    }
+
+    // 오늘은 아직 급이 데이터가 완전히 쌓이지 않을 수 있으므로
+    // '어제'를 마지막 날짜로 하여 최근 7일을 항상 표시한다.
+    const latest=new Date();
+    latest.setHours(0,0,0,0);
+    latest.setDate(latest.getDate()-1);
+
+    const days=Array.from({length:7},(_,i)=>{
+      const d=new Date(latest);
+      d.setDate(latest.getDate()-(6-i));
+      return d;
+    });
+
+    const dayKey=d=>{
+      const y=d.getFullYear();
+      const m=String(d.getMonth()+1).padStart(2,'0');
+      const day=String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const daily=Object.fromEntries(
+      days.map(d=>[dayKey(d),{am:0,pm:0}])
+    );
+
+    rows.forEach(row=>{
+      const key=dayKey(row._date);
+      if(!daily[key]) return;
+
+      // 오전/오후 구간은 CSV timestamp 시각으로 구분
+      const period=row._date.getHours()<12 ? 'am' : 'pm';
+      daily[key][period]+=row._amount;
+    });
+
+    FEED={
+      labels:days.map(formatFeedDay),
+      am:days.map(d=>Number(daily[dayKey(d)].am.toFixed(3))),
+      pm:days.map(d=>Number(daily[dayKey(d)].pm.toFixed(3)))
+    };
+
+    renderFeed('all');
+  }catch(e){
+    console.error('[feeding csv]',e);
+    FEED={labels:[],am:[],pm:[]};
+    document.getElementById('feedingBars').innerHTML=
+      '<div class="empty-note">급이량 CSV를 불러오지 못했습니다.</div>';
+  }
 }
 
 // ──────────────────────────────────────────────
