@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block extra_css %}
+<style>
+  .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+  .page-title{font-size:34px;font-weight:900;letter-spacing:-1.8px}
+  .back-btn{min-width:95px;height:44px;border:1px solid #c9ced6;border-radius:14px;background:#fff;color:#333;font-size:15px;cursor:pointer;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+  .history-card{background:#fff;border-radius:32px;min-height:600px;padding:18px 34px 40px;box-shadow:0 5px 14px rgba(0,0,0,.08)}
+  .filter-row{display:flex;gap:12px;padding:16px 0;border-bottom:1px solid #f0f2f5;margin-bottom:12px;flex-wrap:wrap}
+  .filter-btn{height:36px;padding:0 18px;border-radius:20px;border:1.5px solid #dde1ea;background:#fff;font-size:13px;font-weight:700;cursor:pointer;color:#555}
+  .filter-btn.active{background:#30375f;color:#fff;border-color:#30375f}
+  .history-list{display:flex;flex-direction:column;gap:7px}
+  .history-item{min-height:42px;display:grid;grid-template-columns:110px 1fr 80px;align-items:center;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600}
+  .history-item.INFO{background:#f0f4ff;color:#2c4a8c}
+  .history-item.WARNING{background:#fff3df;color:#7a4a00}
+  .history-item.DANGER{background:#fdebec;color:#7b2628}
+  .history-type{font-weight:900;display:flex;align-items:center;gap:5px}
+  .history-time{font-size:11px;opacity:.7;text-align:right}
+  .empty-msg{text-align:center;padding:60px;color:#9ca3af;font-size:15px}
+  .pagination{display:flex;gap:8px;justify-content:center;margin-top:28px}
+  .page-btn{width:38px;height:38px;border-radius:10px;border:1px solid #dde1ea;background:#fff;cursor:pointer;font-weight:700;font-size:14px}
+  .page-btn.active{background:#30375f;color:#fff;border-color:#30375f}
+  @media(max-width:600px){.history-item{grid-template-columns:90px 1fr}.history-time{display:none}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:40px 5vw 120px">
+
+  <div class="page-head">
+    <h1 class="page-title">조치 내역</h1>
+    <a class="back-btn" href="{% url 'monitoring:dashboard_default' %}">← 돌아가기</a>
+  </div>
+
+  <div class="history-card">
+    <!-- 필터 -->
+    <div class="filter-row">
+      <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}">
+        <button class="filter-btn {% if not level %}active{% endif %}">전체</button>
+      </a>
+      <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=INFO">
+        <button class="filter-btn {% if level == 'INFO' %}active{% endif %}">ℹ 일반</button>
+      </a>
+      <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=WARNING">
+        <button class="filter-btn {% if level == 'WARNING' %}active{% endif %}">⚠ 경고</button>
+      </a>
+      <a href="?{% if tank_id %}tank_id={{ tank_id }}&{% endif %}level=DANGER">
+        <button class="filter-btn {% if level == 'DANGER' %}active{% endif %}">🚨 위험</button>
+      </a>
+      {% if user_tanks %}
+      <select onchange="location.href='?tank_id='+this.value+'{% if level %}&level={{ level }}{% endif %}'"
+        style="height:36px;padding:0 12px;border-radius:20px;border:1.5px solid #dde1ea;font-size:13px;font-weight:700;color:#555;cursor:pointer;outline:none">
+        <option value="">전체 어항</option>
+        {% for t in user_tanks %}
+        <option value="{{ t.id }}" {% if t.id|stringformat:"s" == tank_id %}selected{% endif %}>{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+    </div>
+
+    <!-- 로그 목록 -->
+    <div class="history-list">
+      {% for log in page_obj %}
+      <div class="history-item {{ log.level }}">
+        <span class="history-type">
+          {% if log.level == 'DANGER' %}🚨 위험
+          {% elif log.level == 'WARNING' %}⚠ 경고
+          {% else %}ℹ 일반{% endif %}
+        </span>
+        <span class="history-message">{{ log.message }}</span>
+        <span class="history-time">{{ log.created_at|date:"H:i:s" }}</span>
+      </div>
+      {% empty %}
+      <div class="empty-msg">기록된 조치 내역이 없습니다.</div>
+      {% endfor %}
+    </div>
+
+    <!-- 페이지네이션 -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if tank_id %}&tank_id={{ tank_id }}{% endif %}{% if level %}&level={{ level }}{% endif %}">
+        <button class="page-btn">‹</button>
+      </a>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+      <a href="?page={{ num }}{% if tank_id %}&tank_id={{ tank_id }}{% endif %}{% if level %}&level={{ level }}{% endif %}">
+        <button class="page-btn {% if page_obj.number == num %}active{% endif %}">{{ num }}</button>
+      </a>
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if tank_id %}&tank_id={{ tank_id }}{% endif %}{% if level %}&level={{ level }}{% endif %}">
+        <button class="page-btn">›</button>
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

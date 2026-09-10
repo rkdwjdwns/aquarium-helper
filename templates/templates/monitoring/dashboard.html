@@ -156,10 +156,10 @@
     /* 환경 상태 카드 상세보기 */
     .sensor-grid{position:relative;}
     .environment-detail-text-btn{
-      position:absolute; top:-10px; right:2px;
+      position:absolute; top:-28px; right:2px;
       border:0; background:transparent; padding:0;
       color:#2879ed; font-size:12px; font-weight:800;
-      cursor:pointer; white-space:nowrap; line-height:1.4;
+      cursor:pointer; line-height:1.4;
     }
     .environment-detail-text-btn:hover{
       color:#145fd7; text-decoration:underline;
@@ -172,6 +172,80 @@
     margin:0 0 28px;
     border-radius:18px;
     font-size:16px;
+  }
+
+  /* ===== 환수 체크 중앙 확인 모달 ===== */
+  #waterChangeConfirmModal{
+    position:fixed;
+    inset:0;
+    z-index:8000;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(15,23,42,.45);
+    backdrop-filter:blur(2px);
+  }
+  #waterChangeConfirmModal.open{display:flex}
+  .water-change-confirm-box{
+    width:min(420px,92vw);
+    background:#fff;
+    border-radius:22px;
+    padding:28px 26px 24px;
+    text-align:center;
+    box-shadow:0 24px 70px rgba(0,0,0,.24);
+    animation:waterChangeModalIn .18s ease-out;
+  }
+  .water-change-confirm-icon{
+    width:54px;
+    height:54px;
+    margin:0 auto 16px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#e8f4ff;
+    font-size:27px;
+  }
+  .water-change-confirm-title{
+    margin:0 0 9px;
+    font-size:20px;
+    font-weight:900;
+    color:#1f2937;
+  }
+  .water-change-confirm-desc{
+    margin:0;
+    color:#7b8794;
+    font-size:13px;
+    line-height:1.65;
+  }
+  .water-change-confirm-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:24px;
+  }
+  .water-change-confirm-actions button{
+    height:46px;
+    border:0;
+    border-radius:12px;
+    font-size:14px;
+    font-weight:900;
+    cursor:pointer;
+  }
+  .water-change-confirm-cancel{
+    background:#eef2f6;
+    color:#596474;
+  }
+  .water-change-confirm-ok{
+    background:#263f50;
+    color:#fff;
+  }
+  .water-change-confirm-cancel:hover{background:#e4e9ef}
+  .water-change-confirm-ok:hover{background:#1d3342}
+  @keyframes waterChangeModalIn{
+    from{opacity:0;transform:translateY(8px) scale(.98)}
+    to{opacity:1;transform:translateY(0) scale(1)}
   }
 </style>
 {% endblock %}
@@ -371,6 +445,21 @@
       ✓ 환수 체크 하기
     </button>
 
+    <!-- 환수 체크 중앙 확인 모달 -->
+    <div id="waterChangeConfirmModal" aria-hidden="true">
+      <div class="water-change-confirm-box" role="dialog" aria-modal="true" aria-labelledby="waterChangeConfirmTitle">
+        <div class="water-change-confirm-icon">💧</div>
+        <h3 class="water-change-confirm-title" id="waterChangeConfirmTitle">환수 하시겠습니까?</h3>
+        <p class="water-change-confirm-desc">
+          확인을 누르면 현재 날짜가 최근 환수일로 기록됩니다.
+        </p>
+        <div class="water-change-confirm-actions">
+          <button type="button" class="water-change-confirm-cancel" onclick="closeWaterChangeConfirm(false)">취소</button>
+          <button type="button" class="water-change-confirm-ok" onclick="closeWaterChangeConfirm(true)">확인</button>
+        </div>
+      </div>
+    </div>
+
 
 
     <!-- 실시간 로그 -->
@@ -412,6 +501,8 @@
           <button class="env-sensor-tab" data-env-sensor="ph">pH</button>
           <button class="env-sensor-tab" data-env-sensor="do">DO</button>
           <button class="env-sensor-tab" data-env-sensor="turbidity">탁도</button>
+          <button class="env-sensor-tab" data-env-sensor="waterlevel">수위</button>
+          <button class="env-sensor-tab" data-env-sensor="waterchange">환수</button>
         </div>
 
         <section class="env-summary-grid">
@@ -432,6 +523,18 @@
           </div>
         </section>
 
+        <section class="env-waterchange-dates" id="envDetailWaterchangeDates">
+          <div class="env-waterchange-card">
+            <div class="env-card-label">마지막 환수일</div>
+            <div class="env-waterchange-value" id="envDetailLastWaterchangeDate">-</div>
+            <div class="env-range-text">최근 환수 기록 기준</div>
+          </div>
+          <div class="env-waterchange-card">
+            <div class="env-card-label">다음 예정 환수일</div>
+            <div class="env-waterchange-value" id="envDetailNextWaterchangeDate">-</div>
+            <div class="env-range-text">설정된 환수 주기 기준</div>
+          </div>
+        </section>
 
         <div class="env-detail-section-head" id="envDetailSectionHead">
           <h3 class="env-section-title">상태 상세 정보</h3>
@@ -659,6 +762,34 @@ function updateWaterChangeCheckState(data){
   }
 }
 
+let waterChangeConfirmResolver=null;
+
+function openWaterChangeConfirm(){
+  const modal=document.getElementById('waterChangeConfirmModal');
+  if(!modal) return Promise.resolve(false);
+
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+
+  return new Promise(resolve=>{
+    waterChangeConfirmResolver=resolve;
+  });
+}
+
+function closeWaterChangeConfirm(result){
+  const modal=document.getElementById('waterChangeConfirmModal');
+  if(modal){
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  if(waterChangeConfirmResolver){
+    const resolve=waterChangeConfirmResolver;
+    waterChangeConfirmResolver=null;
+    resolve(Boolean(result));
+  }
+}
+
 async function checkWaterChange(){
   const btn=document.getElementById('waterChangeCheckBtn');
 
@@ -667,7 +798,8 @@ async function checkWaterChange(){
     return;
   }
 
-  if(!confirm('환수를 완료한 것으로 체크할까요?\n체크하면 현재 날짜가 최근 환수일로 기록됩니다.')) return;
+  const confirmed = await openWaterChangeConfirm();
+  if(!confirmed) return;
 
   if(btn){
     btn.disabled=true;
@@ -706,6 +838,19 @@ async function checkWaterChange(){
     if(!completed) setWaterChangeButtonReady();
   }
 }
+
+const waterChangeConfirmModal=document.getElementById('waterChangeConfirmModal');
+if(waterChangeConfirmModal){
+  waterChangeConfirmModal.addEventListener('click',e=>{
+    if(e.target===waterChangeConfirmModal) closeWaterChangeConfirm(false);
+  });
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && waterChangeConfirmModal?.classList.contains('open')){
+    closeWaterChangeConfirm(false);
+  }
+});
 
 /* =========================
    메인 트렌드 차트
@@ -1206,6 +1351,8 @@ const envDetailColorMap = {
   ph:'#249ee9',
   do:'#28c943',
   turbidity:'#f6a11a',
+  waterlevel:'#6b8cff',
+  waterchange:'#7b6cf6'
 };
 
 const envDetailLabelMap = {
@@ -1213,6 +1360,8 @@ const envDetailLabelMap = {
   ph:'pH',
   do:'DO',
   turbidity:'탁도',
+  waterlevel:'수위',
+  waterchange:'환수'
 };
 
 const envDetailUnitMap = {
@@ -1220,6 +1369,8 @@ const envDetailUnitMap = {
   ph:'',
   do:'mg/L',
   turbidity:'PPM',
+  waterlevel:'%',
+  waterchange:''
 };
 
 let latestDashboard = null;
@@ -1247,6 +1398,8 @@ function findStateForSensor(key){
     ph:['PH'],
     do:['DO','DISSOLVED_OXYGEN'],
     turbidity:['TURB','TURBIDITY','NTU'],
+    waterlevel:['LVL','LEVEL','WATER_LEVEL'],
+    waterchange:['WC','WATERCHANGE','WATER_CHANGE']
   };
 
   const targets = aliases[key] || [];
@@ -1265,6 +1418,8 @@ function getSensorFromDashboard(key){
   if(key === 'ph') return s.ph;
   if(key === 'do') return s.dissolved_oxygen;
   if(key === 'turbidity') return s.turbidity;
+  if(key === 'waterlevel') return s.water_level;
+
   return null;
 }
 
@@ -1311,6 +1466,11 @@ function getCurrentState(key){
     return 'danger';
   }
 
+  if(key === 'waterlevel'){
+    if(value >= 80) return 'normal';
+    if(value >= 60) return 'warning';
+    return 'danger';
+  }
 
   return 'normal';
 }
@@ -1321,11 +1481,8 @@ function getNormalRange(key){
     ph:`{{ tank.ph_min|default:"6.5" }} ~ {{ tank.ph_max|default:"8.0" }}`,
     do:`{{ tank.do_min|default:"5" }} mg/L 이상`,
     turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} NTU`,
-<<<<<<< HEAD
-=======
     waterlevel:'80 ~ 100 %',
     waterchange:'설정된 환수 주기 기준'
->>>>>>> a36847010d70e8cb395e9ac6c9e77884c2cc77a3
   };
   return ranges[key] || '-';
 }
@@ -1468,7 +1625,9 @@ function makeEnvDetailChart(values, color){
 
 function buildEnvironmentDetailSensor(key){
   const state = findStateForSensor(key);
-  const value = getSensorFromDashboard(key);
+  const value = key === 'waterchange'
+    ? getWaterChangeDisplayValue()
+    : getSensorFromDashboard(key);
 
   const level = getCurrentState(key);
 
@@ -1492,14 +1651,20 @@ function buildEnvironmentDetailSensor(key){
     lastUpdated:
       state && state.detected_at
         ? formatDate(state.detected_at)
-        : getDashboardUpdatedAt()
+        : getDashboardUpdatedAt(),
+    lastWaterchangeDate:
+      latestDashboard?.last_waterchange_date ||
+      latestDashboard?.lastWaterchangeDate ||
+      '-',
+    nextWaterchangeDate:
+      latestDashboard?.next_waterchange_date ||
+      latestDashboard?.nextWaterchangeDate ||
+      '-'
   };
 
   return sensor;
 }
 
-<<<<<<< HEAD
-=======
 function getWaterChangeDisplayValue(){
   const el = document.querySelector('.water-change-btn');
   const text = el ? el.textContent.trim() : '';
@@ -1514,7 +1679,6 @@ function getWaterChangeDisplayValue(){
 
   return 'D -';
 }
->>>>>>> a36847010d70e8cb395e9ac6c9e77884c2cc77a3
 
 function getDashboardUpdatedAt(){
   const s = latestDashboard?.sensor;
@@ -1545,34 +1709,31 @@ function renderEnvironmentDetailSensor(key){
     sensor.label;
 
   const trendCard = document.getElementById('envDetailTrendCard');
+  const waterchangeDates = document.getElementById('envDetailWaterchangeDates');
   const detailSectionHead = document.getElementById('envDetailSectionHead');
   const detailGrid = document.getElementById('envDetailGrid');
 
-  trendCard.style.display = 'block';
-  detailSectionHead.style.display = 'flex';
-  detailGrid.style.display = 'grid';
+  if(key === 'waterchange'){
+    trendCard.style.display = 'none';
+    waterchangeDates.style.display = 'grid';
+    detailSectionHead.style.display = 'none';
+    detailGrid.style.display = 'none';
 
-  makeEnvDetailChart(
-    sensor.trend,
-    envDetailColorMap[key]
-  );
+    document.getElementById('envDetailLastWaterchangeDate').textContent =
+      sensor.lastWaterchangeDate;
+    document.getElementById('envDetailNextWaterchangeDate').textContent =
+      sensor.nextWaterchangeDate;
+  }else{
+    trendCard.style.display = 'block';
+    waterchangeDates.style.display = 'none';
+    detailSectionHead.style.display = 'flex';
+    detailGrid.style.display = 'grid';
 
-  const historyKey = {
-    temperature:'temp',
-    ph:'ph',
-    do:'do',
-    turbidity:'turb'
-  }[key];
+    makeEnvDetailChart(
+      sensor.trend,
+      envDetailColorMap[key]
+    );
 
-<<<<<<< HEAD
-  const labels24 = historyKey && latestDashboard?.history
-    ? build24HourTrend(latestDashboard.history, historyKey).labels
-    : [];
-
-  document.getElementById('envDetailXLabels').innerHTML =
-    labels24.filter((_,i)=>i % 2 === 0)
-      .map(label => `<span>${esc(label)}</span>`).join('');
-=======
     const historyKey = {
       temperature:'temp',
       ph:'ph',
@@ -1589,7 +1750,6 @@ function renderEnvironmentDetailSensor(key){
       labels24.filter((_,i)=>i % 2 === 0)
         .map(label => `<span>${esc(label)}</span>`).join('');
   }
->>>>>>> a36847010d70e8cb395e9ac6c9e77884c2cc77a3
 
   renderEnvDetailStatus(sensor);
   renderEnvDetailList('envDetailCauses',sensor.causes,sensor.level);
