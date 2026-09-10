@@ -103,8 +103,6 @@
       <video id="demoStream"
              autoplay muted loop playsinline preload="auto"
              webkit-playsinline="true"
-             disablepictureinpicture
-             controlslist="nodownload noplaybackrate"
              style="width:100%;height:100%;object-fit:cover;display:block;background:#0b1220">
         <source src="{% static 'monitoring/videos/pi_camera_demo.mp4' %}" type="video/mp4">
         브라우저에서 영상을 재생할 수 없습니다.
@@ -233,48 +231,73 @@ fetchBeh();
 setInterval(fetchBeh,30000);
 
 // 카메라 페이지 진입 즉시 데모 영상을 자동 재생합니다.
-const demoVideo=document.getElementById('demoStream');
+const demoVideo = document.getElementById('demoStream');
+const demoVideoUrl = "{% static 'monitoring/videos/pi_camera_demo.mp4' %}";
 
-async function startDemoStream(){
-  if(!demoVideo) return;
+function startCameraVideo() {
+  if (!demoVideo) return;
 
-  demoVideo.muted=true;
-  demoVideo.defaultMuted=true;
-  demoVideo.playsInline=true;
-  demoVideo.setAttribute('muted','');
-  demoVideo.setAttribute('autoplay','');
-  demoVideo.setAttribute('playsinline','');
+  demoVideo.muted = true;
+  demoVideo.defaultMuted = true;
+  demoVideo.playsInline = true;
+  demoVideo.setAttribute('muted', '');
+  demoVideo.setAttribute('autoplay', '');
+  demoVideo.setAttribute('playsinline', '');
 
-  try{
-    await demoVideo.play();
-  }catch(e){
-    setTimeout(()=>demoVideo.play().catch(()=>{}),300);
+  if (!demoVideo.src || !demoVideo.src.includes('pi_camera_demo.mp4')) {
+    demoVideo.src = demoVideoUrl;
+  }
+
+  const playVideo = () => {
+    demoVideo.play().catch(() => {
+      setTimeout(() => {
+        demoVideo.muted = true;
+        demoVideo.play().catch(() => {});
+      }, 500);
+    });
+  };
+
+  if (demoVideo.readyState >= 2) {
+    playVideo();
+  } else {
+    demoVideo.addEventListener('canplay', playVideo, {once: true});
   }
 }
 
-if(demoVideo){
-  demoVideo.addEventListener('loadedmetadata',startDemoStream);
-  demoVideo.addEventListener('canplay',startDemoStream);
+function reconnectStream() {
+  if (!demoVideo) return;
+  demoVideo.pause();
+  demoVideo.currentTime = 0;
+  demoVideo.load();
+  startCameraVideo();
+}
 
-  demoVideo.addEventListener('playing',()=>{
-    const dot=document.getElementById('liveDot');
-    if(dot){
-      dot.style.background='#ef4444';
-      dot.style.animation='pulse 1s infinite';
+if (demoVideo) {
+  demoVideo.addEventListener('playing', () => {
+    const dot = document.getElementById('liveDot');
+    if (dot) {
+      dot.style.background = '#ef4444';
+      dot.style.animation = 'pulse 1s infinite';
     }
   });
 
-  demoVideo.addEventListener('error',()=>{
-    const dot=document.getElementById('liveDot');
-    if(dot){
-      dot.style.background='#6b7280';
-      dot.style.animation='none';
+  demoVideo.addEventListener('error', () => {
+    const dot = document.getElementById('liveDot');
+    if (dot) {
+      dot.style.background = '#6b7280';
+      dot.style.animation = 'none';
     }
   });
 
   demoVideo.load();
-  startDemoStream();
-  window.addEventListener('load',startDemoStream);
+  startCameraVideo();
+  window.addEventListener('load', startCameraVideo);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && demoVideo.paused) {
+      startCameraVideo();
+    }
+  });
 }
 </script>
 {% endblock %}
