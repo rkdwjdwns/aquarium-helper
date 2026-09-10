@@ -58,7 +58,7 @@ def _get_chart_history(tank):
         "temp":   [r.temperature         for r in readings],
         "ph":     [r.ph                  for r in readings],
         "do":     [r.dissolved_oxygen   for r in readings],
-        "turb":   [r.turbidity          for r in readings],
+        "tds":    [r.tds_ppm            for r in readings],
     }, ensure_ascii=False)
 
 
@@ -154,7 +154,7 @@ def dashboard(request, tank_id=None):
         'heater_on':   devices.get('HEATER',   None) and devices['HEATER'].is_on,
         'cooling_on':  devices.get('COOLING',  None) and devices['COOLING'].is_on,
         'filter_on':   devices.get('FILTER',   None) and devices['FILTER'].is_on,
-        'air_pump_on': devices.get('AIR_PUMP', None) and devices['AIR_PUMP'].is_on,
+        'air_pump_on': True,  # physical air pump is always on
         'feeder_on':   devices.get('FEEDER',   None) and devices['FEEDER'].is_on,
         'light_on':    devices.get('LIGHT',    None) and devices['LIGHT'].is_on,
     })
@@ -174,7 +174,7 @@ def dashboard_data(request, tank_id):
             "temperature":       latest.temperature,
             "ph":                latest.ph,
             "dissolved_oxygen":  latest.dissolved_oxygen,
-            "turbidity":         latest.turbidity,
+            "tds_ppm":           latest.tds_ppm,
             "water_level":       latest.water_level,
         }
     history = {
@@ -182,7 +182,7 @@ def dashboard_data(request, tank_id):
         "temp":   [r.temperature      for r in readings],
         "ph":     [r.ph               for r in readings],
         "do":     [r.dissolved_oxygen for r in readings],
-        "turb":   [r.turbidity        for r in readings],
+        "tds":    [r.tds_ppm          for r in readings],
     }
     return JsonResponse({"sensor": sensor, "history": history})
 
@@ -197,15 +197,12 @@ def tank_settings(request, tank_id):
             tank.ph_min           = float(request.POST.get('ph_min',            6.5))
             tank.ph_max           = float(request.POST.get('ph_max',            8.0))
             tank.do_min           = float(request.POST.get('do_min',            5.0))
-            tank.turbidity_max    = float(request.POST.get('turbidity_max',    50.0))
             tank.heater_on_temp   = float(request.POST.get('heater_on_temp',   21.0))
             tank.heater_off_temp  = float(request.POST.get('heater_off_temp',  22.0))
             tank.cooling_on_temp  = float(request.POST.get('cooling_on_temp',  24.0))
             tank.cooling_off_temp = float(request.POST.get('cooling_off_temp', 23.0))
-            tank.filter_on_ntu    = float(request.POST.get('filter_on_ntu',    50.0))
-            tank.filter_off_ntu   = float(request.POST.get('filter_off_ntu',   20.0))
-            tank.airpump_on_do    = float(request.POST.get('airpump_on_do',     4.0))
-            tank.airpump_off_do   = float(request.POST.get('airpump_off_do',    6.0))
+            tank.filter_on_hour   = int(request.POST.get('filter_on_hour', 0))
+            tank.filter_off_hour  = int(request.POST.get('filter_off_hour', 0))
             tank.feeding_times    = request.POST.get('feeding_times', '08:00,18:00')
             tank.feeding_amount_g = float(request.POST.get('feeding_amount_g', 0.1))
             tank.feeding_auto     = request.POST.get('feeding_auto') == 'on'
@@ -230,8 +227,8 @@ def tank_settings_api(request, tank_id):
     except Tank.DoesNotExist:
         return JsonResponse({'error': '어항 없음'}, status=404)
     return JsonResponse({
-        'water':   {'temp_min': tank.temp_min, 'temp_max': tank.temp_max, 'ph_min': tank.ph_min, 'ph_max': tank.ph_max, 'do_min': tank.do_min, 'turbidity_max': tank.turbidity_max},
-        'devices': {'heater_on': tank.heater_on_temp, 'heater_off': tank.heater_off_temp, 'cooling_on': tank.cooling_on_temp, 'cooling_off': tank.cooling_off_temp, 'filter_on': tank.filter_on_ntu, 'filter_off': tank.filter_off_ntu, 'airpump_on': tank.airpump_on_do, 'airpump_off': tank.airpump_off_do},
+        'water':   {'temp_min': tank.temp_min, 'temp_max': tank.temp_max, 'ph_min': tank.ph_min, 'ph_max': tank.ph_max, 'do_min': tank.do_min, 'tds_unit': 'ppm'},
+        'devices': {'heater_on': tank.heater_on_temp, 'heater_off': tank.heater_off_temp, 'cooling_on': tank.cooling_on_temp, 'cooling_off': tank.cooling_off_temp, 'filter_on_hour': tank.filter_on_hour, 'filter_off_hour': tank.filter_off_hour, 'air_pump': 'ALWAYS_ON'},
         'feeding': {'times': tank.feeding_times.split(','), 'amount_g': tank.feeding_amount_g, 'auto': tank.feeding_auto},
         'light':   {'on_hour': tank.light_on_hour, 'off_hour': tank.light_off_hour, 'auto': tank.light_auto},
     })
@@ -409,7 +406,7 @@ def download_report(request, tank_id):
     content  = f"[{tank.name}] {period.upper()} 분석 기록\n기준일: {today.strftime('%Y-%m-%d')}\n" + "=" * 40 + "\n"
     if readings.exists():
         for r in readings:
-            content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} | 수온:{r.temperature}°C | pH:{r.ph} | DO:{r.dissolved_oxygen}mg/L | 탁도:{r.turbidity}NTU | 수질지수:{r.water_quality_score}\n"
+            content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} | 수온:{r.temperature}°C | pH:{r.ph} | DO:{r.dissolved_oxygen}mg/L | TDS:{r.tds_ppm}ppm | 수질지수:{r.water_quality_score}\n"
     else:
         content += "데이터가 없습니다."
     response = HttpResponse(content, content_type='text/plain; charset=utf-8')

@@ -28,17 +28,20 @@ class Tank(models.Model):
     ph_min         = models.FloatField(default=6.5,  help_text="pH 최솟값")
     ph_max         = models.FloatField(default=8.0,  help_text="pH 최댓값")
     do_min         = models.FloatField(default=5.0,  help_text="DO 최솟값(mg/L)")
-    turbidity_max  = models.FloatField(default=50.0, help_text="탁도 최댓값(NTU)")
+    # legacy thresholds kept temporarily for DB/backward compatibility; no longer used for control
+    turbidity_max  = models.FloatField(default=50.0, help_text="[LEGACY] 미사용 NTU 기준")
 
     # ✅ 추가: 장치 자동제어 히스테리시스 기준
     heater_on_temp   = models.FloatField(default=21.0, help_text="히터 ON 기준(°C)")
     heater_off_temp  = models.FloatField(default=22.0, help_text="히터 OFF 기준(°C)")
     cooling_on_temp  = models.FloatField(default=24.0, help_text="냉각팬 ON 기준(°C)")
     cooling_off_temp = models.FloatField(default=23.0, help_text="냉각팬 OFF 기준(°C)")
-    filter_on_ntu    = models.FloatField(default=50.0, help_text="여과기 ON 기준(NTU)")
-    filter_off_ntu   = models.FloatField(default=20.0, help_text="여과기 OFF 기준(NTU)")
-    airpump_on_do    = models.FloatField(default=4.0,  help_text="에어펌프 ON 기준(mg/L)")
-    airpump_off_do   = models.FloatField(default=6.0,  help_text="에어펌프 OFF 기준(mg/L)")
+    filter_on_ntu    = models.FloatField(default=50.0, help_text="[LEGACY] 미사용 NTU 기준")
+    filter_off_ntu   = models.FloatField(default=20.0, help_text="[LEGACY] 미사용 NTU 기준")
+    airpump_on_do    = models.FloatField(default=4.0,  help_text="[LEGACY] 에어펌프는 상시가동")
+    airpump_off_do   = models.FloatField(default=6.0,  help_text="[LEGACY] 에어펌프는 상시가동")
+    filter_on_hour   = models.IntegerField(default=0, help_text="여과기 자동 ON 시각(시); ON/OFF 동일 시 24시간 ON")
+    filter_off_hour  = models.IntegerField(default=0, help_text="여과기 자동 OFF 시각(시); ON/OFF 동일 시 24시간 ON")
 
     # ✅ 추가: 급이 설정
     feeding_times      = models.CharField(max_length=200, default="08:00,12:00,18:00", help_text="급이 시간 (콤마 구분)")
@@ -116,7 +119,7 @@ class SensorReading(models.Model):
     temperature         = models.FloatField(help_text="수온(°C)")
     ph                  = models.FloatField(help_text="pH")
     dissolved_oxygen    = models.FloatField(default=0.0, help_text="용존산소량(mg/L)")
-    turbidity           = models.FloatField(default=0.0, help_text="탁도(NTU)")
+    tds_ppm             = models.FloatField(default=0.0, help_text="총용존고형물(TDS, ppm)")
     water_level         = models.FloatField(default=100.0, help_text="수위(%)")
     water_quality_score = models.IntegerField(default=100, help_text="수질 종합 점수(0~100)")
 
@@ -429,7 +432,7 @@ class EventLog(models.Model):
 # ──────────────────────────────────────────────
 
 class StateCode(models.Model):
-    """수온/DO/pH/탁도 등 어항 상태를 설명하는 진단 코드"""
+    """수온/DO/pH/행동 등 어항 상태를 설명하는 진단 코드"""
 
     CATEGORY_CHOICES = [
         ('TEMP', '수온'),

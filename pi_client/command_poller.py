@@ -5,7 +5,7 @@ command_poller.py — 서버 장치 상태를 Raspberry Pi 릴레이에 반영.
 - HEATER, COOLING: 서버 명령 polling으로 적용
 - LIGHT: local light_timer + AI REST가 단독으로 소유하여 서버 polling에서 제외
 
-FILTER / AIR_PUMP / FEEDER는 서버에 과거 데이터가 남아 있어도 Pi에서 실행하지 않는다.
+AIR_PUMP / FEEDER는 서버에 과거 데이터가 남아 있어도 Pi에서 실행하지 않는다.
 AIR_PUMP는 실제 수조에서 상시 가동이다.
 """
 import threading
@@ -13,8 +13,8 @@ import time
 import requests
 from config import BASE_URL, HEADERS, TANK_ID
 
-ALLOWED_DEVICES = {"HEATER", "COOLING", "LIGHT"}
-POLLABLE_DEVICES = {"HEATER", "COOLING"}  # LIGHT is owned locally by light_timer + AI REST
+ALLOWED_DEVICES = {"HEATER", "COOLING", "FILTER", "LIGHT"}
+POLLABLE_DEVICES = {"HEATER", "COOLING", "FILTER"}  # LIGHT is owned locally by light_timer + AI REST
 
 # 실제 GPIO 사용 시 환경에 맞게 주석 해제/검증한다.
 # import RPi.GPIO as GPIO
