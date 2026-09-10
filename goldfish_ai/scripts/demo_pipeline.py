@@ -125,19 +125,21 @@ def load_config(path: str = "config.yaml") -> dict:
         "baseline_csv": raw.get("storage", {}).get(
             "baseline_csv", "data/activity_baseline.csv"
         ),
+        "baseline_v2_csv": raw.get("storage", {}).get(
+            "baseline_v2_csv", "data/activity_baseline_v2.csv"
+        ),
         # [8] FRS 분석 구간
         "frs_before_sec": raw.get("analytics", {})
         .get("frs", {})
-        .get("before_sec", 60.0),
+        .get("before_sec", 300.0),
         "frs_during_sec": raw.get("analytics", {})
         .get("frs", {})
-        .get("during_sec", 180.0),
-        # FRS 가중치 (config.yaml analytics.frs 기준)
-        "frs_w1": raw.get("analytics", {}).get("frs", {}).get("w1", 0.33),
-        "frs_w2": raw.get("analytics", {}).get("frs", {}).get("w2", 0.33),
-        "frs_w3": raw.get("analytics", {}).get("frs", {}).get("w3", 0.34),
-        # 성장 추적 — 0이면 스킵 (카메라 캘리브레이션 후 실측값 입력)
+        .get("during_sec", 300.0),
+        # 성장 추적 — tank ratio 방식 우선. reference_length_px가 설정되면
+        # px_to_cm = reference_real_length_cm / reference_length_px 로 계산한다.
         "px_to_cm_ratio": raw.get("camera", {}).get("px_to_cm_ratio", 0.0),
+        "growth_reference_real_length_cm": raw.get("growth_prediction", {}).get("reference_real_length_cm", 30.0),
+        "growth_reference_length_px": raw.get("growth_prediction", {}).get("reference_length_px", 0.0),
         # 급이 이벤트
         "feeding_events_csv": raw.get("storage", {}).get(
             "feeding_events_csv", "data/feeding_events.csv"
@@ -151,6 +153,14 @@ def load_config(path: str = "config.yaml") -> dict:
         "storage": raw.get("storage", {}),
         "growth_prediction": raw.get("growth_prediction", {}),
         "growth_stage": raw.get("growth_stage", {}),
+        # 서비스 종료 중 전체 CSV를 다시 읽는 작업은 기본 비활성화한다.
+        # 필요 시 config.yaml의 analytics.activity_pattern.auto_build_on_shutdown을
+        # true로 지정해 명시적으로만 실행한다.
+        "auto_build_baseline_on_shutdown": bool(
+            raw.get("analytics", {})
+            .get("activity_pattern", {})
+            .get("auto_build_on_shutdown", False)
+        ),
     }
     print(f"[CONFIG] 로드: {path}")
     return cfg
@@ -180,18 +190,49 @@ def _default_config() -> dict:
         "flush_every": 30,
         "iou_threshold": 0.0,
         "baseline_csv": "data/activity_baseline.csv",
-        "frs_before_sec": 60.0,
-        "frs_during_sec": 180.0,
+        "baseline_v2_csv": "data/activity_baseline_v2.csv",
+        "auto_build_baseline_on_shutdown": False,
+        "frs_before_sec": 300.0,
+        "frs_during_sec": 300.0,
+        "growth_reference_real_length_cm": 30.0,
+        "growth_reference_length_px": 0.0,
         "feeding_events_csv": "data/feeding_events.csv",
         "max_daily_meals": 5,
         "server_enabled": False,
         "server_mock": True,
         "water_quality": {},
         "feeding": {"times": ["08:00", "18:00"], "tolerance_sec": 30, "max_daily_meals": 5},
-        "analytics": {"frs": {"w1": 0.33, "w2": 0.33, "w3": 0.34, "before_sec": 60.0, "during_sec": 180.0, "amount_history_size": 3}, "detection": {"iou_overlap_threshold": 0.0}},
+        "analytics": {
+            "frs": {
+                "version": "v2",
+                "activity_weight": 0.7,
+                "latency_weight": 0.3,
+                "before_sec": 300.0,
+                "during_sec": 300.0,
+                "activity_full_response_pct": 50.0,
+                "latency_max_sec": 300.0,
+                "baseline_csv": "data/activity_baseline_v2.csv",
+                "quality_expected_fish_count": 2,
+                "min_pre_bins": 24,
+                "min_post_bins": 24,
+                "zone_component_used": False,
+                "amount_advisor_enabled": False,
+            },
+            "activity_v2": {
+                "enabled": True, "baseline_csv": "data/activity_baseline_v2.csv",
+                "bucket_sec": 5, "min_frames_per_bin": 10,
+                "quality_expected_fish_count": 2, "index_clip_max": 250,
+                "abr_window_sec": 300, "abr_min_bins": 12,
+                "abr_warning_pct": 13.0, "quality_window_sec": 600,
+            },
+            "detection": {"iou_overlap_threshold": 0.0},
+        },
         "storage": {"output_dir": "data", "flush_every": 30, "baseline_csv": "data/activity_baseline.csv", "feeding_events_csv": "data/feeding_events.csv"},
         "growth_prediction": {
             "enabled": True,
+            "measurement_mode": "tank_ratio",
+            "reference_real_length_cm": 30.0,
+            "reference_length_px": 0.0,
             "expected_fish_count": 2,
             "measurement_field": "bbox_long_side_px",
             "allow_size_index_fallback": False,
@@ -410,7 +451,7 @@ FISH_METRICS_COLS = [
     "temperature_c",
     "ph",
     "do_mg_l",
-    "turbidity_ntu",
+    "tds_ppm",
     "sensor_valid",
 ]
 
@@ -668,7 +709,11 @@ def run(args):
     print(f"  출력      : {metrics_path}")
 
     # BehaviorBridge 초기화
-    bridge = get_bridge(window_sec=30.0)
+    bridge = get_bridge(
+        window_sec=600.0,
+        activity_cfg=cfg.get("analytics", {}).get("activity_v2", {}),
+        baseline_csv=cfg.get("baseline_v2_csv", "data/activity_baseline_v2.csv"),
+    )
 
     # [7] Baseline 자동 적재
     baseline_df = try_load_baseline(cfg["baseline_csv"])
@@ -718,11 +763,10 @@ def run(args):
     watcher = ScheduledFeedingWatcher(cfg.get("feeding", {}), feeder)
 
     frs_cfg = dict(cfg.get("analytics", {}).get("frs", {}))
-    frs_cfg.setdefault("w1", cfg.get("frs_w1", 0.33))
-    frs_cfg.setdefault("w2", cfg.get("frs_w2", 0.33))
-    frs_cfg.setdefault("w3", cfg.get("frs_w3", 0.34))
-    frs_cfg.setdefault("before_sec", cfg.get("frs_before_sec", 60.0))
-    frs_cfg.setdefault("during_sec", cfg.get("frs_during_sec", 180.0))
+    frs_cfg.setdefault("version", "v2")
+    frs_cfg.setdefault("baseline_csv", cfg.get("baseline_v2_csv", "data/activity_baseline_v2.csv"))
+    frs_cfg.setdefault("before_sec", cfg.get("frs_before_sec", 300.0))
+    frs_cfg.setdefault("during_sec", cfg.get("frs_during_sec", 300.0))
     frs_cfg.setdefault("amount_history_size", 3)
     frs_cfg["fps_ref"] = cfg["fps_ref"]
     frs_cfg["expected_fish_count"] = cfg["expected_fish_count"]
@@ -740,13 +784,19 @@ def run(args):
     feeding_times = cfg.get("feeding", {}).get("times", [])
     print(
         f"  FRS       : 예약 급이 {feeding_times} / "
-        f"pre={frs_cfg.get('before_sec', 60.0):.0f}s "
-        f"post={frs_cfg.get('during_sec', 180.0):.0f}s"
+        f"pre={frs_cfg.get('before_sec', 300.0):.0f}s "
+        f"post={frs_cfg.get('during_sec', 300.0):.0f}s"
     )
 
     # 성장 추정/예측 분석기
+    # 고정 카메라 영상에서 보이는 수조 내부 폭(px)을 한 번 측정해 설정하면
+    # 30cm 수조 폭을 기준으로 px->cm 환산계수를 자동 계산한다.
+    ref_cm = float(cfg.get("growth_reference_real_length_cm", 30.0) or 30.0)
+    ref_px = float(cfg.get("growth_reference_length_px", 0.0) or 0.0)
+    legacy_ratio = float(cfg.get("px_to_cm_ratio", 0.0) or 0.0)
+    ratio_px_to_cm = (ref_cm / ref_px) if ref_px > 0 else legacy_ratio
     growth_config = {
-        "camera": {"px_to_cm_ratio": cfg.get("px_to_cm_ratio", 0.0)},
+        "camera": {"px_to_cm_ratio": ratio_px_to_cm},
         "pipeline": {"expected_fish_count": cfg["expected_fish_count"]},
         "growth_prediction": cfg.get("growth_prediction", {}),
         "growth_stage": cfg.get("growth_stage", {}),
@@ -755,11 +805,14 @@ def run(args):
     growth_analyzer = GrowthPredictionAnalyzer.from_config(growth_config)
     if growth_analyzer.enabled and growth_analyzer.px_to_cm_ratio > 0:
         print(
-            f"  성장 예측: 활성화 (Fish #1~#{cfg['expected_fish_count']}, "
-            f"px_to_cm_ratio={growth_analyzer.px_to_cm_ratio})"
+            f"  성장 예측: 활성화 (tank ratio {ref_cm:.1f}cm/{ref_px:.1f}px, "
+            f"px_to_cm={growth_analyzer.px_to_cm_ratio:.6f})"
         )
     elif growth_analyzer.enabled:
-        print("  성장 예측: 보정 대기 (camera.px_to_cm_ratio 실측 필요)")
+        print(
+            "  성장 예측: 보정 대기 "
+            "(growth_prediction.reference_length_px에 영상상 수조 내부 폭 px 입력 필요)"
+        )
     else:
         print("  성장 예측: 비활성화")
 
@@ -776,7 +829,11 @@ def run(args):
         tx = shared_tx
         print("[ServerTx] run.py 공유 tx 사용 — demo_pipeline에서는 ServerTx를 새로 만들지 않음")
     elif pipeline_server_enabled:
-        tx = ServerTx(mock=cfg.get("server_mock", True))
+        tx = ServerTx(
+            mock=cfg.get("server_mock", True),
+            backend_turbidity_compat=False,
+            overfeeding_by_turbidity_enabled=bool(cfg.get("feeding", {}).get("overfeeding_by_turbidity_enabled", False)),
+        )
         if pipeline_register_pi:
             tx.register_pi()
     else:
@@ -927,7 +984,7 @@ def run(args):
                             "temperature_c": round(sensor_data.temperature_c, 2),
                             "ph": round(sensor_data.ph, 2),
                             "do_mg_l": round(sensor_data.do_mg_l, 2),
-                            "turbidity_ntu": round(sensor_data.turbidity_ntu, 1),
+                            "tds_ppm": round(sensor_data.tds_ppm, 1),
                             "sensor_valid": sensor_data.valid,
                         }
                     )
@@ -967,7 +1024,8 @@ def run(args):
                     if result is not None:
                         computed_feeding_ts.add(pending_key)
                         latest_frs_score = int(round(result.score))
-                        amount_advisor.advise_and_print()
+                        if bool(frs_cfg.get("amount_advisor_enabled", False)):
+                            amount_advisor.advise_and_print()
 
                         if (
                             pipeline_server_enabled
@@ -1098,9 +1156,14 @@ def run(args):
             cnt = track_filter._count[fid]
             print(f"    #{fid}: {cnt}프레임, {dur:.1f}초 추적")
 
-        # [7] 종료 시 Baseline 자동 생성 시도
-        print("\n[Baseline] 자동 생성 시도...")
-        try_build_and_save_baseline(cfg)
+        # 종료 경로에서는 무거운 다중 CSV Baseline 생성을 기본 수행하지 않는다.
+        # systemd stop/restart 중 전체 fish_metrics 파일을 한 번에 읽으면
+        # Raspberry Pi 메모리 사용량이 급증할 수 있다.
+        if cfg.get("auto_build_baseline_on_shutdown", False):
+            print("\n[Baseline] 종료 시 자동 생성 시도...")
+            try_build_and_save_baseline(cfg)
+        else:
+            print("\n[Baseline] 종료 시 자동 생성 비활성화 — 필요 시 별도 실행")
 
         print(f"  완료: {frame_idx}프레임 / 출력: {metrics_path}")
 

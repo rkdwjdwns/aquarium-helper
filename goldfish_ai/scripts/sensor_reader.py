@@ -1,13 +1,13 @@
 """
-sensor_reader.py — ESP32 USB Serial 수신 독립 Thread (v4 - Serial Integrated)
+sensor_reader.py — ESP32 USB Serial 수신 독립 Thread (v2 calibration)
 금붕어 자동 사육 AI 시스템 (v2.0)
 
 ESP32 출력 형식(현재 코드 호환):
   1) 권장 표준:
-     {"temperature_c":22.5,"ph":7.2,"do_mg_l":6.8,"turbidity_ntu":12.3}
+     {"temperature_c":22.5,"ph":7.2,"do_mg_l":6.8,"tds_ppm":340.0}
 
   2) 현재 ESP32 출력:
-     {"temp":23.125,"ph":2.2375,"do":7.980548,"turb":326.5488,"level":100}
+     {"temp":23.125,"ph":2.2375,"do":7.980548,"turb":326.5488,"level":100}  # turb는 현재 하드웨어에서 TDS
 
 설계 원칙:
   - run.py에서 SensorReader를 1회만 시작
@@ -44,9 +44,18 @@ class SensorData:
     temperature_c: float = 0.0
     ph: float = 0.0
     do_mg_l: float = 0.0
-    turbidity_ntu: float = 0.0
+    tds_ppm: float = 0.0
     level: float = 0.0
     valid: bool = False
+
+    @property
+    def turbidity_ntu(self) -> float:
+        """Legacy compatibility only. No real turbidity sensor is connected.
+
+        Returning 0 prevents historical code from accidentally treating TDS as NTU.
+        New code must use ``tds_ppm``.
+        """
+        return 0.0
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -56,7 +65,6 @@ DEFAULT_THRESHOLDS = {
     "temperature_c": {"min": 21.0, "max": 24.0},
     "ph": {"min": 6.5, "max": 8.0},
     "do_mg_l": {"min": 5.0, "critical_min": 4.0},
-    "turbidity_ntu": {"max": 50.0, "stress_level": 100.0},
 }
 
 
@@ -228,7 +236,8 @@ class SensorReader:
           temperature_c | temp | temp_c | temperature
           ph | pH
           do_mg_l | do | dissolved_oxygen
-          turbidity_ntu | turb | turbidity | ntu
+          tds_ppm | tds | turb  (현재 ESP32의 turb 키는 TDS 값)
+          legacy turbidity_ntu도 TDS 호환 입력으로만 허용
           level 선택값
         """
         try:
@@ -255,12 +264,12 @@ class SensorReader:
                     "do",
                     "dissolved_oxygen",
                 ),
-                turbidity_ntu=self._get_float(
+                tds_ppm=self._get_float(
                     obj,
-                    "turbidity_ntu",
+                    "tds_ppm",
+                    "tds",
                     "turb",
-                    "turbidity",
-                    "ntu",
+                    "turbidity_ntu",
                 ),
                 level=self._get_optional_float(obj, 0.0, "level", "water_level"),
                 valid=True,
@@ -307,7 +316,7 @@ class SensorReader:
             temperature_c=sum(x.temperature_c for x in self._samples) / n,
             ph=sum(x.ph for x in self._samples) / n,
             do_mg_l=sum(x.do_mg_l for x in self._samples) / n,
-            turbidity_ntu=sum(x.turbidity_ntu for x in self._samples) / n,
+            tds_ppm=sum(x.tds_ppm for x in self._samples) / n,
             level=sum(x.level for x in self._samples) / n,
             valid=True,
         )
@@ -325,7 +334,7 @@ class SensorReader:
                 temperature_c=22.5 + math.sin(t * 0.05) * 0.5 + random.gauss(0, 0.1),
                 ph=7.2 + math.sin(t * 0.02) * 0.1 + random.gauss(0, 0.05),
                 do_mg_l=6.5 + math.cos(t * 0.03) * 0.5 + random.gauss(0, 0.1),
-                turbidity_ntu=15.0 + abs(math.sin(t * 0.1)) * 10 + random.gauss(0, 1),
+                tds_ppm=340.0 + math.sin(t * 0.03) * 12.0 + random.gauss(0, 1.5),
                 level=100.0,
                 valid=True,
             )
@@ -370,17 +379,10 @@ def check_water_quality(data: SensorData, thresholds: Optional[dict] = None) -> 
     elif data.do_mg_l < do_min:
         alerts.append({"param": "do_mg_l", "level": "warning", "value": data.do_mg_l})
 
-    turb_cfg = t.get("turbidity_ntu", {})
-    turb_max = turb_cfg.get("max", DEFAULT_THRESHOLDS["turbidity_ntu"]["max"])
-    turb_critical = turb_cfg.get(
-        "critical",
-        turb_cfg.get("stress_level", DEFAULT_THRESHOLDS["turbidity_ntu"]["stress_level"]),
-    )
-
-    if data.turbidity_ntu > turb_critical:
-        alerts.append({"param": "turbidity_ntu", "level": "critical", "value": data.turbidity_ntu})
-    elif data.turbidity_ntu > turb_max:
-        alerts.append({"param": "turbidity_ntu", "level": "warning", "value": data.turbidity_ntu})
+    # TDS is monitor-only until a separately calibrated TDS policy is defined.
+    # It must never be evaluated with historical NTU thresholds.
+    if data.tds_ppm <= 0:
+        alerts.append({"param": "tds_ppm", "level": "incomplete", "value": data.tds_ppm})
 
     return alerts
 
@@ -405,7 +407,7 @@ if __name__ == "__main__":
     reader.start()
 
     print("\n  센서 수신 중... (Ctrl+C 종료)\n")
-    print(f"  {'수온':>6}  {'pH':>5}  {'DO':>6}  {'탁도':>8}  {'수위':>6}  알림")
+    print(f"  {'수온':>6}  {'pH':>5}  {'DO':>6}  {'TDS':>8}  {'수위':>6}  알림")
     print(f"  {'-' * 65}")
 
     try:
@@ -424,7 +426,7 @@ if __name__ == "__main__":
                     f"  {d.temperature_c:>5.1f}°C  "
                     f"{d.ph:>4.2f}  "
                     f"{d.do_mg_l:>5.2f}  "
-                    f"{d.turbidity_ntu:>7.1f}NTU  "
+                    f"{d.tds_ppm:>7.1f}ppm  "
                     f"{d.level:>5.0f}%  "
                     f"{alert_str}"
                 )

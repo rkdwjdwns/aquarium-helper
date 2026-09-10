@@ -31,6 +31,7 @@ scripts/server_tx.py — Pi → 백엔드 전송 브릿지
 
 from __future__ import annotations
 
+import importlib
 import logging
 from dataclasses import asdict, is_dataclass
 import statistics
@@ -46,10 +47,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # ── pi_client 경로를 sys.path에 추가 ─────────────────────────────────────
-_PI_CLIENT = Path(__file__).resolve().parent.parent / "pi_client"
-if _PI_CLIENT.exists() and str(_PI_CLIENT) not in sys.path:
-    sys.path.insert(0, str(_PI_CLIENT))
-    logger.info(f"[ServerTx] pi_client 경로 추가: {_PI_CLIENT}")
+_goldfish_root = Path(__file__).resolve().parent.parent
+_pi_candidates = [_goldfish_root / "pi_client", _goldfish_root.parent / "pi_client"]
+_PI_CLIENT = next((p for p in _pi_candidates if p.is_dir()), _pi_candidates[0])
+if _PI_CLIENT.is_dir():
+    pi_client_path = str(_PI_CLIENT)
+    if pi_client_path not in sys.path:
+        sys.path.insert(0, pi_client_path)
+        logger.info(f"[ServerTx] pi_client 경로 추가: {_PI_CLIENT}")
+    else:
+        logger.debug(f"[ServerTx] pi_client 경로 이미 등록됨: {_PI_CLIENT}")
 else:
     logger.warning(f"[ServerTx] pi_client 폴더 없음: {_PI_CLIENT}")
 
@@ -59,32 +66,52 @@ else:
 # ─────────────────────────────────────────────────────────────────────────
 def _try_import() -> Optional[dict]:
     """
-    pi_client sender들을 import 시도.
-    실패 시 None 반환 → Mock 모드로 폴백.
-    """
-    try:
-        from sensor_sender   import send_sensor      as _send_sensor
-        from behavior_sender import send_behavior    as _send_behavior
-        from feeding_sender  import send_feeding     as _send_feeding
-        from growth_sender   import send_growth      as _send_growth
-        from growth_sender   import estimate_weight  as _estimate_weight
-        from pattern_sender  import send_pattern     as _send_pattern
-        from pattern_sender  import ActivityPatternAnalyzer
-        from register_pi     import register_pi_ip   as _register_pi
+    pi_client sender들을 모듈별로 import한다.
 
-        return {
-            "send_sensor":           _send_sensor,
-            "send_behavior":         _send_behavior,
-            "send_feeding":          _send_feeding,
-            "send_growth":           _send_growth,
-            "estimate_weight":       _estimate_weight,
-            "send_pattern":          _send_pattern,
-            "ActivityPatternAnalyzer": ActivityPatternAnalyzer,
-            "register_pi":           _register_pi,
-        }
-    except ImportError as e:
-        logger.warning(f"[ServerTx] pi_client import 실패 → Mock 모드: {e}")
-        return None
+    한 모듈의 오류를 다른 모듈 오류로 오해하지 않도록 실패한 모듈명과
+    실제 파일 경로를 로그에 남긴다. 실패 시 None을 반환해 Mock 모드로 폴백한다.
+    """
+    required_modules = {
+        "sensor_sender": ("send_sensor",),
+        "behavior_sender": ("send_behavior",),
+        "feeding_sender": ("send_feeding",),
+        "growth_sender": ("send_growth", "estimate_weight"),
+        "pattern_sender": ("send_pattern", "ActivityPatternAnalyzer"),
+        "register_pi": ("register_pi_ip",),
+    }
+
+    modules = {}
+    for module_name, attributes in required_modules.items():
+        try:
+            module = importlib.import_module(module_name)
+            modules[module_name] = module
+            missing = [name for name in attributes if not hasattr(module, name)]
+            if missing:
+                logger.error(
+                    f"[ServerTx] {module_name} 필수 함수/클래스 없음: {', '.join(missing)}"
+                )
+                return None
+            logger.debug(
+                f"[ServerTx] import 성공: {module_name} "
+                f"({getattr(module, '__file__', 'unknown')})"
+            )
+        except Exception as e:
+            logger.exception(
+                f"[ServerTx] pi_client import 실패: {module_name} → "
+                f"{type(e).__name__}: {e}"
+            )
+            return None
+
+    return {
+        "send_sensor": modules["sensor_sender"].send_sensor,
+        "send_behavior": modules["behavior_sender"].send_behavior,
+        "send_feeding": modules["feeding_sender"].send_feeding,
+        "send_growth": modules["growth_sender"].send_growth,
+        "estimate_weight": modules["growth_sender"].estimate_weight,
+        "send_pattern": modules["pattern_sender"].send_pattern,
+        "ActivityPatternAnalyzer": modules["pattern_sender"].ActivityPatternAnalyzer,
+        "register_pi": modules["register_pi"].register_pi_ip,
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -96,9 +123,17 @@ class ServerTx:
     mock=True 또는 pi_client import 실패 시 실제 전송 없이 로그만 출력.
     """
 
-    def __init__(self, mock: bool = False, event_log_enabled: bool = False):
-        self.mock     = mock
+    def __init__(
+        self,
+        mock: bool = False,
+        event_log_enabled: bool = False,
+        backend_turbidity_compat: bool = False,
+        overfeeding_by_turbidity_enabled: bool = False,
+    ):
+        self.mock = mock
         self.event_log_enabled = event_log_enabled
+        self.backend_turbidity_compat = bool(backend_turbidity_compat)
+        self.overfeeding_by_turbidity_enabled = bool(overfeeding_by_turbidity_enabled)
         self._senders = None if mock else _try_import()
         if self._senders is None:
             self.mock = True
@@ -157,7 +192,7 @@ class ServerTx:
         sensor_reader.SensorData → send_sensor() 전송.
 
         sensor_sender.py 파라미터:
-            temperature, ph, dissolved_oxygen, turbidity, water_level
+            temperature, ph, dissolved_oxygen, tds_ppm, water_level
         """
         if not sensor_data.valid:
             logger.debug("[ServerTx] 센서 invalid — 건너뜀")
@@ -167,7 +202,7 @@ class ServerTx:
             logger.info(
                 f"[ServerTx][Mock] send_sensor | "
                 f"temp={sensor_data.temperature_c} ph={sensor_data.ph} "
-                f"do={sensor_data.do_mg_l} ntu={sensor_data.turbidity_ntu}"
+                f"do={sensor_data.do_mg_l} tds={getattr(sensor_data, 'tds_ppm', 0.0)}ppm"
             )
             return True
 
@@ -176,7 +211,8 @@ class ServerTx:
                 temperature      = sensor_data.temperature_c,
                 ph               = sensor_data.ph,
                 dissolved_oxygen = sensor_data.do_mg_l,
-                turbidity        = sensor_data.turbidity_ntu,
+                tds_ppm          = float(getattr(sensor_data, "tds_ppm", 0.0) or 0.0),
+                turbidity        = 0.0,  # legacy API compatibility only
                 water_level      = getattr(sensor_data, "level", 100.0),
             )
             ok = result is not None
@@ -243,7 +279,32 @@ class ServerTx:
         abr_result: Optional["ABRResult"],
         frs_score:  int,
     ) -> dict:
-        """fish_metrics 행 → behavior_sender 페이로드 변환."""
+        """fish_metrics 행 → behavior_sender 페이로드 변환.
+
+        Prefer the calibrated BehaviorBridge v2 result. The legacy calculation
+        below remains as a fallback if the bridge has not been initialized yet.
+        """
+        try:
+            from scripts.behavior_bridge import get_bridge
+            v2 = get_bridge().get_latest()
+            if v2 and get_bridge().is_fresh(90):
+                return {
+                    "fish_count": int(v2.get("fish_count", 0) or 0),
+                    "overlap_frames": int(v2.get("overlap_frames", 0) or 0),
+                    "activity_level": float(v2.get("activity_level", 0.0) or 0.0),
+                    "abr_score": float(v2.get("abr_score", 0.0) or 0.0),
+                    "dominant_zone": v2.get("dominant_zone", "MID"),
+                    "zone_top_ratio": float(v2.get("zone_top_ratio", 0.0) or 0.0),
+                    "zone_mid_ratio": float(v2.get("zone_mid_ratio", 1.0) or 1.0),
+                    "zone_bot_ratio": float(v2.get("zone_bot_ratio", 0.0) or 0.0),
+                    "size_index": float(v2.get("size_index", 0.0) or 0.0),
+                    "feeding_score": int(frs_score or v2.get("feeding_score", 0) or 0),
+                    "status": v2.get("status", "NORMAL"),
+                    "is_anomaly": bool(v2.get("is_anomaly", False)),
+                    "note": v2.get("note", "FRS/ABR v2"),
+                }
+        except Exception as e:
+            logger.debug(f"[ServerTx] BehaviorBridge v2 fallback: {e}")
 
         # 대표 ID 행만 사용
         repr_rows = [r for r in rows if r.get("is_representative", True)]
@@ -365,25 +426,29 @@ class ServerTx:
         raw_trigger = str(feeding_event.trigger).lower()
         trigger = "MANUAL" if raw_trigger == "manual" else "AUTO"
 
-        # 탁도
-        turbidity_before = (
-            sensor_before.turbidity_ntu
-            if sensor_before and sensor_before.valid else 0.0
-        )
-        turbidity_after = (
-            sensor_after.turbidity_ntu
-            if sensor_after and sensor_after.valid else 0.0
-        )
-
-        # 과급여 판단: 탁도 상승이 config의 overfeeding_delta_ntu 초과
-        # (미확정 — 실측 후 조정, 현재는 10 NTU 기준)
-        is_overfeeding = (turbidity_after - turbidity_before) > 10.0
+        # No true turbidity sensor is currently connected. TDS must not be
+        # substituted for NTU, so turbidity-based overfeeding is disabled by default.
+        if self.overfeeding_by_turbidity_enabled and self.backend_turbidity_compat:
+            turbidity_before = (
+                float(getattr(sensor_before, "turbidity_ntu", 0.0) or 0.0)
+                if sensor_before and sensor_before.valid else 0.0
+            )
+            turbidity_after = (
+                float(getattr(sensor_after, "turbidity_ntu", 0.0) or 0.0)
+                if sensor_after and sensor_after.valid else 0.0
+            )
+            is_overfeeding = (turbidity_after - turbidity_before) > 10.0
+        else:
+            turbidity_before = 0.0
+            turbidity_after = 0.0
+            is_overfeeding = False
 
         # 최신 FeedingResponseAnalyzer(FRSResult)와 구버전 dict를 모두 지원한다.
         frs = self._as_mapping(frs_result)
         frs_score = float(frs.get("score", 0.0) or 0.0)
         rt_seconds = float(
-            frs.get("first_surface_sec", frs.get("response_time_sec", 0.0)) or 0.0
+            frs.get("response_latency_sec",
+                    frs.get("first_surface_sec", frs.get("response_time_sec", 0.0))) or 0.0
         )
 
         pre_avg = float(frs.get("pre_avg_speed", 0.0) or 0.0)
@@ -394,7 +459,7 @@ class ServerTx:
             # pre가 0이면 S2(0~1)를 1~3배 비율로 역변환해 전송한다.
             ar_ratio = round(1.0 + 2.0 * float(frs.get("s2_activity_inc", 0.0) or 0.0), 3)
 
-        sf_ratio = round(
+        sf_ratio = 0.0 if str(frs.get("version", "")).lower() == "v2" else round(
             float(frs.get("post_top_ratio", frs.get("s3_surface_visit", 0.0)) or 0.0),
             4,
         )
@@ -696,7 +761,7 @@ if __name__ == "__main__":
     tx.send_sensor(SensorData(
         timestamp=time.time(),
         temperature_c=22.5, ph=7.2,
-        do_mg_l=6.8, turbidity_ntu=12.3,
+        do_mg_l=6.8, tds_ppm=340.0,
         valid=True,
     ))
 

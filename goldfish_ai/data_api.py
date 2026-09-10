@@ -1,269 +1,304 @@
+"""Local dashboard data API for aquarium project v2.
+
+Reads the latest runtime CSV tails without scanning multi-hundred-MB files on
+every poll. It generates data/live.json using the calibrated v2 rules:
+- hourly normalized Activity Index
+- 5-minute P01/P99 ABR
+- GOOD/FAIR/POOR AI analysis quality
+- TOP/MID/BOT distribution
+- canonical TDS (ppm), never TDS-as-turbidity
+- latest real FRS v2 result
 """
-data_api.py — Pi 5 실시간 데이터 JSON 생성기
-금붕어 자동 사육 AI 시스템 (v2.0)
-
-역할:
-    goldfish_ai/data/ 의 최신 fish_metrics_*.csv를 주기적으로 읽어
-    dashboard.html이 폴링할 live.json을 생성.
-
-실행:
-    python data_api.py                  # 기본 (30초 간격)
-    python data_api.py --interval 10    # 10초 간격
-    python data_api.py --port 8081      # HTTP 서버 포트 (dashboard.html 서빙 겸용)
-
-구조:
-    goldfish_ai/
-    ├── data_api.py          ← 이 파일
-    ├── dashboard.html       ← 대시보드
-    └── data/
-        ├── live.json        ← 생성 대상 (dashboard.html이 폴링)
-        ├── fish_metrics_*.csv
-        └── growth_records.csv  (선택)
-"""
-
 from __future__ import annotations
 
 import argparse
 import csv
 import glob
 import json
+import math
 import os
-import statistics
 import threading
 import time
 from datetime import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
+try:
+    import yaml
+except Exception:
+    yaml = None
 
-# ─────────────────────────────────────────────────────────────────────────
-# 설정
-# ─────────────────────────────────────────────────────────────────────────
-DATA_DIR   = Path(__file__).resolve().parent / "data"
-LIVE_JSON  = DATA_DIR / "live.json"
-DASH_DIR   = Path(__file__).resolve().parent   # dashboard.html 위치
+from scripts.analytics.behavior_v2 import BehaviorV2Analyzer
+
+ROOT = Path(__file__).resolve().parent
+DATA_DIR = ROOT / "data"
+LIVE_JSON = DATA_DIR / "live.json"
+DASH_DIR = ROOT
+CONFIG_PATH = ROOT / "config.yaml"
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# CSV 파서
-# ─────────────────────────────────────────────────────────────────────────
-def _load_latest_csv(n_rows: int = 500) -> list[dict]:
-    """가장 최근 fish_metrics_*.csv의 마지막 n_rows행 반환."""
+def _config() -> dict:
+    if yaml is None or not CONFIG_PATH.exists():
+        return {}
+    try:
+        return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
+    except Exception as e:
+        print(f"[API] config 로드 오류: {e}")
+        return {}
+
+
+def _tail_text_lines(path: Path, n_lines: int, block_size: int = 65536) -> list[str]:
+    """Return at most the last n_lines non-empty text lines efficiently."""
+    if not path.exists() or path.stat().st_size == 0:
+        return []
+    with open(path, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        pos = f.tell()
+        data = b""
+        while pos > 0 and data.count(b"\n") <= n_lines:
+            read_size = min(block_size, pos)
+            pos -= read_size
+            f.seek(pos)
+            data = f.read(read_size) + data
+    lines = data.decode("utf-8", errors="ignore").splitlines()
+    return [line for line in lines[-n_lines:] if line.strip()]
+
+
+def _tail_csv(path: Path, n_rows: int) -> list[dict]:
+    if not path.exists():
+        return []
+    try:
+        with open(path, "r", encoding="utf-8-sig", newline="") as f:
+            header = f.readline().strip()
+        if not header:
+            return []
+        lines = _tail_text_lines(path, n_rows + 2)
+        lines = [line for line in lines if line.strip() and line.strip() != header]
+        text = [header] + lines[-n_rows:]
+        return list(csv.DictReader(text))
+    except Exception as e:
+        print(f"[API] tail CSV 오류 {path.name}: {e}")
+        return []
+
+
+def _latest_metrics_path() -> Path | None:
     files = sorted(glob.glob(str(DATA_DIR / "fish_metrics_*.csv")))
-    if not files:
-        return []
-    path = files[-1]
-    try:
-        rows = []
-        with open(path, newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                rows.append(row)
-        return rows[-n_rows:]
-    except Exception as e:
-        print(f"[API] CSV 읽기 오류: {e}")
-        return []
+    return Path(files[-1]) if files else None
 
 
-def _load_growth_csv() -> list[dict]:
-    """growth_records.csv 로드 (없으면 빈 리스트)."""
-    path = DATA_DIR / "growth_records.csv"
-    if not path.exists():
-        return []
+def _load_latest_metrics(n_rows: int = 40000) -> tuple[list[dict], str]:
+    path = _latest_metrics_path()
+    if path is None:
+        return [], ""
+    return _tail_csv(path, n_rows), path.name
+
+
+def _sensor_rows(n_rows: int = 180) -> list[dict]:
+    return _tail_csv(DATA_DIR / "sensor_log.csv", n_rows)
+
+
+def _as_float(value, default=0.0):
     try:
-        rows = []
-        with open(path, newline="", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                rows.append(row)
-        return rows
+        x = float(value)
+        return x if math.isfinite(x) else float(default)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _as_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+
+def _sensor_snapshot(rows: list[dict]) -> tuple[dict, list[dict]]:
+    if not rows:
+        return ({
+            "temperature_c": 0.0, "ph": 0.0, "do_mg_l": 0.0,
+            "tds_ppm": 0.0, "level": None, "valid": False,
+            "quality": "INCOMPLETE", "source": "none",
+        }, [])
+
+    series = []
+    for r in rows:
+        tds = _as_float(r.get("tds_ppm", r.get("turbidity_ntu", 0.0)))
+        valid = _as_bool(r.get("sensor_valid", r.get("valid", False)))
+        temp = _as_float(r.get("temperature_c"))
+        ph = _as_float(r.get("ph"))
+        do = _as_float(r.get("do_mg_l"))
+        quality = "GOOD" if valid and temp > 0 and ph > 0 and do > 0 and tds > 0 else "INCOMPLETE"
+        series.append({
+            "t": str(r.get("timestamp", "")),
+            "temp": temp,
+            "ph": ph,
+            "do": do,
+            "tds": tds,
+            "quality": quality,
+        })
+
+    last = rows[-1]
+    last_s = series[-1]
+    level_raw = last.get("level", "")
+    try:
+        level = float(level_raw) if str(level_raw).strip() else None
     except Exception:
-        return []
+        level = None
+    sensor = {
+        "temperature_c": last_s["temp"],
+        "ph": last_s["ph"],
+        "do_mg_l": last_s["do"],
+        "tds_ppm": last_s["tds"],
+        "level": level,
+        "valid": last_s["quality"] == "GOOD",
+        "quality": last_s["quality"],
+        "source": "sensor_log",
+        "tds_monitor_only": True,
+        "turbidity_available": False,
+    }
+    return sensor, series
 
 
+def _fps_estimate(rows: list[dict]) -> float:
+    # Count unique frame indices in the recent ~10 seconds, not fish rows.
+    parsed = []
+    for r in rows[-3000:]:
+        try:
+            parsed.append((float(r.get("timestamp", 0)), int(float(r.get("frame_idx", -1)))))
+        except Exception:
+            pass
+    if len(parsed) < 2:
+        return 0.0
+    last_ts = max(t for t, _ in parsed)
+    recent = [(t, f) for t, f in parsed if last_ts - t <= 10 and f >= 0]
+    if len(recent) < 2:
+        return 0.0
+    duration = max(t for t, _ in recent) - min(t for t, _ in recent)
+    frames = len({f for _, f in recent})
+    return round(frames / duration, 1) if duration > 0 else 0.0
 
-def _load_sensor_log(n_rows: int = 60) -> list[dict]:
-    """
-    sensor_log.csv 로드 (ESP32 실측 센서 이력).
-    컬럼: timestamp, temperature_c, ph, do_mg_l, tds_ppm, level, sensor_valid
-    fish_metrics의 mock 센서값 대신 실측값으로 대시보드에 표시.
-    """
-    path = DATA_DIR / "sensor_log.csv"
-    if not path.exists():
-        return []
+
+def _latest_frs() -> dict | None:
+    rows = _tail_csv(DATA_DIR / "frs_history.csv", 5)
+    if not rows:
+        return None
+    r = rows[-1]
     try:
-        rows = []
-        with open(path, newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if row.get("sensor_valid") == "True":
-                    rows.append(row)
-        return rows[-n_rows:]
-    except Exception as e:
-        print(f"[API] sensor_log 읽기 오류: {e}")
-        return []
+        score = _as_float(r.get("score", r.get("frs_v2", 0.0)))
+        version = str(r.get("version", "v1"))
+        return {
+            "version": version,
+            "status": r.get("status", "OK"),
+            "feeding_ts": _as_float(r.get("feeding_ts", 0.0)),
+            "datetime": r.get("datetime_str", r.get("feeding_timestamp", "")),
+            "score": round(score, 2),
+            "activity_increase_pct": _as_float(r.get("activity_increase_pct", 0.0)),
+            "response_latency_sec": _as_float(r.get("response_latency_sec", r.get("first_surface_sec", 0.0))),
+            "activity_score": _as_float(r.get("activity_score", _as_float(r.get("s2_activity_inc", 0.0)) * 100.0)),
+            "latency_score": _as_float(r.get("latency_score", _as_float(r.get("s1_response_time", 0.0)) * 100.0)),
+            "zone_component_used": _as_bool(r.get("zone_component_used", False)),
+            "note": r.get("note", ""),
+        }
+    except Exception:
+        return None
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# 분석 계산
-# ─────────────────────────────────────────────────────────────────────────
-def _mean(vals: list) -> float:
-    return round(statistics.mean(vals), 3) if vals else 0.0
+def _growth_status() -> dict:
+    rows = _tail_csv(DATA_DIR / "growth_prediction.csv", 3)
+    if not rows:
+        return {"available": False, "status": "calibration_required", "message": "px_to_cm calibration 필요"}
+    r = rows[-1]
+    status = str(r.get("model_status", r.get("status", "unknown")))
+    return {
+        "available": status not in {"calibration_required", "disabled", "unknown"},
+        "status": status,
+        "message": r.get("message", ""),
+    }
 
 
-def _std(vals: list) -> float:
-    return round(statistics.stdev(vals), 3) if len(vals) >= 2 else 0.0
-
-
-def _build_live(rows: list[dict], growth_rows: list[dict]) -> dict:
+def _build_live(rows: list[dict], source_session: str) -> dict:
     if not rows:
         return {"status": "no_data", "updated_at": datetime.now().isoformat()}
 
-    repr_rows = [r for r in rows if r.get("is_representative") == "True"]
-    if not repr_rows:
-        repr_rows = rows
+    cfg = _config()
+    activity_cfg = cfg.get("analytics", {}).get("activity_v2", {}) or {}
+    baseline_csv = activity_cfg.get(
+        "baseline_csv",
+        cfg.get("storage", {}).get("baseline_v2_csv", "data/activity_baseline_v2.csv"),
+    )
+    baseline_path = Path(baseline_csv)
+    if not baseline_path.is_absolute():
+        baseline_path = ROOT / baseline_path
 
-    # ── 기본 현황 ──────────────────────────────────────────────────────────
-    fish_ids  = sorted({r["fish_id"] for r in repr_rows})
-    speeds    = [float(r["speed_px_s"]) for r in repr_rows if float(r["speed_px_s"]) > 0]
-    activities = [float(r["activity"]) for r in repr_rows]
-
-    zones = [r["zone"] for r in repr_rows]
-    n_z   = max(len(zones), 1)
-    zone_dist = {
-        "TOP": round(zones.count("TOP") / n_z * 100, 1),
-        "MID": round(zones.count("MID") / n_z * 100, 1),
-        "BOT": round(zones.count("BOT") / n_z * 100, 1),
-    }
-
-    # ── 센서 (sensor_log.csv 우선, 없으면 fish_metrics 내장값) ──────────
-    sensor_log_rows = _load_sensor_log(n_rows=60)
-    if sensor_log_rows:
-        sl = sensor_log_rows[-1]
-        sensor = {
-            "temperature_c": float(sl.get("temperature_c", 0)),
-            "ph":            float(sl.get("ph", 0)),
-            "do_mg_l":       float(sl.get("do_mg_l", 0)),
-            "turbidity_ntu": float(sl.get("tds_ppm", 0)),   # TDS→탁도 대체 표시
-            "tds_ppm":       float(sl.get("tds_ppm", 0)),
-            "valid":         sl.get("sensor_valid") == "True",
-            "source":        "sensor_log",
-        }
-        # 센서 시계열 (최근 60개 → 수온/pH 추이)
-        sensor_series = [
-            {
-                "t":    r["timestamp"],
-                "temp": float(r.get("temperature_c", 0)),
-                "ph":   float(r.get("ph", 0)),
-                "do":   float(r.get("do_mg_l", 0)),
-                "tds":  float(r.get("tds_ppm", 0)),
-            }
-            for r in sensor_log_rows
-        ]
-    else:
-        last = repr_rows[-1]
-        sensor = {
-            "temperature_c": float(last.get("temperature_c", 0)),
-            "ph":            float(last.get("ph", 0)),
-            "do_mg_l":       float(last.get("do_mg_l", 0)),
-            "turbidity_ntu": float(last.get("turbidity_ntu", 0)),
-            "tds_ppm":       0.0,
-            "valid":         last.get("sensor_valid") == "True",
-            "source":        "fish_metrics",
-        }
-        sensor_series = []
-
-    # ── FPS 추정 ──────────────────────────────────────────────────────────
-    ts_vals = [float(r["timestamp"]) for r in repr_rows[-30:]]
-    fps_est = 0.0
-    if len(ts_vals) >= 2:
-        dur = ts_vals[-1] - ts_vals[0]
-        fps_est = round(len(ts_vals) / dur, 1) if dur > 0 else 0.0
-
-    # ── ABR 계산 (Baseline = 전체 repr μ,σ) ──────────────────────────────
-    mu    = _mean(speeds)
-    sigma = _std(speeds)
-    sigma_threshold = 2.0
-    anomaly = [s for s in speeds if abs(s - mu) > sigma_threshold * sigma]
-    abr = round(len(anomaly) / max(len(speeds), 1), 4)
-
-    # ── 활동량 시계열 (최근 60포인트, 5초 버킷) ───────────────────────────
-    activity_series = []
-    if repr_rows:
-        t0 = float(repr_rows[0]["timestamp"])
-        bucket: dict[int, list] = {}
-        for r in repr_rows:
-            b = int((float(r["timestamp"]) - t0) / 5)
-            bucket.setdefault(b, []).append(float(r["activity"]))
-        for b in sorted(bucket)[-60:]:
-            activity_series.append({
-                "t": round(t0 + b * 5),
-                "v": round(_mean(bucket[b]), 2),
-            })
-
-    # ── 성장 데이터 ────────────────────────────────────────────────────────
-    growth_by_fish: dict[str, list] = {}
-    for gr in growth_rows:
-        fid = gr.get("fish_id", "?")
-        growth_by_fish.setdefault(fid, []).append({
-            "date": gr.get("timestamp", "")[:10],
-            "size_cm": float(gr.get("size_cm", 0)),
-        })
-
-    # size_index 기반 임시 추정 (px_to_cm 미확정 시 표시용)
-    size_indices = [float(r["size_index"]) for r in repr_rows if "size_index" in r]
-    avg_size_index = _mean(size_indices)
-
-    # ── 총 추적 시간 ──────────────────────────────────────────────────────
-    all_ts = [float(r["timestamp"]) for r in repr_rows]
-    track_sec = round(max(all_ts) - min(all_ts), 1) if len(all_ts) >= 2 else 0.0
+    sensor, sensor_series = _sensor_snapshot(_sensor_rows())
+    analyzer = BehaviorV2Analyzer(activity_cfg, baseline_csv=str(baseline_path))
+    behavior = analyzer.summarize(rows, sensor_ready=sensor.get("quality") == "GOOD")
 
     return {
-        "status":         "ok",
-        "updated_at":     datetime.now().isoformat(),
-        "fish_count":     len(fish_ids),
-        "fish_ids":       fish_ids,
-        "avg_speed":      _mean(speeds),
-        "avg_activity":   _mean(activities),
-        "fps_est":        fps_est,
-        "zone_dist":      zone_dist,
-        "sensor":         sensor,
-        "abr":            abr,
-        "abr_mu":         mu,
-        "abr_sigma":      sigma,
-        "activity_series":  activity_series,
-        "sensor_series":    sensor_series,
-        "growth_by_fish":   growth_by_fish,
-        "avg_size_index":   avg_size_index,
-        "track_sec":        track_sec,
-        "total_rows":       len(rows),
+        "status": "ok",
+        "schema_version": "dashboard-v2",
+        "updated_at": datetime.now().isoformat(timespec="seconds"),
+        "source_session": source_session,
+        "dashboard_ready": behavior.get("dashboard_ready", False),
+
+        "activity_index": behavior.get("activity_index"),
+        "activity_state": behavior.get("activity_state", "UNKNOWN"),
+        "raw_activity": behavior.get("raw_activity", 0.0),
+        "baseline_activity_median": behavior.get("baseline_activity_median", 0.0),
+        "activity_series": behavior.get("activity_series", []),
+
+        "abr_5min_pct": behavior.get("abr_5min_pct"),
+        "abr_warning_pct": behavior.get("abr_warning_pct", 13.0),
+        "abnormal_activity_flag": behavior.get("abnormal_activity_flag", False),
+
+        "analysis_quality": behavior.get("analysis_quality", "POOR"),
+        "analysis_good_pct": behavior.get("analysis_good_pct", 0.0),
+        "analysis_usable_pct": behavior.get("analysis_usable_pct", 0.0),
+        "behavior_quality": behavior.get("behavior_quality", "POOR"),
+        "frame_count_5s": behavior.get("frame_count_5s", 0),
+
+        "zone_dist": behavior.get("zone_dist", {"TOP": 0, "MID": 0, "BOT": 0}),
+        "sensor": sensor,
+        "sensor_series": sensor_series,
+        "frs_latest": _latest_frs(),
+        "growth": _growth_status(),
+
+        "developer": {
+            "fish_count_estimate": behavior.get("fish_count_estimate_dev", 0.0),
+            "speed_px_s_median": behavior.get("speed_px_s_median_dev", 0.0),
+            "fps_est": _fps_estimate(rows),
+            "loaded_tail_rows": len(rows),
+            "abr_valid_bins": behavior.get("abr_valid_bins", 0),
+        },
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# 주기 업데이트 루프
-# ─────────────────────────────────────────────────────────────────────────
+def _write_live(live: dict):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = LIVE_JSON.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(live, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(LIVE_JSON)
+
+
 def _update_loop(interval: float):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"[API] live.json 생성 루프 시작 ({interval}s 간격) → {LIVE_JSON}")
+    print(f"[API v2] live.json 갱신 시작 ({interval}s) -> {LIVE_JSON}")
     while True:
         try:
-            rows        = _load_latest_csv()
-            growth_rows = _load_growth_csv()
-            live        = _build_live(rows, growth_rows)
-            with open(LIVE_JSON, "w", encoding="utf-8") as f:
-                json.dump(live, f, ensure_ascii=False, indent=2)
-            ts = datetime.now().strftime("%H:%M:%S")
-            print(f"[API] {ts} 업데이트 — 행:{live.get('total_rows',0)} "
-                  f"어류:{live.get('fish_count',0)} ABR:{live.get('abr',0):.3f}")
+            rows, session = _load_latest_metrics()
+            live = _build_live(rows, session)
+            _write_live(live)
+            abr = live.get("abr_5min_pct")
+            abr_text = f"{abr:.1f}%" if isinstance(abr, (int, float)) else "N/A"
+            print(
+                f"[API v2] {datetime.now().strftime('%H:%M:%S')} "
+                f"Activity={live.get('activity_index')} {live.get('activity_state')} "
+                f"ABR5m={abr_text} AI={live.get('analysis_quality')}"
+            )
         except Exception as e:
-            print(f"[API] 오류: {e}")
+            print(f"[API v2] 오류: {type(e).__name__}: {e}")
         time.sleep(interval)
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# HTTP 서버 (dashboard.html + live.json 서빙)
-# ─────────────────────────────────────────────────────────────────────────
 class _CORSHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(DASH_DIR), **kwargs)
@@ -274,31 +309,31 @@ class _CORSHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def log_message(self, fmt, *args):
-        pass  # 액세스 로그 억제
+        pass
 
 
 def _serve(port: int):
     server = HTTPServer(("0.0.0.0", port), _CORSHandler)
-    print(f"[API] HTTP 서버 시작: http://0.0.0.0:{port}/dashboard.html")
+    print(f"[API v2] http://0.0.0.0:{port}/dashboard.html")
     server.serve_forever()
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# 진입점
-# ─────────────────────────────────────────────────────────────────────────
 def main():
-    parser = argparse.ArgumentParser(description="Goldfish AI 대시보드 데이터 API")
-    parser.add_argument("--interval", type=float, default=10.0,
-                        help="live.json 갱신 주기 (초, 기본 10)")
-    parser.add_argument("--port",     type=int,   default=8081,
-                        help="HTTP 서버 포트 (기본 8081)")
+    parser = argparse.ArgumentParser(description="Aquarium dashboard data API v2")
+    parser.add_argument("--interval", type=float, default=10.0)
+    parser.add_argument("--port", type=int, default=8081)
+    parser.add_argument("--once", action="store_true", help="live.json 1회 생성 후 종료")
     args = parser.parse_args()
 
-    # 업데이트 루프 — 별도 Thread
+    if args.once:
+        rows, session = _load_latest_metrics()
+        live = _build_live(rows, session)
+        _write_live(live)
+        print(json.dumps(live, ensure_ascii=False, indent=2))
+        return
+
     t = threading.Thread(target=_update_loop, args=(args.interval,), daemon=True)
     t.start()
-
-    # HTTP 서버 — 메인 Thread (블로킹)
     _serve(args.port)
 
 

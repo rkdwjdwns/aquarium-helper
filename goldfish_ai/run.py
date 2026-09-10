@@ -1,6 +1,6 @@
 """
 run.py — Goldfish AI 통합 메인 루프
-금붕어 자동 사육 AI 시스템 (v2.0)
+금붕어 자동 사육 AI 시스템 (v4.0)
 
 통합 실행 원칙:
   - SensorReader는 run.py에서 1회만 시작한다.
@@ -29,7 +29,8 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-PI_CLIENT = ROOT / "pi_client"
+_pi_candidates = [ROOT / "pi_client", ROOT.parent / "pi_client"]
+PI_CLIENT = next((p for p in _pi_candidates if p.exists()), _pi_candidates[0])
 if PI_CLIENT.exists() and str(PI_CLIENT) not in sys.path:
     sys.path.insert(0, str(PI_CLIENT))
 
@@ -38,13 +39,19 @@ from scripts.demo_pipeline import get_stream_frame, load_config, run as run_pipe
 from scripts.sensor_reader import SensorReader
 from scripts.behavior_bridge import get_bridge
 from scripts.decision import DecisionEngine
+from scripts.ai_control_policy import AIControlPolicy
 from scripts.server_tx import ServerTx
 
 # ── pi_client imports ─────────────────────────────────────────────────────
 try:
     from command_poller import start_polling
     from register_pi import get_local_ip, register_pi_ip
-    from light_timer import get_next_change
+    from light_timer import (
+        control_light,
+        get_next_change,
+        set_ai_rest_mode,
+        should_light_be_on,
+    )
     PI_CLIENT_OK = True
 except ImportError as e:
     print(f"[RUN] pi_client import 실패 → 해당 기능 비활성화: {e}")
@@ -52,6 +59,15 @@ except ImportError as e:
 
     def get_local_ip() -> str:
         return _detect_local_ip()
+
+    def control_light(*, force_refresh: bool = False):
+        return None
+
+    def set_ai_rest_mode(active: bool, reason: str = ""):
+        return None
+
+    def should_light_be_on() -> bool:
+        return False
 
 
 LIGHT_INTERVAL = 60
@@ -147,7 +163,7 @@ def append_sensor_log(sensor_data):
         "temperature_c": getattr(sensor_data, "temperature_c", ""),
         "ph": getattr(sensor_data, "ph", ""),
         "do_mg_l": getattr(sensor_data, "do_mg_l", ""),
-        "turbidity_ntu": getattr(sensor_data, "turbidity_ntu", ""),
+        "tds_ppm": getattr(sensor_data, "tds_ppm", ""),
         "level": getattr(sensor_data, "level", ""),
         "sensor_valid": getattr(sensor_data, "valid", ""),
     }
@@ -159,7 +175,7 @@ def append_sensor_log(sensor_data):
                 "temperature_c",
                 "ph",
                 "do_mg_l",
-                "turbidity_ntu",
+                "tds_ppm",
                 "level",
                 "sensor_valid",
             ],
@@ -173,16 +189,40 @@ def append_sensor_log(sensor_data):
 def _decision_loop(
     sensor: SensorReader,
     engine: DecisionEngine,
+    ai_policy: AIControlPolicy,
     tx: ServerTx,
     server_enabled: bool,
     event_log_enabled: bool,
 ):
-    print("[Decision] 제어 판단 루프 시작 (A 방식 — 서버 우선)")
+    print("[Decision] 센서/AI 상태 판단 루프 시작 (AI REST -> LIGHT supervisory control)")
     while not _stop_event.is_set():
         try:
             sensor_data = sensor.get_latest()
             behavior = get_bridge().get_latest()
             result = engine.decide(sensor_data, behavior)
+
+            # AI supervisory control: calibrated ABR v2 can temporarily override
+            # the normal light schedule with REST mode. HEATER/COOLING remain
+            # sensor/rule controlled and are not driven by behavior AI.
+            ai_decision = ai_policy.evaluate(
+                behavior,
+                schedule_light_on=should_light_be_on() if PI_CLIENT_OK else False,
+            )
+            if PI_CLIENT_OK and ai_decision.action == "LIGHT_OFF":
+                set_ai_rest_mode(True, ai_decision.reason)
+            elif PI_CLIENT_OK and ai_decision.action == "RELEASE_TO_SCHEDULE":
+                set_ai_rest_mode(False, ai_decision.reason)
+
+            if ai_decision.action != "NONE":
+                print(
+                    f"[AI-CONTROL] {ai_decision.state} | {ai_decision.action} | "
+                    f"ABR={ai_decision.abr_5min_pct} | {ai_decision.reason}"
+                )
+                if event_log_enabled:
+                    tx.send_event_log(
+                        level="WARNING" if ai_decision.state == "REST" else "INFO",
+                        message=f"AI Control {ai_decision.state}: {ai_decision.reason}",
+                    )
 
             if sensor_data.valid:
                 append_sensor_log(sensor_data)
@@ -265,12 +305,37 @@ def main():
         tx = ServerTx(
             mock=(not server_enabled) or server_mock,
             event_log_enabled=event_log_enabled,
+            backend_turbidity_compat=bool(sensor_cfg.get("backend_turbidity_compat", False)),
+            overfeeding_by_turbidity_enabled=bool(
+                raw.get("feeding", {}).get("overfeeding_by_turbidity_enabled", False)
+            ),
+        )
+
+        # Initialize the shared BehaviorBridge before the decision thread starts.
+        # This avoids a race where the decision thread creates the singleton with
+        # default analytics settings before demo_pipeline applies config.yaml.
+        activity_cfg = raw.get("analytics", {}).get("activity_v2", {})
+        baseline_v2_csv = raw.get("storage", {}).get(
+            "baseline_v2_csv", "data/activity_baseline_v2.csv"
+        )
+        get_bridge(
+            window_sec=float(activity_cfg.get("quality_window_sec", 600.0)),
+            activity_cfg=activity_cfg,
+            baseline_csv=baseline_v2_csv,
         )
 
         engine = DecisionEngine()
+        ai_policy = AIControlPolicy.from_config(raw)
+        print(
+            "  AI light control: "
+            f"{'활성화' if ai_policy.enabled else '비활성화'} "
+            f"(ABR>={ai_policy.abr_threshold_pct:.1f}%, "
+            f"연속 {ai_policy.consecutive_alerts_required}회, "
+            f"REST {ai_policy.rest_sec / 60.0:.0f}분)"
+        )
         decision_thread = threading.Thread(
             target=_decision_loop,
-            args=(sensor, engine, tx, server_enabled, event_log_enabled),
+            args=(sensor, engine, ai_policy, tx, server_enabled, event_log_enabled),
             daemon=True,
             name="DecisionLoop",
         )
@@ -286,7 +351,7 @@ def main():
                 now = time.time()
 
                 if PI_CLIENT_OK and now - last_light_time >= LIGHT_INTERVAL:
-                    # 조명 자동 제어는 DB 상태 정리 후 재활성화
+                    control_light()
                     last_light_time = now
 
                 _stop_event.wait(5)
