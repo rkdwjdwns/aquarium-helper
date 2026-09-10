@@ -11,13 +11,26 @@
   .tank-summary{padding:22px 22px 18px;border-bottom:1px solid #e4e8ee}
   .sidebar-toggle{width:30px;height:30px;flex:none;border:0;border-radius:8px;background:#f1f5fa;color:#596474;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .sidebar-toggle:hover{background:#dcecff;color:#2572e9}
-  .s-menu{list-style:none;padding:14px}
-  .s-menu a{display:flex;align-items:center;gap:14px;height:48px;padding:0 16px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:15px;margin-bottom:4px}
+  .s-menu{list-style:none;padding:0 6px}
+  .s-menu a{display:flex;align-items:center;height:44px;padding:0 12px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:14px;margin-bottom:2px}
   .s-menu a.active{background:#dcecff;color:#2572e9;font-weight:800}
   .s-menu a:hover{background:#f1f5fa}
   .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
-  .sidebar-bottom a{display:flex;align-items:center;text-decoration:none;white-space:nowrap;font-size:14px;font-weight:800}
-  main{margin-left:var(--sw);padding:40px 48px 80px 48px;transition:margin-left .3s}
+  .sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
+  #mainContent{
+    margin-left:var(--sw);
+    padding:40px 48px 80px 48px;
+    transition:margin-left .3s;
+    box-sizing:border-box;
+    min-width:0;
+  }
+  #mainContent > div{
+    width:100%;
+    max-width:1200px;
+    min-width:0;
+    margin:0 auto;
+    box-sizing:border-box;
+  }
 
   .report-toolbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:24px;flex-wrap:wrap}
   .dl-btns{display:flex;gap:10px;flex-wrap:wrap}
@@ -95,7 +108,7 @@
 
 <main id="mainContent">
   <div style="max-width:1200px;margin:0 auto">
-    <h1 style="font-size:20px;font-weight:900;margin-bottom:40px">데이터 리포트</h1>
+    <h1 style="font-size:18px;font-weight:900;letter-spacing:.5px;margin-bottom:32px">DATA REPORTS</h1>
 
     <!-- 리포트 생성 & 정렬 -->
     {% if selected_tank %}
@@ -127,7 +140,7 @@
             <th>수온(°C)</th>
             <th>pH</th>
             <th>DO(mg/L)</th>
-            <th>탁도(NTU)</th>
+            <th>탁도(PPM)</th>
             <th>수위(%)</th>
             <th>수질점수</th>
           </tr>

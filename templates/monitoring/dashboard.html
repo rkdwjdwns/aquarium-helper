@@ -4,22 +4,35 @@
   :root{--sw:270px}
   .sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
   .sidebar.collapsed{width:44px;overflow:hidden}
-  body.sb-collapsed main{margin-left:44px!important}
-  .tank-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .sidebar.collapsed .hide-on-collapse{display:none!important}
   .sidebar.collapsed .tank-title-row{justify-content:center}
   .sidebar.collapsed .tank-summary{padding:18px 7px;border-bottom:0}
+  .tank-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .tank-summary{padding:22px 22px 18px;border-bottom:1px solid #e4e8ee}
   .sidebar-toggle{width:30px;height:30px;flex:none;border:0;border-radius:8px;background:#f1f5fa;color:#596474;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .sidebar-toggle:hover{background:#dcecff;color:#2572e9}
-  .s-menu{list-style:none;padding:14px}
-  .s-menu a{display:flex;align-items:center;gap:14px;height:48px;padding:0 16px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:15px;margin-bottom:4px}
+  .s-menu{list-style:none;padding:0 6px}
+  .s-menu a{display:flex;align-items:center;height:44px;padding:0 12px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:14px;margin-bottom:2px}
   .s-menu a.active{background:#dcecff;color:#2572e9;font-weight:800}
   .s-menu a:hover{background:#f1f5fa}
   .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
-  .sidebar-bottom a{display:flex;align-items:center;text-decoration:none;white-space:nowrap;font-size:14px;font-weight:800}
-  main{margin-left:var(--sw);padding:40px 48px 80px 48px;transition:margin-left .3s}
+  .sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
+  #mainContent{
+    margin-left:var(--sw);
+    padding:40px 48px 80px 48px;
+    transition:margin-left .3s;
+    box-sizing:border-box;
+    min-width:0;
+  }
+  #mainContent > div{
+    width:100%;
+    max-width:1200px;
+    min-width:0;
+    margin:0 auto;
+    box-sizing:border-box;
+  }
 
+  .page-title{font-size:18px;font-weight:900;letter-spacing:.5px;margin-bottom:32px}
   .sensor-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:28px}
   .sensor-card{background:#fff;border-radius:24px;padding:22px 20px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
   .sensor-label{font-size:12px;font-weight:800;color:#8090a5;text-transform:uppercase;margin-bottom:16px}
@@ -30,10 +43,10 @@
   .badge-warn{background:#fff3e0;color:#b75e00}
   .badge-danger{background:#fdecea;color:#b71c1c}
 
-  .device-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
-  .device-card{background:#fff;border-radius:20px;padding:18px;box-shadow:0 4px 10px rgba(0,0,0,.07);text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s}
+  .device-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:28px}
+  .device-card{background:#fff;border-radius:20px;padding:22px 20px;min-height:120px;box-shadow:0 4px 10px rgba(0,0,0,.07);text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .device-card.on{border-color:#536ae8;box-shadow:0 4px 14px rgba(83,106,232,.25)}
-  .device-icon{font-size:28px;margin-bottom:8px}
+  .device-icon{font-size:30px;margin-bottom:10px}
   .device-name{font-size:13px;font-weight:900;color:#333}
   .device-state{font-size:11px;font-weight:800;margin-top:4px}
   .device-card.on .device-state{color:#536ae8}
@@ -45,9 +58,19 @@
   .chart-tab{font-size:11px;font-weight:800;padding:4px 12px;border-radius:14px;border:0;cursor:pointer;background:#f0f4ff;color:#536ae8}
   .chart-tab.active{background:#536ae8;color:#fff}
 
-  .water-change-btn{width:100%;height:52px;border:0;border-radius:16px;font-size:16px;font-weight:900;cursor:pointer;margin-bottom:28px}
-  .wc-pending{background:#263f50;color:#fff}
-  .wc-done{background:#10b981;color:#fff}
+  .water-change-btn{width:100%;height:52px;border:0;border-radius:16px;font-size:15px;font-weight:900;cursor:pointer;margin-bottom:28px;background:#263f50;color:#fff;transition:all .2s}
+  .water-change-btn:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(38,63,80,.18)}
+  .water-change-btn.checked{
+    background:#10b981;
+    color:#fff;
+    cursor:default;
+    box-shadow:none;
+    transform:none;
+  }
+  .water-change-btn.checked:hover{
+    transform:none;
+    box-shadow:none;
+  }
 
   .log-list{display:flex;flex-direction:column;gap:6px}
   .log-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600}
@@ -133,14 +156,23 @@
     /* 환경 상태 카드 상세보기 */
     .sensor-grid{position:relative;}
     .environment-detail-text-btn{
-      position:absolute; top:-28px; right:2px;
+      position:absolute; top:-10px; right:2px;
       border:0; background:transparent; padding:0;
       color:#2879ed; font-size:12px; font-weight:800;
-      cursor:pointer; line-height:1.4;
+      cursor:pointer; white-space:nowrap; line-height:1.4;
     }
     .environment-detail-text-btn:hover{
       color:#145fd7; text-decoration:underline;
     }
+
+  .water-change-standalone{
+    display:block;
+    width:100%;
+    height:58px;
+    margin:0 0 28px;
+    border-radius:18px;
+    font-size:16px;
+  }
 </style>
 {% endblock %}
 
@@ -184,6 +216,8 @@
 </aside>
 
 <main id="mainContent">
+    <div style="width:100%">
+    <h1 class="page-title">INFORMATION</h1>
   <div style="max-width:1200px;margin:0 auto">
 
     <!-- ── 상태 경고 배너 ── -->
@@ -295,7 +329,7 @@
     <!-- 트렌드 차트 -->
     <div class="chart-card">
       <div class="chart-title">
-        📈 수질 트렌드 (최근 12회)
+        📈 수질 트렌드 (최근 24시간)
         <div class="chart-tabs">
           <button class="chart-tab active" onclick="setChart('temp',this)">수온</button>
           <button class="chart-tab" onclick="setChart('ph',this)">pH</button>
@@ -320,11 +354,6 @@
           <div class="device-name">냉각팬</div>
           <div class="device-state">{% if cooling_on %}ON{% else %}OFF{% endif %}</div>
         </div>
-        <div class="device-card {% if air_pump_on %}on{% endif %}" onclick="toggleDevice('AIR_PUMP')">
-          <div class="device-icon">🫧</div>
-          <div class="device-name">에어펌프</div>
-          <div class="device-state">{% if air_pump_on %}ON{% else %}OFF{% endif %}</div>
-        </div>
         <div class="device-card {% if light_on %}on{% endif %}" onclick="toggleDevice('LIGHT')">
           <div class="device-icon">💡</div>
           <div class="device-name">조명</div>
@@ -333,12 +362,16 @@
       </div>
     </div>
 
-    <!-- 환수 버튼 -->
-    <button class="water-change-btn {% if is_water_changed_today %}wc-done{% else %}wc-pending{% endif %}"
-      onclick="{% if not is_water_changed_today %}doWaterChange(){% endif %}"
-      {% if is_water_changed_today %}disabled{% endif %}>
-      {% if is_water_changed_today %}✅ 오늘 환수 완료{% else %}🗑️ 환수하기{% endif %}
+    <!-- 환수 기록 버튼 -->
+    <button
+      type="button"
+      class="water-change-btn water-change-standalone"
+      id="waterChangeCheckBtn"
+      onclick="checkWaterChange()">
+      ✓ 환수 체크 하기
     </button>
+
+
 
     <!-- 실시간 로그 -->
     <div class="chart-card">
@@ -379,8 +412,6 @@
           <button class="env-sensor-tab" data-env-sensor="ph">pH</button>
           <button class="env-sensor-tab" data-env-sensor="do">DO</button>
           <button class="env-sensor-tab" data-env-sensor="turbidity">탁도</button>
-          <button class="env-sensor-tab" data-env-sensor="waterlevel">수위</button>
-          <button class="env-sensor-tab" data-env-sensor="waterchange">환수</button>
         </div>
 
         <section class="env-summary-grid">
@@ -401,18 +432,6 @@
           </div>
         </section>
 
-        <section class="env-waterchange-dates" id="envDetailWaterchangeDates">
-          <div class="env-waterchange-card">
-            <div class="env-card-label">마지막 환수일</div>
-            <div class="env-waterchange-value" id="envDetailLastWaterchangeDate">-</div>
-            <div class="env-range-text">최근 환수 기록 기준</div>
-          </div>
-          <div class="env-waterchange-card">
-            <div class="env-card-label">다음 예정 환수일</div>
-            <div class="env-waterchange-value" id="envDetailNextWaterchangeDate">-</div>
-            <div class="env-range-text">설정된 환수 주기 기준</div>
-          </div>
-        </section>
 
         <div class="env-detail-section-head" id="envDetailSectionHead">
           <h3 class="env-section-title">상태 상세 정보</h3>
@@ -442,7 +461,7 @@
           <div class="env-trend-head">
             <div>
               <div class="env-trend-title">최근 센서 변화</div>
-              <div class="env-trend-meta">최근 12회 측정값</div>
+              <div class="env-trend-meta">최근 24시간 · 2시간 간격 12포인트</div>
             </div>
             <div class="env-trend-meta" id="envDetailTrendSensorName">수온</div>
           </div>
@@ -547,26 +566,144 @@ async function toggleDevice(type){
 /* =========================
    환수
 ========================= */
-async function doWaterChange(){
-  if(!confirm('환수를 완료하셨습니까?')) return;
+function localDateKey(value){
+  if(!value) return null;
+
+  // YYYY-MM-DD가 포함된 서버 날짜는 시간대 변환 없이 날짜 부분을 우선 사용
+  const raw=String(value).trim();
+  const match=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(match) return `${match[1]}-${match[2]}-${match[3]}`;
+
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime())) return null;
+
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayLocalDateKey(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+const WATER_CHANGE_STORAGE_KEY = `waterChangeChecked:${TANK_ID}`;
+
+function isWaterChangeCheckedLocallyToday(){
+  try{
+    return localStorage.getItem(WATER_CHANGE_STORAGE_KEY) === todayLocalDateKey();
+  }catch(e){
+    return false;
+  }
+}
+
+function saveWaterChangeCheckedToday(){
+  try{
+    localStorage.setItem(WATER_CHANGE_STORAGE_KEY, todayLocalDateKey());
+  }catch(e){
+    console.warn('[water-change-storage]', e);
+  }
+}
+
+function clearOldWaterChangeCheck(){
+  try{
+    const saved=localStorage.getItem(WATER_CHANGE_STORAGE_KEY);
+    if(saved && saved !== todayLocalDateKey()){
+      localStorage.removeItem(WATER_CHANGE_STORAGE_KEY);
+    }
+  }catch(e){}
+}
+
+function setWaterChangeButtonCompleted(){
+  const btn=document.getElementById('waterChangeCheckBtn');
+  if(!btn) return;
+  btn.classList.add('checked');
+  btn.textContent='✓ 환수 체크 완료';
+  btn.disabled=true;
+  btn.setAttribute('aria-disabled','true');
+  btn.title='오늘 환수 기록이 이미 완료되었습니다.';
+}
+
+function setWaterChangeButtonReady(){
+  const btn=document.getElementById('waterChangeCheckBtn');
+  if(!btn) return;
+  btn.classList.remove('checked');
+  btn.textContent='✓ 환수 체크 하기';
+  btn.disabled=false;
+  btn.removeAttribute('aria-disabled');
+  btn.title='';
+}
+
+function updateWaterChangeCheckState(data){
+  const lastWaterchange=
+    data?.last_waterchange_date ||
+    data?.lastWaterchangeDate ||
+    null;
+
+  const serverCheckedToday =
+    localDateKey(lastWaterchange) === todayLocalDateKey();
+
+  // POST 직후 대시보드 API가 아직 이전 환수일을 반환하더라도
+  // 오늘 브라우저에서 성공 처리한 기록을 우선하여 완료 상태를 유지한다.
+  const localCheckedToday = isWaterChangeCheckedLocallyToday();
+
+  if(serverCheckedToday || localCheckedToday){
+    if(serverCheckedToday) saveWaterChangeCheckedToday();
+    setWaterChangeButtonCompleted();
+  }else{
+    setWaterChangeButtonReady();
+  }
+}
+
+async function checkWaterChange(){
+  const btn=document.getElementById('waterChangeCheckBtn');
+
+  if(btn?.classList.contains('checked') || isWaterChangeCheckedLocallyToday()){
+    setWaterChangeButtonCompleted();
+    return;
+  }
+
+  if(!confirm('환수를 완료한 것으로 체크할까요?\n체크하면 현재 날짜가 최근 환수일로 기록됩니다.')) return;
+
+  if(btn){
+    btn.disabled=true;
+    btn.textContent='환수 기록 중...';
+  }
+
+  let completed=false;
 
   try{
-    const r = await fetch(`/monitoring/water-change/${TANK_ID}/`, {
+    const r=await fetch(`/monitoring/water-change/${TANK_ID}/`,{
       method:'POST',
       headers:{'X-CSRFToken':CSRF}
     });
+    const d=await r.json();
 
-    const d = await r.json();
+    if(d.status==='success'){
+      completed=true;
+      saveWaterChangeCheckedToday();
+      setWaterChangeButtonCompleted();
 
-    if(d.status === 'success'){
-      location.reload();
+      // 즉시 reload하지 않는다.
+      // 5초 폴링에서 서버 데이터가 갱신되더라도 localStorage와 함께 완료 상태가 유지된다.
+      if(latestDashboard){
+        latestDashboard.last_waterchange_date = todayLocalDateKey();
+        latestDashboard.lastWaterchangeDate = todayLocalDateKey();
+      }
       return;
     }
 
-    alert(d.message || '환수 처리에 실패했습니다.');
+    alert(d.message||'환수일 기록에 실패했습니다.');
   }catch(e){
-    console.error('[water-change]', e);
-    alert('환수 처리 중 오류가 발생했습니다.');
+    console.error('[water-change-check]',e);
+    alert('환수일 기록 중 오류가 발생했습니다.');
+  }finally{
+    // 성공했을 때는 절대로 버튼을 다시 활성화하지 않는다.
+    if(!completed) setWaterChangeButtonReady();
   }
 }
 
@@ -598,6 +735,104 @@ const C_CONFIG = {
 
 let metric = 'temp';
 let history = {{ chart_history|safe|default:"{}" }};
+
+/*
+ * 수질 트렌드 표시 기준
+ * - 최근 24시간 범위
+ * - 2시간 간격 12포인트
+ * - history.timestamps가 있으면 우선 사용
+ * - 없으면 history.labels의 날짜/시간을 해석
+ * - 각 목표 시각에서 가장 가까운 측정값을 사용하되 ±60분을 넘으면 null 처리
+ */
+function parseHistoryTimes(h){
+  const raw = Array.isArray(h?.timestamps) && h.timestamps.length
+    ? h.timestamps
+    : (Array.isArray(h?.labels) ? h.labels : []);
+
+  if(!raw.length) return [];
+
+  const now = new Date();
+  let previous = null;
+  let dayOffset = 0;
+
+  return raw.map((value, index)=>{
+    const s = String(value ?? '').trim();
+
+    // ISO 또는 브라우저에서 직접 파싱 가능한 날짜/시간
+    const direct = new Date(s);
+    if(!Number.isNaN(direct.getTime())) return direct;
+
+    // HH:mm / HH:mm:ss 형식
+    const m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if(m){
+      const hour = Number(m[1]);
+      const minute = Number(m[2]);
+      const second = Number(m[3] || 0);
+
+      const d = new Date(now);
+      d.setHours(hour, minute, second, 0);
+
+      // labels가 시간순일 때 자정을 넘긴 경우 날짜를 하루 증가시킴
+      if(previous && d.getTime() + dayOffset * 86400000 < previous.getTime() - 12 * 3600000){
+        dayOffset += 1;
+      }
+      d.setDate(d.getDate() + dayOffset);
+      previous = d;
+      return d;
+    }
+
+    return null;
+  });
+}
+
+function build24HourTrend(h, key){
+  const values = Array.isArray(h?.[key]) ? h[key] : [];
+  const times = parseHistoryTimes(h);
+
+  // 현재 시각을 2시간 경계로 내림
+  const end = new Date();
+  end.setMinutes(0,0,0);
+  end.setHours(Math.floor(end.getHours()/2)*2);
+
+  // 12포인트: 현재 기준 22시간 전 ~ 현재, 모두 최근 24시간 범위 안
+  const targets = Array.from({length:12}, (_,i)=>
+    new Date(end.getTime() - (11-i) * 2 * 60 * 60 * 1000)
+  );
+
+  const labels = targets.map(d =>
+    `${String(d.getHours()).padStart(2,'0')}:00`
+  );
+
+  // 시간축을 해석할 수 없으면 기존 데이터를 억지로 24시간 데이터처럼 표시하지 않음.
+  if(!times.length || times.length !== values.length || times.some(t=>!t)){
+    return {
+      labels,
+      values:Array(12).fill(null)
+    };
+  }
+
+  const maxDistance = 60 * 60 * 1000; // 목표시각 ±60분
+
+  const sampled = targets.map(target=>{
+    let bestIndex = -1;
+    let bestDistance = Infinity;
+
+    times.forEach((time,i)=>{
+      const d = Math.abs(time.getTime() - target.getTime());
+      if(d < bestDistance){
+        bestDistance = d;
+        bestIndex = i;
+      }
+    });
+
+    if(bestIndex < 0 || bestDistance > maxDistance) return null;
+
+    const n = Number(values[bestIndex]);
+    return Number.isFinite(n) ? n : null;
+  });
+
+  return {labels, values:sampled};
+}
 
 const chartEl = document.getElementById('trendChart');
 const ctx = chartEl.getContext('2d');
@@ -643,10 +878,10 @@ function setChart(m, btn){
   if(!history || !history.labels) return;
 
   const c = C_CONFIG[m];
-  const values = Array.isArray(history[m]) ? history[m] : [];
+  const trend24 = build24HourTrend(history, m);
 
-  chart.data.labels = history.labels;
-  chart.data.datasets[0].data = values;
+  chart.data.labels = trend24.labels;
+  chart.data.datasets[0].data = trend24.values;
   chart.data.datasets[0].label = c.label;
   chart.data.datasets[0].borderColor = c.color;
   chart.data.datasets[0].backgroundColor = c.color + '18';
@@ -796,6 +1031,8 @@ async function poll(){
     const d = await r.json();
     latestDashboard = d;
 
+    updateWaterChangeCheckState(d);
+
     if(d.sensor) updateSensorCards(d.sensor);
 
     if(d.history){
@@ -822,6 +1059,11 @@ async function poll(){
   }catch(e){
     console.warn('[dashboard poll]', e);
   }
+}
+
+clearOldWaterChangeCheck();
+if(isWaterChangeCheckedLocallyToday()){
+  setWaterChangeButtonCompleted();
 }
 
 poll();
@@ -964,8 +1206,6 @@ const envDetailColorMap = {
   ph:'#249ee9',
   do:'#28c943',
   turbidity:'#f6a11a',
-  waterlevel:'#6b8cff',
-  waterchange:'#7b6cf6'
 };
 
 const envDetailLabelMap = {
@@ -973,8 +1213,6 @@ const envDetailLabelMap = {
   ph:'pH',
   do:'DO',
   turbidity:'탁도',
-  waterlevel:'수위',
-  waterchange:'환수'
 };
 
 const envDetailUnitMap = {
@@ -982,8 +1220,6 @@ const envDetailUnitMap = {
   ph:'',
   do:'mg/L',
   turbidity:'PPM',
-  waterlevel:'%',
-  waterchange:''
 };
 
 let latestDashboard = null;
@@ -1011,8 +1247,6 @@ function findStateForSensor(key){
     ph:['PH'],
     do:['DO','DISSOLVED_OXYGEN'],
     turbidity:['TURB','TURBIDITY','NTU'],
-    waterlevel:['LVL','LEVEL','WATER_LEVEL'],
-    waterchange:['WC','WATERCHANGE','WATER_CHANGE']
   };
 
   const targets = aliases[key] || [];
@@ -1031,8 +1265,6 @@ function getSensorFromDashboard(key){
   if(key === 'ph') return s.ph;
   if(key === 'do') return s.dissolved_oxygen;
   if(key === 'turbidity') return s.turbidity;
-  if(key === 'waterlevel') return s.water_level;
-
   return null;
 }
 
@@ -1040,12 +1272,17 @@ function getTrendFromDashboard(key){
   const h = latestDashboard && latestDashboard.history;
   if(!h) return [];
 
-  if(key === 'temperature') return Array.isArray(h.temp) ? h.temp : [];
-  if(key === 'ph') return Array.isArray(h.ph) ? h.ph : [];
-  if(key === 'do') return Array.isArray(h.do) ? h.do : [];
-  if(key === 'turbidity') return Array.isArray(h.turb) ? h.turb : [];
+  const map = {
+    temperature:'temp',
+    ph:'ph',
+    do:'do',
+    turbidity:'turb'
+  };
 
-  return [];
+  const historyKey = map[key];
+  if(!historyKey) return [];
+
+  return build24HourTrend(h, historyKey).values;
 }
 
 function getCurrentState(key){
@@ -1074,11 +1311,6 @@ function getCurrentState(key){
     return 'danger';
   }
 
-  if(key === 'waterlevel'){
-    if(value >= 80) return 'normal';
-    if(value >= 60) return 'warning';
-    return 'danger';
-  }
 
   return 'normal';
 }
@@ -1088,9 +1320,7 @@ function getNormalRange(key){
     temperature:`{{ tank.temp_min|default:"20" }} ~ {{ tank.temp_max|default:"26" }} °C`,
     ph:`{{ tank.ph_min|default:"6.5" }} ~ {{ tank.ph_max|default:"8.0" }}`,
     do:`{{ tank.do_min|default:"5" }} mg/L 이상`,
-    turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} PPM`,
-    waterlevel:'80 ~ 100 %',
-    waterchange:'설정된 환수 주기 기준'
+    turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} NTU`,
   };
   return ranges[key] || '-';
 }
@@ -1233,9 +1463,7 @@ function makeEnvDetailChart(values, color){
 
 function buildEnvironmentDetailSensor(key){
   const state = findStateForSensor(key);
-  const value = key === 'waterchange'
-    ? getWaterChangeDisplayValue()
-    : getSensorFromDashboard(key);
+  const value = getSensorFromDashboard(key);
 
   const level = getCurrentState(key);
 
@@ -1259,34 +1487,12 @@ function buildEnvironmentDetailSensor(key){
     lastUpdated:
       state && state.detected_at
         ? formatDate(state.detected_at)
-        : getDashboardUpdatedAt(),
-    lastWaterchangeDate:
-      latestDashboard?.last_waterchange_date ||
-      latestDashboard?.lastWaterchangeDate ||
-      '-',
-    nextWaterchangeDate:
-      latestDashboard?.next_waterchange_date ||
-      latestDashboard?.nextWaterchangeDate ||
-      '-'
+        : getDashboardUpdatedAt()
   };
 
   return sensor;
 }
 
-function getWaterChangeDisplayValue(){
-  const el = document.querySelector('.water-change-btn');
-  const text = el ? el.textContent.trim() : '';
-
-  if(text.includes('오늘 환수 완료')) return '오늘 완료';
-
-  const title = document.querySelector('.tank-summary p');
-  if(title){
-    const match = title.textContent.match(/D[+-]\s*\d+/);
-    if(match) return match[0].replace(/\s+/g,' ');
-  }
-
-  return 'D -';
-}
 
 function getDashboardUpdatedAt(){
   const s = latestDashboard?.sensor;
@@ -1317,35 +1523,32 @@ function renderEnvironmentDetailSensor(key){
     sensor.label;
 
   const trendCard = document.getElementById('envDetailTrendCard');
-  const waterchangeDates = document.getElementById('envDetailWaterchangeDates');
   const detailSectionHead = document.getElementById('envDetailSectionHead');
   const detailGrid = document.getElementById('envDetailGrid');
 
-  if(key === 'waterchange'){
-    trendCard.style.display = 'none';
-    waterchangeDates.style.display = 'grid';
-    detailSectionHead.style.display = 'none';
-    detailGrid.style.display = 'none';
+  trendCard.style.display = 'block';
+  detailSectionHead.style.display = 'flex';
+  detailGrid.style.display = 'grid';
 
-    document.getElementById('envDetailLastWaterchangeDate').textContent =
-      sensor.lastWaterchangeDate;
-    document.getElementById('envDetailNextWaterchangeDate').textContent =
-      sensor.nextWaterchangeDate;
-  }else{
-    trendCard.style.display = 'block';
-    waterchangeDates.style.display = 'none';
-    detailSectionHead.style.display = 'flex';
-    detailGrid.style.display = 'grid';
+  makeEnvDetailChart(
+    sensor.trend,
+    envDetailColorMap[key]
+  );
 
-    makeEnvDetailChart(
-      sensor.trend,
-      envDetailColorMap[key]
-    );
+  const historyKey = {
+    temperature:'temp',
+    ph:'ph',
+    do:'do',
+    turbidity:'turb'
+  }[key];
 
-    const labels = latestDashboard?.history?.labels || [];
-    document.getElementById('envDetailXLabels').innerHTML =
-      labels.slice(-6).map(label => `<span>${esc(label)}</span>`).join('');
-  }
+  const labels24 = historyKey && latestDashboard?.history
+    ? build24HourTrend(latestDashboard.history, historyKey).labels
+    : [];
+
+  document.getElementById('envDetailXLabels').innerHTML =
+    labels24.filter((_,i)=>i % 2 === 0)
+      .map(label => `<span>${esc(label)}</span>`).join('');
 
   renderEnvDetailStatus(sensor);
   renderEnvDetailList('envDetailCauses',sensor.causes,sensor.level);

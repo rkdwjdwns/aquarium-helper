@@ -17,8 +17,22 @@
   .s-menu a:hover{background:#f1f5fa}
   .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
   .sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
-  main{margin-left:var(--sw);padding:40px 48px 80px 48px;transition:margin-left .3s}
+  #mainContent{
+    margin-left:var(--sw);
+    padding:40px 48px 80px 48px;
+    transition:margin-left .3s;
+    box-sizing:border-box;
+    min-width:0;
+  }
+  #mainContent > div{
+    width:100%;
+    max-width:1200px;
+    min-width:0;
+    margin:0 auto;
+    box-sizing:border-box;
+  }
 
+  
   .log-card{border-radius:20px 20px 0 0;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.08)}
   .log-card-head{min-height:110px;padding:22px 28px 18px;background:linear-gradient(110deg,#b7c9ff,#8eb8f2);display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
   .log-title{font-size:24px;font-weight:900;margin-bottom:12px;color:#12315f}
@@ -91,12 +105,12 @@
 
 <main id="mainContent">
   <div style="max-width:1200px;margin:0 auto">
-    <h1 style="font-size:18px;font-weight:900;margin-bottom:32px">이벤트 로그</h1>
+    <h1 style="font-size:18px;font-weight:900;letter-spacing:.5px;margin-bottom:32px">EVENT LOGS</h1>
 
     <div class="log-card">
       <div class="log-card-head">
         <div>
-          <div class="log-title">데이터 로그</div>
+          <div class="log-title">이벤트 로그</div>
           <div class="filter-row">
             <span class="filter-label">레벨 필터</span>
             <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}sort={{ sort }}">
