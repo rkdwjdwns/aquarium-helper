@@ -1279,7 +1279,7 @@ function findStateForSensor(key){
     temperature:['TEMP','TEMPERATURE','TMP'],
     ph:['PH'],
     do:['DO','DISSOLVED_OXYGEN'],
-    turbidity:['TURB','TURBIDITY','NTU'],
+    turbidity:['TURB','TURBIDITY','tds_ppm'],
   };
 
   const targets = aliases[key] || [];
@@ -1348,7 +1348,7 @@ function getNormalRange(key){
     temperature:`{{ tank.temp_min|default:"20" }} ~ {{ tank.temp_max|default:"26" }} °C`,
     ph:`{{ tank.ph_min|default:"6.5" }} ~ {{ tank.ph_max|default:"8.0" }}`,
     do:`{{ tank.do_min|default:"5" }} mg/L 이상`,
-    turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} NTU`,
+    turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} tds_ppm`,
   };
   return ranges[key] || '-';
 }
