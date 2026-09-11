@@ -152,7 +152,7 @@
             <td>{{ r.temperature|floatformat:2|default:"--" }}</td>
             <td>{{ r.ph|floatformat:2|default:"--" }}</td>
             <td>{{ r.dissolved_oxygen|floatformat:2|default:"--" }}</td>
-            <td>{{ r.report_tds_ppm|floatformat:2|default:"--" }}</td>
+            <td>{{ r.tds_ppm|floatformat:2|default_if_none:"--" }}</td>
             <td>{{ r.water_level|floatformat:1|default:"--" }}</td>
             <td>
               <span class="badge {% if r.water_quality_score >= 70 %}badge-ok{% elif r.water_quality_score >= 40 %}badge-warn{% else %}badge-danger{% endif %}">

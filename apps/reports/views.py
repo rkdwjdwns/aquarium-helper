@@ -35,16 +35,9 @@ def report_list(request):
 
     if selected_tank:
         # ✅ 최근 MAX_READINGS개만 조회 — 전체 조회 시 OOM 발생
-        report_data = list(selected_tank.readings.all().order_by(order_by)[:MAX_READINGS])
-
-        # 대시보드/센서 저장 구조 차이를 모두 수용:
-        # 1순위: tds_ppm 필드
-        # 2순위: 기존 turbidity 필드(TDS 값이 저장되는 호환 구조)
-        for reading in report_data:
-            tds_value = getattr(reading, 'tds_ppm', None)
-            if tds_value is None:
-                tds_value = getattr(reading, 'turbidity', None)
-            reading.report_tds_ppm = tds_value
+        # 실제 센서 수신 API가 SensorReading.tds_ppm 에 저장하므로
+        # 별도 alias 없이 원본 필드를 그대로 템플릿에 전달한다.
+        report_data = selected_tank.readings.all().order_by(order_by)[:MAX_READINGS]
 
         reports = Report.objects.filter(tank=selected_tank).order_by('-created_at')
 
@@ -78,17 +71,13 @@ def create_stat_report(request, tank_id):
         # aggregate 사용 — 전체 객체 로드 없이 DB에서 계산
         from django.db.models import Avg, Min, Max
 
-        # SensorReading 모델에 실제 존재하는 TDS 저장 필드를 선택
-        model_field_names = {f.name for f in SensorReading._meta.get_fields()}
-        tds_field = 'tds_ppm' if 'tds_ppm' in model_field_names else 'turbidity'
-
         stats = readings.aggregate(
             avg_temp=Avg('temperature'),
             min_temp=Min('temperature'),
             max_temp=Max('temperature'),
             avg_ph=Avg('ph'),
             avg_do=Avg('dissolved_oxygen'),
-            avg_tds=Avg(tds_field),
+            avg_tds=Avg('tds_ppm'),
         )
         count = readings.count()
 
