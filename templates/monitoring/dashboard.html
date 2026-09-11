@@ -173,6 +173,80 @@
     border-radius:18px;
     font-size:16px;
   }
+
+  /* ===== 환수 체크 중앙 확인 모달 ===== */
+  #waterChangeConfirmModal{
+    position:fixed;
+    inset:0;
+    z-index:8000;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(15,23,42,.45);
+    backdrop-filter:blur(2px);
+  }
+  #waterChangeConfirmModal.open{display:flex}
+  .water-change-confirm-box{
+    width:min(420px,92vw);
+    background:#fff;
+    border-radius:22px;
+    padding:28px 26px 24px;
+    text-align:center;
+    box-shadow:0 24px 70px rgba(0,0,0,.24);
+    animation:waterChangeModalIn .18s ease-out;
+  }
+  .water-change-confirm-icon{
+    width:54px;
+    height:54px;
+    margin:0 auto 16px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#e8f4ff;
+    font-size:27px;
+  }
+  .water-change-confirm-title{
+    margin:0 0 9px;
+    font-size:20px;
+    font-weight:900;
+    color:#1f2937;
+  }
+  .water-change-confirm-desc{
+    margin:0;
+    color:#7b8794;
+    font-size:13px;
+    line-height:1.65;
+  }
+  .water-change-confirm-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:24px;
+  }
+  .water-change-confirm-actions button{
+    height:46px;
+    border:0;
+    border-radius:12px;
+    font-size:14px;
+    font-weight:900;
+    cursor:pointer;
+  }
+  .water-change-confirm-cancel{
+    background:#eef2f6;
+    color:#596474;
+  }
+  .water-change-confirm-ok{
+    background:#263f50;
+    color:#fff;
+  }
+  .water-change-confirm-cancel:hover{background:#e4e9ef}
+  .water-change-confirm-ok:hover{background:#1d3342}
+  @keyframes waterChangeModalIn{
+    from{opacity:0;transform:translateY(8px) scale(.98)}
+    to{opacity:1;transform:translateY(0) scale(1)}
+  }
 </style>
 {% endblock %}
 
@@ -370,6 +444,22 @@
       onclick="checkWaterChange()">
       ✓ 환수 체크 하기
     </button>
+
+    <!-- 환수 체크 중앙 확인 모달 -->
+    <div id="waterChangeConfirmModal" aria-hidden="true">
+      <div class="water-change-confirm-box" role="dialog" aria-modal="true" aria-labelledby="waterChangeConfirmTitle">
+        <div class="water-change-confirm-icon">💧</div>
+        <h3 class="water-change-confirm-title" id="waterChangeConfirmTitle">환수 하시겠습니까?</h3>
+        <p class="water-change-confirm-desc">
+          확인을 누르면 현재 날짜가 최근 환수일로 기록됩니다.
+        </p>
+        <div class="water-change-confirm-actions">
+          <button type="button" class="water-change-confirm-cancel" onclick="closeWaterChangeConfirm(false)">취소</button>
+          <button type="button" class="water-change-confirm-ok" onclick="closeWaterChangeConfirm(true)">확인</button>
+        </div>
+      </div>
+    </div>
+
 
 
 
@@ -658,6 +748,34 @@ function updateWaterChangeCheckState(data){
   }
 }
 
+let waterChangeConfirmResolver=null;
+
+function openWaterChangeConfirm(){
+  const modal=document.getElementById('waterChangeConfirmModal');
+  if(!modal) return Promise.resolve(false);
+
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+
+  return new Promise(resolve=>{
+    waterChangeConfirmResolver=resolve;
+  });
+}
+
+function closeWaterChangeConfirm(result){
+  const modal=document.getElementById('waterChangeConfirmModal');
+  if(modal){
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  if(waterChangeConfirmResolver){
+    const resolve=waterChangeConfirmResolver;
+    waterChangeConfirmResolver=null;
+    resolve(Boolean(result));
+  }
+}
+
 async function checkWaterChange(){
   const btn=document.getElementById('waterChangeCheckBtn');
 
@@ -666,7 +784,8 @@ async function checkWaterChange(){
     return;
   }
 
-  if(!confirm('환수를 완료한 것으로 체크할까요?\n체크하면 현재 날짜가 최근 환수일로 기록됩니다.')) return;
+  const confirmed = await openWaterChangeConfirm();
+  if(!confirmed) return;
 
   if(btn){
     btn.disabled=true;
@@ -705,6 +824,19 @@ async function checkWaterChange(){
     if(!completed) setWaterChangeButtonReady();
   }
 }
+
+const waterChangeConfirmModal=document.getElementById('waterChangeConfirmModal');
+if(waterChangeConfirmModal){
+  waterChangeConfirmModal.addEventListener('click',e=>{
+    if(e.target===waterChangeConfirmModal) closeWaterChangeConfirm(false);
+  });
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && waterChangeConfirmModal?.classList.contains('open')){
+    closeWaterChangeConfirm(false);
+  }
+});
 
 /* =========================
    메인 트렌드 차트
