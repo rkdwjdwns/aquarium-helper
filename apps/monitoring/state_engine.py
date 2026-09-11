@@ -68,21 +68,6 @@ def detect_states(tank, reading):
             },
         })
 
-    # ─────────────────────
-    # TDS 높음
-    # ─────────────────────
-    # SensorReading은 turbidity가 아니라 tds_ppm 필드를 사용한다.
-    # 기존 Tank.turbidity_max 설정값은 레거시 필드지만,
-    # 현재 임계값 설정 호환을 위해 TDS 기준값으로 재사용한다.
-    if reading.tds_ppm > tank.turbidity_max:
-        states.append({
-            "code": "TUR-HIGH-001",
-            "value": reading.tds_ppm,
-            "evidence": {
-                "tds_ppm": reading.tds_ppm,
-                "tds_max": tank.turbidity_max,
-            },
-        })
 
     return states
 
