@@ -185,7 +185,7 @@
     <div class="bottom-grid">
       <div class="card">
         <div class="card-head">
-          <div class="card-title">▥ 시간대별 수조 영역 분포 <span>(24시간)</span></div>
+          <div class="card-title">▥ 시간대별 수조 영역 분포 <span id="zonePeriodLabel">(어제 24시간)</span></div>
         </div>
         <div class="zone-chart-wrap">
           <div class="zone-legend">
@@ -194,13 +194,13 @@
             <span><i style="background:#43a843"></i>BOT</span>
           </div>
           <div class="zone-chart-shell"><canvas id="zoneChart"></canvas></div>
-          <div class="zone-note">각 시간대의 TOP / MID / BOT 체류 비율 합계는 100%입니다.</div>
+          <div class="zone-note">현재 날짜 기준 어제 24시간의 TOP / MID / BOT 체류 비율이며, 각 시간대 합계는 100%입니다.</div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title">▦ 영역 해설 <span>(시간대별 영역 분포 기반 자동 해석)</span></div>
+          <div class="card-title">▦ 영역 해설 <span id="zoneSummaryPeriodLabel">(어제 24시간 분포 기반 자동 해석)</span></div>
         </div>
         <div class="zone-table-wrap">
           <table class="zone-table">
@@ -439,7 +439,40 @@ async function fetchZoneDistribution(){
     const r=await fetch(ZONE_CSV_URL,{cache:'no-store'});
     if(!r.ok) throw new Error(`zone csv HTTP ${r.status}`);
     const rows=parseCSV(await r.text());
-    const hourly=rows.filter(r=>r.row_type==='hourly').sort((a,b)=>Number(a.hour)-Number(b.hour));
+
+    // 현재 날짜 기준 '어제'의 00:00~23:59 데이터만 그래프/해설에 사용한다.
+    const now=new Date();
+    const yesterday=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    yesterday.setDate(yesterday.getDate()-1);
+
+    const dayKey=d=>{
+      const y=d.getFullYear();
+      const m=String(d.getMonth()+1).padStart(2,'0');
+      const day=String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const yesterdayKey=dayKey(yesterday);
+
+    const hourly=rows
+      .filter(r=>r.row_type==='hourly' && r.date===yesterdayKey)
+      .sort((a,b)=>Number(a.hour)-Number(b.hour));
+
+    const periodText=`(${yesterday.getMonth()+1}/${yesterday.getDate()} 00:00~23:59)`;
+    const periodEl=document.getElementById('zonePeriodLabel');
+    const summaryPeriodEl=document.getElementById('zoneSummaryPeriodLabel');
+    if(periodEl) periodEl.textContent=periodText;
+    if(summaryPeriodEl) summaryPeriodEl.textContent=`(${yesterday.getMonth()+1}/${yesterday.getDate()} 24시간 분포 기반 자동 해석)`;
+
+    if(!hourly.length){
+      if(zoneChartInst){
+        zoneChartInst.destroy();
+        zoneChartInst=null;
+      }
+      document.getElementById('zoneSummaryBody').innerHTML=
+        `<tr><td colspan="3" class="empty-note">${yesterday.getMonth()+1}/${yesterday.getDate()} 영역 분포 데이터가 없습니다.</td></tr>`;
+      return;
+    }
 
     const zoneKeys=[
       {zone:'TOP', key:'top_pct'},
