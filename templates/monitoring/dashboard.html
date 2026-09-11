@@ -885,7 +885,7 @@ function normalizeSensor(sensor){
     dissolved_oxygen: sensor.dissolved_oxygen ?? sensor.do_mg_l,
     tds_ppm: sensor.tds_ppm ?? sensor.turbidity,
     water_level: sensor.water_level ?? sensor.level,
-    water_quality_score: sensor.water_quality_score ?? sensor.waterQualityScore ?? sensor.water_level ?? sensor.level,
+    water_quality_score: sensor.water_quality_score ?? sensor.waterQualityScore,
     measured_at: sensor.measured_at ?? sensor.created_at ?? sensor.timestamp
   };
 }
@@ -1134,20 +1134,14 @@ async function poll(){
         water_quality_score:
           liveSensor.water_quality_score ??
           liveSensor.waterQualityScore ??
-          liveSensor.water_level ??
-          liveSensor.level ??
           d.water_quality_score ??
-          d.waterQualityScore ??
-          d.water_level ??
-          d.level
+          d.waterQualityScore
       };
       updateSensorCards(sensorForUi);
     } else {
       const polledScore =
         d.water_quality_score ??
-        d.waterQualityScore ??
-        d.water_level ??
-        d.level;
+        d.waterQualityScore;
       if(polledScore !== undefined && polledScore !== null){
         updateWaterQualityScore(polledScore);
       }
