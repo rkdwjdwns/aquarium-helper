@@ -58,7 +58,7 @@ def _get_chart_history(tank):
         "temp":   [r.temperature         for r in readings],
         "ph":     [r.ph                  for r in readings],
         "do":     [r.dissolved_oxygen   for r in readings],
-        "tds":    [r.tds_ppm            for r in readings],
+        "tds":    [r.turbidity          for r in readings],
     }, ensure_ascii=False)
 
 
@@ -174,7 +174,11 @@ def dashboard_data(request, tank_id):
             "temperature":          latest.temperature,
             "ph":                   latest.ph,
             "dissolved_oxygen":     latest.dissolved_oxygen,
-            "turbidity":            latest.turbidity,
+
+            # DB 필드명은 기존 turbidity를 유지하고,
+            # 대시보드에는 TDS 이름으로 전달
+            "tds_ppm":              latest.turbidity,
+
             "water_level":          latest.water_level,
             "water_quality_score":  latest.water_quality_score,
         }
@@ -183,7 +187,7 @@ def dashboard_data(request, tank_id):
         "temp":   [r.temperature      for r in readings],
         "ph":     [r.ph               for r in readings],
         "do":     [r.dissolved_oxygen for r in readings],
-        "tds":    [r.tds_ppm          for r in readings],
+        "tds":    [r.turbidity        for r in readings],
     }
     return JsonResponse({"sensor": sensor, "history": history})
 
