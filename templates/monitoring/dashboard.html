@@ -883,7 +883,7 @@ function normalizeSensor(sensor){
     temperature: sensor.temperature ?? sensor.temperature_c,
     ph: sensor.ph,
     dissolved_oxygen: sensor.dissolved_oxygen ?? sensor.do_mg_l,
-    tds_ppm: sensor.tds_ppm,
+    tds_ppm: sensor.tds_ppm ?? sensor.turbidity,
     water_level: sensor.water_level ?? sensor.level,
     water_quality_score: sensor.water_quality_score,
     measured_at: sensor.measured_at ?? sensor.created_at ?? sensor.timestamp
@@ -899,7 +899,9 @@ function historyFromApiPayload(data){
       ph: Array.isArray(h.ph) ? h.ph : [],
       do: Array.isArray(h.do) ? h.do : [],
       tds: Array.isArray(h.tds) ? h.tds :
-           Array.isArray(h.tds_ppm) ? h.tds_ppm : []
+           Array.isArray(h.tds_ppm) ? h.tds_ppm :
+           Array.isArray(h.turb) ? h.turb :
+           Array.isArray(h.turbidity) ? h.turbidity : []
     };
   }
 
@@ -1116,7 +1118,15 @@ async function poll(){
 
     updateWaterChangeCheckState(d);
 
-    if(d.sensor) updateSensorCards(d.sensor);
+    const liveSensor = d.sensor || (
+      d.tds_ppm !== undefined ||
+      d.turbidity !== undefined ||
+      d.temperature_c !== undefined ||
+      d.temperature !== undefined
+        ? d
+        : null
+    );
+    if(liveSensor) updateSensorCards(liveSensor);
 
     const nextHistory = historyFromApiPayload(d);
     if(nextHistory.labels.length){
