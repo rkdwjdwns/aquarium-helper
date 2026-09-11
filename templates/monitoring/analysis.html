@@ -249,6 +249,53 @@
     line-height:1.5;
   }
 
+  /* 급이 점수현황: 좌/우 카드 높이 통일 */
+  .feeding-status-card{
+    min-height:390px;
+    display:flex;
+    flex-direction:column;
+  }
+  .feeding-record-card .table-scroll-inner{
+    flex:1;
+  }
+  .feeding-pagination{
+    margin-top:auto;
+    padding-top:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    font-size:11px;
+    color:#64748b;
+  }
+  .feeding-page-btn{
+    min-width:30px;
+    height:28px;
+    padding:0 9px;
+    border:1px solid #d9e0e8;
+    border-radius:8px;
+    background:#fff;
+    color:#475569;
+    font-size:11px;
+    font-weight:800;
+    cursor:pointer;
+  }
+  .feeding-page-btn:disabled{
+    opacity:.4;
+    cursor:default;
+  }
+  .feeding-page-info{
+    min-width:58px;
+    text-align:center;
+    font-weight:800;
+  }
+  .feeding-period-label{
+    font-size:11px;
+    font-weight:800;
+    color:#9ca3af;
+    padding:7px 2px;
+  }
+
   .growth-layer-controls{
     display:flex;gap:14px;flex-wrap:wrap;
     margin:0 0 12px;font-size:12px;color:#374151;
@@ -449,7 +496,7 @@
     </div>
 
     <h3 class="section-title2">최근 급이 반응</h3>
-    <p class="section-desc">구역 관련 요소와 개체별 반응 비교는 사용하지 않고, 활동 반응과 반응 지연만으로 표시합니다.</p>
+    <p class="section-desc">현재 시각 기준 최근 7일 이내 급이 시점을 선택해 활동 반응과 반응 지연을 확인할 수 있습니다.</p>
 
     <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
       <select id="feedingTimeSelect" class="select"></select>
@@ -497,22 +544,26 @@
         <h3 class="section-title2" style="margin-bottom:4px">점수 현황</h3>
         <p class="section-desc" style="margin:0">급이 기록과 급이 이벤트별 FRS v2 결과를 CSV에서 표시합니다.</p>
       </div>
-      <select id="feedingPeriodSelect" class="select">
-        <option value="7">최근 7일</option>
-        <option value="30">최근 30일</option>
-      </select>
+      <span class="feeding-period-label">최근 7일까지</span>
     </div>
 
     <div class="detail-two">
-      <div class="white-card table-scroll">
+      <div class="white-card table-scroll feeding-status-card feeding-record-card">
         <h3 style="margin-bottom:12px">급이 기록</h3>
-        <table class="table">
-          <thead><tr><th>급이 시각</th><th>급이량</th><th>급이 구분</th><th>상태</th></tr></thead>
-          <tbody id="feedingRecordBody"></tbody>
-        </table>
+        <div class="table-scroll-inner">
+          <table class="table">
+            <thead><tr><th>급이 시각</th><th>급이량</th><th>급이 구분</th><th>상태</th></tr></thead>
+            <tbody id="feedingRecordBody"></tbody>
+          </table>
+        </div>
+        <div class="feeding-pagination" id="feedingPagination">
+          <button type="button" class="feeding-page-btn" id="feedingPrevPage">‹</button>
+          <span class="feeding-page-info" id="feedingPageInfo">1 / 1</span>
+          <button type="button" class="feeding-page-btn" id="feedingNextPage">›</button>
+        </div>
       </div>
 
-      <div class="white-card">
+      <div class="white-card feeding-status-card">
         <h3 style="margin-bottom:12px">급이 이벤트 결과</h3>
         <div class="feeding-chart-wrap">
           <canvas id="feedingEventChart"></canvas>
@@ -542,6 +593,9 @@ let GROWTH_ROWS = [];
 let activityChartInst = null;
 let feedingEventChartInst = null;
 let growthMainChartInst = null;
+let FEEDING_TABLE_ROWS = [];
+let feedingRecordPage = 1;
+const FEEDING_RECORD_PAGE_SIZE = 6;
 
 function toggleSb(){
   const sb=document.getElementById('sidebar');
@@ -1221,15 +1275,37 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
   });
 }
 
+function getRecentFeedingRows(days=7){
+  const now=new Date();
+  const cutoff=new Date(now.getTime()-days*24*60*60*1000);
+
+  return rowsUntilNow(FEEDING_ROWS)
+    .filter(r=>{
+      const t=new Date(r.timestamp);
+      return !Number.isNaN(t.getTime()) && t>=cutoff && t<=now;
+    })
+    .sort(sortDesc);
+}
+
 function renderFeedingSelect(){
-  const all=rowsUntilNow(FEEDING_ROWS).sort(sortDesc);
+  // 최근 급이 반응 선택창은 현재 시각 기준 최근 7일 데이터만 표시
+  const all=getRecentFeedingRows(7);
   const sel=document.getElementById("feedingTimeSelect");
+
+  if(!all.length){
+    sel.innerHTML='<option value="">최근 7일 급이 기록 없음</option>';
+    sel.disabled=true;
+    return;
+  }
+
+  sel.disabled=false;
   sel.innerHTML=all.map((r,i)=>`<option value="${i}">${formatTime(r.timestamp)} · ${r.status==="OK"?(num(r.frs_v2,0).toFixed(1)+"점"):"분석불가"}</option>`).join("");
-  if(all.length) renderFeedingDetail(0);
+  renderFeedingDetail(0);
 }
 
 function renderFeedingDetail(index){
-  const all=rowsUntilNow(FEEDING_ROWS).sort(sortDesc);
+  // 선택창과 동일하게 최근 7일 범위의 급이 데이터만 사용
+  const all=getRecentFeedingRows(7);
   const row=all[index];
   if(!row) return;
   const valid=validFeeding(all).filter(r=>new Date(r.timestamp)<=new Date(row.timestamp)).sort(sortDesc);
@@ -1282,25 +1358,44 @@ function renderFeedingDetail(index){
     : "이번 급이는 분석불가 / 행동데이터 부족입니다. 과거 유효 점수는 참고값으로만 별도 표시합니다.";
 }
 
-function renderFeedingTables(days=7){
+function renderFeedingRecordPage(){
+  const totalPages=Math.max(1,Math.ceil(FEEDING_TABLE_ROWS.length/FEEDING_RECORD_PAGE_SIZE));
+  feedingRecordPage=Math.min(Math.max(1,feedingRecordPage),totalPages);
+
+  const start=(feedingRecordPage-1)*FEEDING_RECORD_PAGE_SIZE;
+  const pageRows=FEEDING_TABLE_ROWS.slice(start,start+FEEDING_RECORD_PAGE_SIZE);
+
+  document.getElementById("feedingRecordBody").innerHTML=pageRows.length
+    ? pageRows.map(r=>`
+      <tr>
+        <td>${formatTime(r.timestamp)}</td>
+        <td>${r.feed_amount_g?Number(r.feed_amount_g).toFixed(1)+"g":"--"}</td>
+        <td>${r.meal_no==="1"?"오전":"오후"}</td>
+        <td>${r.status}</td>
+      </tr>`).join("")
+    : `<tr><td colspan="4" style="text-align:center;color:#9ca3af">급이 기록 없음</td></tr>`;
+
+  document.getElementById("feedingPageInfo").textContent=`${feedingRecordPage} / ${totalPages}`;
+  document.getElementById("feedingPrevPage").disabled=feedingRecordPage<=1;
+  document.getElementById("feedingNextPage").disabled=feedingRecordPage>=totalPages;
+}
+
+function renderFeedingTables(){
   const all=rowsUntilNow(FEEDING_ROWS).sort(sortDesc);
-  if(!all.length) return;
   const now=new Date();
-  const cutoff=new Date(now.getTime()-days*24*60*60*1000);
-  const rows=all.filter(r=>{
+  const cutoff=new Date(now.getTime()-7*24*60*60*1000);
+
+  // 급이 상세의 점수 현황은 현재 시각 기준 최근 7일까지만 사용
+  FEEDING_TABLE_ROWS=all.filter(r=>{
     const t=new Date(r.timestamp);
     return t>=cutoff && t<=now;
   });
 
-  document.getElementById("feedingRecordBody").innerHTML=rows.map(r=>`
-    <tr>
-      <td>${formatTime(r.timestamp)}</td>
-      <td>${r.feed_amount_g?Number(r.feed_amount_g).toFixed(1)+"g":"--"}</td>
-      <td>${r.meal_no==="1"?"오전":"오후"}</td>
-      <td>${r.status}</td>
-    </tr>`).join("");
+  feedingRecordPage=1;
+  renderFeedingRecordPage();
 
-  renderFeedingEventChart(rows);
+  // 이벤트 결과 그래프는 최근 7일 전체 데이터를 그대로 표시
+  renderFeedingEventChart(FEEDING_TABLE_ROWS);
 }
 
 function renderFeedingEventChart(rows){
@@ -1420,7 +1515,7 @@ async function loadCSV(){
     renderFRSMain();
     renderGrowthMain();
     renderFeedingSelect();
-    renderFeedingTables(7);
+    renderFeedingTables();
   }catch(err){
     console.error(err);
     document.querySelectorAll(".footer-panel").forEach(el=>{
@@ -1435,7 +1530,19 @@ document.querySelectorAll(".close-detail").forEach(btn=>btn.addEventListener("cl
 document.querySelectorAll(".detail-modal").forEach(modal=>modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.remove("open")}));
 
 document.getElementById("feedingTimeSelect").addEventListener("change",e=>renderFeedingDetail(Number(e.target.value)));
-document.getElementById("feedingPeriodSelect").addEventListener("change",e=>renderFeedingTables(Number(e.target.value)));
+document.getElementById("feedingPrevPage").addEventListener("click",()=>{
+  if(feedingRecordPage>1){
+    feedingRecordPage--;
+    renderFeedingRecordPage();
+  }
+});
+document.getElementById("feedingNextPage").addEventListener("click",()=>{
+  const totalPages=Math.max(1,Math.ceil(FEEDING_TABLE_ROWS.length/FEEDING_RECORD_PAGE_SIZE));
+  if(feedingRecordPage<totalPages){
+    feedingRecordPage++;
+    renderFeedingRecordPage();
+  }
+});
 document.querySelectorAll(".growth-main-toggle").forEach(cb=>{
   cb.addEventListener("change",()=>renderGrowthMain());
 });
