@@ -58,7 +58,7 @@ def _get_chart_history(tank):
         "temp":   [r.temperature         for r in readings],
         "ph":     [r.ph                  for r in readings],
         "do":     [r.dissolved_oxygen   for r in readings],
-        "turb":   [r.turbidity          for r in readings],
+        "tds":    [r.tds_ppm            for r in readings],
     }, ensure_ascii=False)
 
 
@@ -171,11 +171,11 @@ def dashboard_data(request, tank_id):
     sensor = None
     if latest:
         sensor = {
-            "temperature":       latest.temperature,
-            "ph":                latest.ph,
-            "dissolved_oxygen":  latest.dissolved_oxygen,
-            "turbidity":         latest.turbidity,
-            "water_level":       latest.water_level,
+            "temperature":          latest.temperature,
+            "ph":                   latest.ph,
+            "dissolved_oxygen":     latest.dissolved_oxygen,
+            "tds_ppm":              latest.tds_ppm,
+            "water_level":          latest.water_level,
             "water_quality_score":  latest.water_quality_score,
         }
     history = {
@@ -183,7 +183,7 @@ def dashboard_data(request, tank_id):
         "temp":   [r.temperature      for r in readings],
         "ph":     [r.ph               for r in readings],
         "do":     [r.dissolved_oxygen for r in readings],
-        "turb":   [r.turbidity        for r in readings],
+        "tds":    [r.tds_ppm          for r in readings],
     }
     return JsonResponse({"sensor": sensor, "history": history})
 
@@ -410,7 +410,7 @@ def download_report(request, tank_id):
     content  = f"[{tank.name}] {period.upper()} 분석 기록\n기준일: {today.strftime('%Y-%m-%d')}\n" + "=" * 40 + "\n"
     if readings.exists():
         for r in readings:
-            content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} | 수온:{r.temperature}°C | pH:{r.ph} | DO:{r.dissolved_oxygen}mg/L | 탁도:{r.turbidity}PPM | 수질지수:{r.water_quality_score}\n"
+            content += f"{r.created_at.strftime('%Y-%m-%d %H:%M')} | 수온:{r.temperature}°C | pH:{r.ph} | DO:{r.dissolved_oxygen}mg/L | 탁도:{r.turbidity}NTU | 수질지수:{r.water_quality_score}\n"
     else:
         content += "데이터가 없습니다."
     response = HttpResponse(content, content_type='text/plain; charset=utf-8')
