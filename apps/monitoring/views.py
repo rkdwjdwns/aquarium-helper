@@ -174,7 +174,7 @@ def dashboard_data(request, tank_id):
             "temperature":          latest.temperature,
             "ph":                   latest.ph,
             "dissolved_oxygen":     latest.dissolved_oxygen,
-            "tds_ppm":              latest.tds_ppm,
+            "turbidity":            latest.turbidity,
             "water_level":          latest.water_level,
             "water_quality_score":  latest.water_quality_score,
         }
