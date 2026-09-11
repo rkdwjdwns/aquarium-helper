@@ -169,7 +169,7 @@
     <!-- 급이량 차트 -->
     <div class="card">
       <div class="card-head">
-        <div class="card-title">▥ 일별 급이량 <span>(어제 기준 최근 7일 · 오전/오후 구간 합계)</span></div>
+        <div class="card-title">▥ 일별 급이량 <span>(현재 시간 기준 최근 7일 · 오전/오후 구간 합계)</span></div>
         <div class="time-tabs">
           <button class="active" onclick="setFeed('all',this)">전체</button>
           <button onclick="setFeed('am',this)">오전</button>
@@ -379,11 +379,11 @@ async function fetchFeeding(){
       return;
     }
 
-    // 오늘은 아직 급이 데이터가 완전히 쌓이지 않을 수 있으므로
-    // '어제'를 마지막 날짜로 하여 최근 7일을 항상 표시한다.
-    const latest=new Date();
+    // 브라우저의 실제 현재 시각을 기준으로 최근 7일을 표시한다.
+    // 오늘 날짜도 포함하며, 현재 시각 이후의 미래 급이 기록은 제외한다.
+    const now=new Date();
+    const latest=new Date(now);
     latest.setHours(0,0,0,0);
-    latest.setDate(latest.getDate()-1);
 
     const days=Array.from({length:7},(_,i)=>{
       const d=new Date(latest);
@@ -403,6 +403,9 @@ async function fetchFeeding(){
     );
 
     rows.forEach(row=>{
+      // 현재 시각 이후에 기록된 미래 mock 데이터는 급이량에 포함하지 않는다.
+      if(row._date>now) return;
+
       const key=dayKey(row._date);
       if(!daily[key]) return;
 

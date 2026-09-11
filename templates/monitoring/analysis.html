@@ -585,6 +585,24 @@ function formatTime(ts){
 }
 function sortDesc(a,b){ return new Date(b.timestamp)-new Date(a.timestamp); }
 
+function rowsUntilNow(rows){
+  const now=new Date();
+  return [...rows].filter(r=>{
+    if(!r.timestamp) return false;
+    const t=new Date(r.timestamp);
+    return !Number.isNaN(t.getTime()) && t<=now;
+  });
+}
+
+function rowsInRecentMinutes(rows, minutes){
+  const now=new Date();
+  const cutoff=new Date(now.getTime()-minutes*60*1000);
+  return rowsUntilNow(rows).filter(r=>{
+    const t=new Date(r.timestamp);
+    return t>=cutoff;
+  });
+}
+
 function validFeeding(rows){ return rows.filter(r=>r.status==="OK" && r.frs_v2!==""); }
 
 function frsGrade(score){
@@ -639,8 +657,12 @@ function setAbrStatusStyle(el, grade){
 }
 
 function renderSummary(){
-  const s=ABR_ROWS[0];
-  const activityLatest=ACTIVITY_ROWS.length ? ACTIVITY_ROWS[ACTIVITY_ROWS.length-1] : null;
+  // 미래 mock 데이터는 제외하고 현재 시각 기준으로만 요약값을 선택한다.
+  const abrRecent=rowsInRecentMinutes(ABR_ROWS,5).sort(sortDesc);
+  const s=abrRecent.length ? abrRecent[0] : null;
+
+  const activityRecent=rowsInRecentMinutes(ACTIVITY_ROWS,30).sort(sortDesc);
+  const activityLatest=activityRecent.length ? activityRecent[0] : null;
 
   if(s){
     const abrRate=num(s.abr_5min_pct,0);
@@ -653,6 +675,11 @@ function renderSummary(){
     setAbrStatusStyle(abrStatusEl,abrStatus);
 
     document.getElementById("abrCount").textContent=(s.abnormal_count_5min || "0")+"회";
+  }else{
+    document.getElementById("abrRate").textContent="--";
+    document.getElementById("abrStatus").textContent="--";
+    document.getElementById("abrStatus").style.color="#6b7280";
+    document.getElementById("abrCount").textContent="--";
   }
 
   if(activityLatest){
@@ -668,20 +695,76 @@ function renderSummary(){
     actStateEl.textContent=actGrade;
     setActivityStateStyle(actStateEl,actGrade);
 
-    document.getElementById("qualityGood").textContent=activityLatest.quality_good_pct ? num(activityLatest.quality_good_pct,0).toFixed(1)+"%" : "--";
-    document.getElementById("qualityFair").textContent=activityLatest.quality_fair_pct ? num(activityLatest.quality_fair_pct,0).toFixed(1)+"%" : "--";
-    document.getElementById("qualityPoor").textContent=activityLatest.quality_poor_pct ? num(activityLatest.quality_poor_pct,0).toFixed(1)+"%" : "--";
+    // AI 분석품질은 최근 30분 데이터 전체에서 GOOD / FAIR / POOR 비율을 계산한다.
+    // quality_*_pct 값이 CSV에 이미 존재하면 가장 최근 유효 품질값을 우선 사용하고,
+    // 비어 있는 경우 quality / analysis_quality 계열의 등급 컬럼을 집계한다.
+    const qualitySource=activityRecent.find(r=>
+      r.quality_good_pct!=="" &&
+      r.quality_fair_pct!=="" &&
+      r.quality_poor_pct!==""
+    );
+
+    if(qualitySource){
+      document.getElementById("qualityGood").textContent=num(qualitySource.quality_good_pct,0).toFixed(1)+"%";
+      document.getElementById("qualityFair").textContent=num(qualitySource.quality_fair_pct,0).toFixed(1)+"%";
+      document.getElementById("qualityPoor").textContent=num(qualitySource.quality_poor_pct,0).toFixed(1)+"%";
+    }else{
+      const qualityValues=activityRecent
+        .map(r=>String(
+          r.quality_grade ||
+          r.analysis_quality ||
+          r.ai_quality ||
+          r.quality ||
+          ""
+        ).trim().toUpperCase())
+        .filter(v=>["GOOD","FAIR","POOR"].includes(v));
+
+      if(qualityValues.length){
+        const total=qualityValues.length;
+        const pct=grade=>qualityValues.filter(v=>v===grade).length/total*100;
+        document.getElementById("qualityGood").textContent=pct("GOOD").toFixed(1)+"%";
+        document.getElementById("qualityFair").textContent=pct("FAIR").toFixed(1)+"%";
+        document.getElementById("qualityPoor").textContent=pct("POOR").toFixed(1)+"%";
+      }else{
+        document.getElementById("qualityGood").textContent="--";
+        document.getElementById("qualityFair").textContent="--";
+        document.getElementById("qualityPoor").textContent="--";
+      }
+    }
+  }else{
+    document.getElementById("actIndex").textContent="--";
+    document.getElementById("actCompare").textContent="--";
+    document.getElementById("actState").textContent="--";
+    document.getElementById("qualityGood").textContent="--";
+    document.getElementById("qualityFair").textContent="--";
+    document.getElementById("qualityPoor").textContent="--";
   }
 }
 
 function renderActivity(){
-  const rows=[...ACTIVITY_ROWS].sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
-  if(!rows.length) return;
+  // CSV 전체 기간과 관계없이 브라우저의 현재 시각을 기준으로
+  // 현재 시각 - 30분 ~ 현재 시각 사이의 데이터만 표시한다.
+  const allRows=[...ACTIVITY_ROWS]
+    .filter(r=>r.timestamp && !Number.isNaN(new Date(r.timestamp).getTime()))
+    .sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+
+  if(!allRows.length) return;
+
+  const now=new Date();
+  const cutoffTime=new Date(now.getTime()-30*60*1000);
+
+  const rows=allRows.filter(r=>{
+    const t=new Date(r.timestamp);
+    return t>=cutoffTime && t<=now;
+  });
+
+  const ctx=document.getElementById("activityChart");
+  if(activityChartInst) activityChartInst.destroy();
+
+  // 현재 30분 안에 데이터가 없으면 빈 그래프를 표시한다.
   const labels=rows.map(r=>formatTime(r.timestamp).slice(-5));
   const vals=rows.map(r=>num(r.activity_index,100));
   const baseline=rows.map(()=>100);
-
-  const ctx=document.getElementById("activityChart");
   if(activityChartInst) activityChartInst.destroy();
   activityChartInst=new Chart(ctx,{
     type:"line",
@@ -704,8 +787,17 @@ function renderActivity(){
 }
 
 function renderFRSMain(){
-  const all=[...FEEDING_ROWS].sort(sortDesc);
-  if(!all.length) return;
+  // 현재 시각 이후의 예약/미래 mock 급이는 제외한다.
+  const all=rowsUntilNow(FEEDING_ROWS).sort(sortDesc);
+  if(!all.length){
+    document.getElementById("frsScore").textContent="--";
+    document.getElementById("frsLabel").textContent="유효 기록 없음";
+    document.getElementById("frsActivityScore").textContent="--";
+    document.getElementById("frsLatencyScore").textContent="--";
+    document.getElementById("frsTime").textContent="--";
+    document.getElementById("frsRecentValidLabel").textContent="현재 시각 이전 급이 기록 없음";
+    return;
+  }
 
   const current=all[0];
   const valid=validFeeding(all).sort(sortDesc);
@@ -783,13 +875,39 @@ function renderGrowthMain(){
 
   if(!arr.length) return;
 
-  const currentRow =
-    arr.find(r=>r.phase==="current_anchor") ||
-    [...arr].reverse().find(r=>r.observed_average_length_cm!=="");
+  const now=new Date();
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const todayKey=[
+    today.getFullYear(),
+    String(today.getMonth()+1).padStart(2,"0"),
+    String(today.getDate()).padStart(2,"0")
+  ].join("-");
 
-  const historyRows=arr.filter(
-    r=>r.phase==="history" || r.phase==="current_anchor"
+  // "우리 성장 이력"에는 주간 측정일(history/current_anchor)만 영구 보존한다.
+  // current_temp 행은 해당 날짜가 오늘일 때만 임시 현재값으로 사용하고,
+  // 날짜가 지나면 과거 성장 이력에서는 자동으로 제외한다.
+  const weeklyHistoryRows=arr.filter(r=>{
+    const d=parseGrowthDate(r.date);
+    return d && d<=today &&
+      r.observed_average_length_cm!=="" &&
+      (r.phase==="history" || r.phase==="current_anchor");
+  });
+
+  const todayTempRow=arr.find(r=>
+    r.date===todayKey &&
+    r.phase==="current_temp" &&
+    r.observed_average_length_cm!==""
   );
+
+  const historyRows=todayTempRow
+    ? [...weeklyHistoryRows, todayTempRow]
+        .sort((a,b)=>parseGrowthDate(a.date)-parseGrowthDate(b.date))
+    : weeklyHistoryRows;
+
+  // 오늘 비주기 임시값이 있으면 그것을 현재값으로 표시.
+  // 없으면 가장 최근 정식 주간 측정값을 현재값으로 사용한다.
+  const currentRow=todayTempRow ||
+    (weeklyHistoryRows.length ? weeklyHistoryRows[weeklyHistoryRows.length-1] : null);
 
   if(!currentRow || !historyRows.length) return;
 
@@ -805,7 +923,7 @@ function renderGrowthMain(){
     current===null ? "--" : `±${currentError.toFixed(2)} cm`;
 
   document.getElementById("growthAvgDate").textContent=
-    `${formatGrowthDate(currentRow.date)} 기준 현재 평균 추정체장`;
+    `${formatGrowthDate(currentRow.date)} 기준 현재 평균 추정체장${currentRow.phase==="current_temp" ? " · 임시값" : ""}`;
 
   const startDate=parseGrowthDate(first.date);
   const currentDate=parseGrowthDate(currentRow.date);
@@ -824,69 +942,106 @@ function renderGrowthMain(){
     speed===null ? "--" : `+${speed.toFixed(3)} cm/day`;
 
   const futureDays=Number(document.getElementById("growthPeriodSelect")?.value || 180);
-  renderGrowthMainChart(arr,currentRow,futureDays);
+  renderGrowthMainChart(arr,currentRow,futureDays,today);
 }
 
-function renderGrowthMainChart(arr,currentRow,futureDays=180){
+function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
   const toggles={};
   document.querySelectorAll(".growth-main-toggle").forEach(
     c=>toggles[c.value]=c.checked
   );
 
-  // 과거(history)와 현재점(current_anchor)은 모두 유지하고,
-  // prediction 데이터만 현재점 이후 선택한 기간까지 제한한다.
   const anchorDate=parseGrowthDate(currentRow.date);
+  const currentDay=today || anchorDate;
   const cutoffDate=anchorDate
     ? new Date(anchorDate.getTime()+futureDays*24*60*60*1000)
     : null;
 
+  // 그래프 축 자체에서도 표시하지 않을 날짜를 제거한다.
+  // - history / current_anchor : 정식 성장 이력으로 유지
+  // - current_temp            : 오늘 날짜의 임시 현재값만 유지
+  // - prediction              : 선택한 미래 기간까지만 유지
+  //
+  // 이전에는 current_temp 행을 데이터값만 null 처리했기 때문에
+  // Chart.js의 X축에는 날짜가 남아 간격/곡선 모양에 영향을 주었다.
   arr=arr.filter(r=>{
-    if(r.phase==="history" || r.phase==="current_anchor") return true;
-    if(r.phase!=="prediction") return true;
-
     const d=parseGrowthDate(r.date);
-    return !cutoffDate || (d && d<=cutoffDate);
+    if(!d) return false;
+
+    if(r.phase==="history" || r.phase==="current_anchor"){
+      return d<=currentDay;
+    }
+
+    if(r.phase==="current_temp"){
+      return d.getFullYear()===currentDay.getFullYear() &&
+             d.getMonth()===currentDay.getMonth() &&
+             d.getDate()===currentDay.getDate();
+    }
+
+    if(r.phase==="prediction"){
+      return d>currentDay && (!cutoffDate || d<=cutoffDate);
+    }
+
+    return false;
   });
 
   const labels=arr.map(r=>formatGrowthDate(r.date));
 
-  // 관측값: history + current_anchor만 실선으로 표시
+  // 과거 성장 이력은 정식 주간 측정점만 유지한다.
+  // 비주기 current_temp 값은 "오늘"과 일치할 때만 그래프에 나타난다.
+  const isVisibleObservedRow=r=>{
+    const d=parseGrowthDate(r.date);
+    if(!d || d>currentDay || r.observed_average_length_cm==="") return false;
+    if(r.phase==="history" || r.phase==="current_anchor") return true;
+    return r.phase==="current_temp" &&
+      d.getFullYear()===currentDay.getFullYear() &&
+      d.getMonth()===currentDay.getMonth() &&
+      d.getDate()===currentDay.getDate();
+  };
+
   const observed=arr.map(r=>
-    (r.phase==="history" || r.phase==="current_anchor")
-      ? num(r.observed_average_length_cm,null)
-      : null
+    isVisibleObservedRow(r) ? num(r.observed_average_length_cm,null) : null
   );
 
   const observedLower=arr.map(r=>
-    (r.phase==="history" || r.phase==="current_anchor")
-      ? num(r.observed_lower_cm,null)
-      : null
+    isVisibleObservedRow(r) ? num(r.observed_lower_cm,null) : null
   );
 
   const observedUpper=arr.map(r=>
-    (r.phase==="history" || r.phase==="current_anchor")
-      ? num(r.observed_upper_cm,null)
-      : null
+    isVisibleObservedRow(r) ? num(r.observed_upper_cm,null) : null
   );
 
-  // vBGF: current_anchor + prediction 구간을 점선으로 연결
-  const vbgf=arr.map(r=>
-    (r.phase==="current_anchor" || r.phase==="prediction")
-      ? num(r.vbgf_predicted_length_cm,null)
-      : null
-  );
+  // vBGF: 현재점부터 미래 구간을 연결.
+  // 현재점에 예측값이 없으면 관측값을 사용해 선이 끊기지 않게 한다.
+  const vbgf=arr.map(r=>{
+    const d=parseGrowthDate(r.date);
+    if(!d || d<anchorDate) return null;
+    if(d.getTime()===anchorDate.getTime()){
+      return num(r.vbgf_predicted_length_cm,
+        num(r.observed_average_length_cm,null));
+    }
+    return num(r.vbgf_predicted_length_cm,null);
+  });
 
-  const vbgfLower=arr.map(r=>
-    (r.phase==="current_anchor" || r.phase==="prediction")
-      ? num(r.vbgf_prediction_lower_cm,null)
-      : null
-  );
+  const vbgfLower=arr.map(r=>{
+    const d=parseGrowthDate(r.date);
+    if(!d || d<anchorDate) return null;
+    if(d.getTime()===anchorDate.getTime()){
+      return num(r.vbgf_prediction_lower_cm,
+        num(r.observed_lower_cm,null));
+    }
+    return num(r.vbgf_prediction_lower_cm,null);
+  });
 
-  const vbgfUpper=arr.map(r=>
-    (r.phase==="current_anchor" || r.phase==="prediction")
-      ? num(r.vbgf_prediction_upper_cm,null)
-      : null
-  );
+  const vbgfUpper=arr.map(r=>{
+    const d=parseGrowthDate(r.date);
+    if(!d || d<anchorDate) return null;
+    if(d.getTime()===anchorDate.getTime()){
+      return num(r.vbgf_prediction_upper_cm,
+        num(r.observed_upper_cm,null));
+    }
+    return num(r.vbgf_prediction_upper_cm,null);
+  });
 
   // 코메트 참고곡선: CSV 전체 날짜 범위
   const comet=arr.map(r=>num(r.comet_reference_length_cm,null));
@@ -1004,7 +1159,7 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180){
   const currentAnchorPlugin={
     id:"growthCurrentAnchor",
     afterDatasetsDraw(chart){
-      const currentIndex=arr.findIndex(r=>r.phase==="current_anchor");
+      const currentIndex=arr.findIndex(r=>r.date===currentRow.date);
       if(currentIndex<0 || !toggles.past) return;
 
       const meta=chart.getDatasetMeta(6);
@@ -1067,14 +1222,14 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180){
 }
 
 function renderFeedingSelect(){
-  const all=FEEDING_ROWS.sort(sortDesc);
+  const all=rowsUntilNow(FEEDING_ROWS).sort(sortDesc);
   const sel=document.getElementById("feedingTimeSelect");
   sel.innerHTML=all.map((r,i)=>`<option value="${i}">${formatTime(r.timestamp)} · ${r.status==="OK"?(num(r.frs_v2,0).toFixed(1)+"점"):"분석불가"}</option>`).join("");
-  renderFeedingDetail(0);
+  if(all.length) renderFeedingDetail(0);
 }
 
 function renderFeedingDetail(index){
-  const all=FEEDING_ROWS.sort(sortDesc);
+  const all=rowsUntilNow(FEEDING_ROWS).sort(sortDesc);
   const row=all[index];
   if(!row) return;
   const valid=validFeeding(all).filter(r=>new Date(r.timestamp)<=new Date(row.timestamp)).sort(sortDesc);
@@ -1128,11 +1283,14 @@ function renderFeedingDetail(index){
 }
 
 function renderFeedingTables(days=7){
-  const all=FEEDING_ROWS.sort(sortDesc);
+  const all=rowsUntilNow(FEEDING_ROWS).sort(sortDesc);
   if(!all.length) return;
-  const newest=new Date(all[0].timestamp);
-  const cutoff=new Date(newest.getTime()-days*24*60*60*1000);
-  const rows=all.filter(r=>new Date(r.timestamp)>=cutoff);
+  const now=new Date();
+  const cutoff=new Date(now.getTime()-days*24*60*60*1000);
+  const rows=all.filter(r=>{
+    const t=new Date(r.timestamp);
+    return t>=cutoff && t<=now;
+  });
 
   document.getElementById("feedingRecordBody").innerHTML=rows.map(r=>`
     <tr>
