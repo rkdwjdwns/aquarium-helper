@@ -73,7 +73,7 @@ def create_stat_report(request, tank_id):
             max_temp=Max('temperature'),
             avg_ph=Avg('ph'),
             avg_do=Avg('dissolved_oxygen'),
-            avg_turb=Avg('turbidity'),
+            avg_tds=Avg('turbidity'),
         )
         count = readings.count()
 
@@ -81,7 +81,7 @@ def create_stat_report(request, tank_id):
         content += f"(최저 {stats['min_temp']:.1f} / 최고 {stats['max_temp']:.1f})\n"
         content += f"💧 평균 pH: {stats['avg_ph']:.2f}\n"
         content += f"🫧 평균 DO: {stats['avg_do']:.2f} mg/L\n"
-        content += f"🌫️ 평균 탁도: {stats['avg_turb']:.1f} NTU\n"
+        content += f"📟 평균 TDS: {stats['avg_tds']:.1f} PPM\n"
         content += f"📊 분석 데이터 수: {count}개\n"
         content += f"🕒 생성 일시: {timezone.now().strftime('%Y-%m-%d %H:%M')}\n\n"
         content += "수질 데이터 기반 분석이 완료되었습니다."
