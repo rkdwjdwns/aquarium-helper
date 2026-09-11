@@ -35,8 +35,18 @@ def report_list(request):
 
     if selected_tank:
         # ✅ 최근 MAX_READINGS개만 조회 — 전체 조회 시 OOM 발생
-        report_data = selected_tank.readings.all().order_by(order_by)[:MAX_READINGS]
-        reports     = Report.objects.filter(tank=selected_tank).order_by('-created_at')
+        report_data = list(selected_tank.readings.all().order_by(order_by)[:MAX_READINGS])
+
+        # 대시보드/센서 저장 구조 차이를 모두 수용:
+        # 1순위: tds_ppm 필드
+        # 2순위: 기존 turbidity 필드(TDS 값이 저장되는 호환 구조)
+        for reading in report_data:
+            tds_value = getattr(reading, 'tds_ppm', None)
+            if tds_value is None:
+                tds_value = getattr(reading, 'turbidity', None)
+            reading.report_tds_ppm = tds_value
+
+        reports = Report.objects.filter(tank=selected_tank).order_by('-created_at')
 
     context = {
         'tanks':         tanks,
@@ -67,13 +77,18 @@ def create_stat_report(request, tank_id):
     if readings.exists():
         # aggregate 사용 — 전체 객체 로드 없이 DB에서 계산
         from django.db.models import Avg, Min, Max
+
+        # SensorReading 모델에 실제 존재하는 TDS 저장 필드를 선택
+        model_field_names = {f.name for f in SensorReading._meta.get_fields()}
+        tds_field = 'tds_ppm' if 'tds_ppm' in model_field_names else 'turbidity'
+
         stats = readings.aggregate(
             avg_temp=Avg('temperature'),
             min_temp=Min('temperature'),
             max_temp=Max('temperature'),
             avg_ph=Avg('ph'),
             avg_do=Avg('dissolved_oxygen'),
-            avg_tds=Avg('turbidity'),
+            avg_tds=Avg(tds_field),
         )
         count = readings.count()
 
@@ -81,7 +96,8 @@ def create_stat_report(request, tank_id):
         content += f"(최저 {stats['min_temp']:.1f} / 최고 {stats['max_temp']:.1f})\n"
         content += f"💧 평균 pH: {stats['avg_ph']:.2f}\n"
         content += f"🫧 평균 DO: {stats['avg_do']:.2f} mg/L\n"
-        content += f"📟 평균 TDS: {stats['avg_tds']:.1f} PPM\n"
+        avg_tds = stats['avg_tds']
+        content += f"📟 평균 TDS: {avg_tds:.1f} PPM\n" if avg_tds is not None else "📟 평균 TDS: --\n"
         content += f"📊 분석 데이터 수: {count}개\n"
         content += f"🕒 생성 일시: {timezone.now().strftime('%Y-%m-%d %H:%M')}\n\n"
         content += "수질 데이터 기반 분석이 완료되었습니다."
