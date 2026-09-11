@@ -885,7 +885,7 @@ function normalizeSensor(sensor){
     dissolved_oxygen: sensor.dissolved_oxygen ?? sensor.do_mg_l,
     tds_ppm: sensor.tds_ppm ?? sensor.turbidity,
     water_level: sensor.water_level ?? sensor.level,
-    water_quality_score: sensor.water_quality_score,
+    water_quality_score: sensor.water_quality_score ?? sensor.waterQualityScore ?? sensor.water_level ?? sensor.level,
     measured_at: sensor.measured_at ?? sensor.created_at ?? sensor.timestamp
   };
 }
@@ -1076,7 +1076,9 @@ function updateSensorCards(rawSensor){
   }
   updateBadge('badge-level', levelText, levelClass);
 
-  updateWaterQualityScore(sensor.water_quality_score);
+  if(sensor.water_quality_score !== undefined && sensor.water_quality_score !== null){
+    updateWaterQualityScore(sensor.water_quality_score);
+  }
 }
 
 function updateBadge(id, text, cls){
@@ -1126,7 +1128,30 @@ async function poll(){
         ? d
         : null
     );
-    if(liveSensor) updateSensorCards(liveSensor);
+    if(liveSensor){
+      const sensorForUi = {
+        ...liveSensor,
+        water_quality_score:
+          liveSensor.water_quality_score ??
+          liveSensor.waterQualityScore ??
+          liveSensor.water_level ??
+          liveSensor.level ??
+          d.water_quality_score ??
+          d.waterQualityScore ??
+          d.water_level ??
+          d.level
+      };
+      updateSensorCards(sensorForUi);
+    } else {
+      const polledScore =
+        d.water_quality_score ??
+        d.waterQualityScore ??
+        d.water_level ??
+        d.level;
+      if(polledScore !== undefined && polledScore !== null){
+        updateWaterQualityScore(polledScore);
+      }
+    }
 
     const nextHistory = historyFromApiPayload(d);
     if(nextHistory.labels.length){
