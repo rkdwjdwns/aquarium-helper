@@ -42,6 +42,7 @@
   .badge-ok{background:#e6f9f0;color:#1a7f5a}
   .badge-warn{background:#fff3e0;color:#b75e00}
   .badge-danger{background:#fdecea;color:#b71c1c}
+  .badge-neutral{background:#f1f5f9;color:#64748b}
 
   .device-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:28px}
   .device-card{background:#fff;border-radius:20px;padding:22px 20px;min-height:120px;box-shadow:0 4px 10px rgba(0,0,0,.07);text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -366,11 +367,9 @@
         </span>
       </div>
       <div class="sensor-card">
-        <div class="sensor-label">🌫️ 탁도</div>
-        <div><span id="val-turb" class="sensor-value">{{ latest.turbidity|floatformat:2|default:"--" }}</span><span class="sensor-unit">PPM</span></div>
-        <span id="badge-turb" class="sensor-badge {% if latest.turbidity %}{% if latest.turbidity <= 50 %}badge-ok{% elif latest.turbidity <= 100 %}badge-warn{% else %}badge-danger{% endif %}{% endif %}">
-          {% if latest.turbidity %}{% if latest.turbidity <= 50 %}● 맑음{% elif latest.turbidity <= 100 %}● 탁함{% else %}● 위험{% endif %}{% else %}미연결{% endif %}
-        </span>
+        <div class="sensor-label">🌫️ TDS</div>
+        <div><span id="val-tds" class="sensor-value">{{ latest.tds_ppm|floatformat:2|default:"--" }}</span><span class="sensor-unit">PPM</span></div>
+        <span id="badge-tds" class="sensor-badge badge-neutral">● 모니터링 전용</span>
       </div>
       <div class="sensor-card">
         <div class="sensor-label">📏 수위</div>
@@ -408,7 +407,7 @@
           <button class="chart-tab active" onclick="setChart('temp',this)">수온</button>
           <button class="chart-tab" onclick="setChart('ph',this)">pH</button>
           <button class="chart-tab" onclick="setChart('do',this)">DO</button>
-          <button class="chart-tab" onclick="setChart('turb',this)">탁도</button>
+          <button class="chart-tab" onclick="setChart('tds',this)">TDS</button>
         </div>
       </div>
       <div style="height:200px;position:relative"><canvas id="trendChart"></canvas></div>
@@ -501,7 +500,7 @@
           <button class="env-sensor-tab active" data-env-sensor="temperature">수온</button>
           <button class="env-sensor-tab" data-env-sensor="ph">pH</button>
           <button class="env-sensor-tab" data-env-sensor="do">DO</button>
-          <button class="env-sensor-tab" data-env-sensor="turbidity">탁도</button>
+          <button class="env-sensor-tab" data-env-sensor="tds">TDS</button>
         </div>
 
         <section class="env-summary-grid">
@@ -857,8 +856,8 @@ const C_CONFIG = {
     baseLow:{{ tank.do_min|default:"null" }},
     baseHigh:null
   },
-  turb:{
-    label:'탁도(PPM)', color:'#f59e0b', min:0, max:600,
+  tds:{
+    label:'TDS(PPM)', color:'#f59e0b', min:0, max:600,
     baseLow:null,
     baseHigh:{{ tank.turbidity_max|default:"null" }}
   }
@@ -866,6 +865,54 @@ const C_CONFIG = {
 
 let metric = 'temp';
 let history = {{ chart_history|safe|default:"{}" }};
+
+/*
+ * Raspberry Pi dashboard-v2 API 호환
+ * raw sensor:
+ *   temperature_c, ph, do_mg_l, tds_ppm, level
+ * raw sensor_series:
+ *   [{t, temp, ph, do, tds, quality}, ...]
+ *
+ * Django API가 기존 키를 반환하는 경우도 함께 지원한다.
+ */
+function normalizeSensor(sensor){
+  if(!sensor) return null;
+  return {
+    temperature: sensor.temperature ?? sensor.temperature_c,
+    ph: sensor.ph,
+    dissolved_oxygen: sensor.dissolved_oxygen ?? sensor.do_mg_l,
+    tds_ppm: sensor.tds_ppm,
+    water_level: sensor.water_level ?? sensor.level,
+    water_quality_score: sensor.water_quality_score,
+    measured_at: sensor.measured_at ?? sensor.created_at ?? sensor.timestamp
+  };
+}
+
+function historyFromApiPayload(data){
+  if(data?.history){
+    const h = data.history;
+    return {
+      labels: Array.isArray(h.labels) ? h.labels : [],
+      temp: Array.isArray(h.temp) ? h.temp : [],
+      ph: Array.isArray(h.ph) ? h.ph : [],
+      do: Array.isArray(h.do) ? h.do : [],
+      tds: Array.isArray(h.tds) ? h.tds :
+           Array.isArray(h.tds_ppm) ? h.tds_ppm : []
+    };
+  }
+
+  if(Array.isArray(data?.sensor_series)){
+    return {
+      labels: data.sensor_series.map(row => row.t ?? ''),
+      temp: data.sensor_series.map(row => row.temp),
+      ph: data.sensor_series.map(row => row.ph),
+      do: data.sensor_series.map(row => row.do),
+      tds: data.sensor_series.map(row => row.tds)
+    };
+  }
+
+  return {labels:[], temp:[], ph:[], do:[], tds:[]};
+}
 
 const chartEl = document.getElementById('trendChart');
 const ctx = chartEl.getContext('2d');
@@ -973,19 +1020,20 @@ if(history && history.labels) setChart('temp');
 /* =========================
    센서 카드 갱신
 ========================= */
-function updateSensorCards(sensor){
+function updateSensorCards(rawSensor){
+  const sensor = normalizeSensor(rawSensor);
   if(!sensor) return;
 
   const temp = toNumber(sensor.temperature);
   const ph = toNumber(sensor.ph);
   const dissolvedOxygen = toNumber(sensor.dissolved_oxygen);
-  const turbidity = toNumber(sensor.turbidity);
+  const tds = toNumber(sensor.tds_ppm);
   const waterLevel = toNumber(sensor.water_level);
 
   document.getElementById('val-temp').textContent = formatValue(temp);
   document.getElementById('val-ph').textContent = formatValue(ph);
   document.getElementById('val-do').textContent = formatValue(dissolvedOxygen);
-  document.getElementById('val-turb').textContent = formatValue(turbidity);
+  document.getElementById('val-tds').textContent = formatValue(tds);
   document.getElementById('val-level').textContent = formatValue(waterLevel);
 
   updateBadge(
@@ -1006,14 +1054,7 @@ function updateSensorCards(sensor){
     dissolvedOxygen === null ? '' : (dissolvedOxygen >= 5 ? 'badge-ok' : 'badge-danger')
   );
 
-  let turbText = '미연결';
-  let turbClass = '';
-  if(turbidity !== null){
-    if(turbidity <= 50){ turbText='● 맑음'; turbClass='badge-ok'; }
-    else if(turbidity <= 100){ turbText='● 탁함'; turbClass='badge-warn'; }
-    else { turbText='● 위험'; turbClass='badge-danger'; }
-  }
-  updateBadge('badge-turb', turbText, turbClass);
+  updateBadge('badge-tds', '● 모니터링 전용', 'badge-neutral');
 
   let levelText = '미연결';
   let levelClass = '';
@@ -1068,8 +1109,9 @@ async function poll(){
 
     if(d.sensor) updateSensorCards(d.sensor);
 
-    if(d.history){
-      history = d.history;
+    const nextHistory = historyFromApiPayload(d);
+    if(nextHistory.labels.length){
+      history = nextHistory;
       setChart(metric);
     }
 
@@ -1238,21 +1280,21 @@ const envDetailColorMap = {
   temperature:'#ff5d63',
   ph:'#249ee9',
   do:'#28c943',
-  turbidity:'#f6a11a',
+  tds:'#f6a11a',
 };
 
 const envDetailLabelMap = {
   temperature:'수온',
   ph:'pH',
   do:'DO',
-  turbidity:'탁도',
+  tds:'TDS',
 };
 
 const envDetailUnitMap = {
   temperature:'°C',
   ph:'',
   do:'mg/L',
-  turbidity:'PPM',
+  tds:'PPM',
 };
 
 let latestDashboard = null;
@@ -1279,7 +1321,7 @@ function findStateForSensor(key){
     temperature:['TEMP','TEMPERATURE','TMP'],
     ph:['PH'],
     do:['DO','DISSOLVED_OXYGEN'],
-    turbidity:['TURB','TURBIDITY','tds_ppm'],
+    tds:['TDS','TDS_PPM'],
   };
 
   const targets = aliases[key] || [];
@@ -1291,25 +1333,25 @@ function findStateForSensor(key){
 }
 
 function getSensorFromDashboard(key){
-  const s = latestDashboard && latestDashboard.sensor;
+  const s = normalizeSensor(latestDashboard && latestDashboard.sensor);
   if(!s) return null;
 
   if(key === 'temperature') return s.temperature;
   if(key === 'ph') return s.ph;
   if(key === 'do') return s.dissolved_oxygen;
-  if(key === 'turbidity') return s.turbidity;
+  if(key === 'tds') return s.tds_ppm;
 
   return null;
 }
 
 function getTrendFromDashboard(key){
-  const h = latestDashboard && latestDashboard.history;
+  const h = historyFromApiPayload(latestDashboard || {});
   if(!h) return [];
 
-  if(key === 'temperature') return Array.isArray(h.temp) ? h.temp : [];
-  if(key === 'ph') return Array.isArray(h.ph) ? h.ph : [];
-  if(key === 'do') return Array.isArray(h.do) ? h.do : [];
-  if(key === 'turbidity') return Array.isArray(h.turb) ? h.turb : [];
+  if(key === 'temperature') return h.temp;
+  if(key === 'ph') return h.ph;
+  if(key === 'do') return h.do;
+  if(key === 'tds') return h.tds;
 
   return [];
 }
@@ -1334,10 +1376,8 @@ function getCurrentState(key){
     return value >= 5 ? 'normal' : 'danger';
   }
 
-  if(key === 'turbidity'){
-    if(value <= 50) return 'normal';
-    if(value <= 100) return 'warning';
-    return 'danger';
+  if(key === 'tds'){
+    return 'normal';
   }
 
   return 'normal';
@@ -1348,12 +1388,13 @@ function getNormalRange(key){
     temperature:`{{ tank.temp_min|default:"20" }} ~ {{ tank.temp_max|default:"26" }} °C`,
     ph:`{{ tank.ph_min|default:"6.5" }} ~ {{ tank.ph_max|default:"8.0" }}`,
     do:`{{ tank.do_min|default:"5" }} mg/L 이상`,
-    turbidity:`0 ~ {{ tank.turbidity_max|default:"100" }} tds_ppm`,
+    tds:'모니터링 전용',
   };
   return ranges[key] || '-';
 }
 
 function getFallbackDescription(key, level){
+  if(key === 'tds') return 'TDS는 현재 모니터링 전용 항목이며 자동 상태 판정에 사용하지 않습니다.';
   if(level === 'danger') return `${envDetailLabelMap[key]} 수치가 위험 수준입니다.`;
   if(level === 'warning') return `${envDetailLabelMap[key]} 수치가 권장 범위를 벗어났습니다.`;
   return `현재 ${envDetailLabelMap[key]} 상태는 정상입니다.`;
