@@ -254,10 +254,16 @@ def _check_state_events(tank: Tank, reading: SensorReading) -> list:
             continue
 
         # ✅ 같은 code로 미해결 이벤트가 이미 있으면 새로 만들지 않음 (중복 방지)
-        already_open = TankStateEvent.objects.filter(
+        open_event = TankStateEvent.objects.filter(
             tank=tank, state_code=state_code, is_resolved=False
-        ).exists()
-        if not already_open:
+        ).first()
+
+        if open_event:
+            # 활성 상태가 계속되는 동안에도 최신 측정값으로 갱신
+            open_event.current_value = value
+            open_event.evidence = {'reading_id': reading.id, 'value': value}
+            open_event.save(update_fields=['current_value', 'evidence'])
+        else:
             TankStateEvent.objects.create(
                 tank=tank, state_code=state_code,
                 current_value=value,
@@ -273,6 +279,23 @@ def _check_state_events(tank: Tank, reading: SensorReading) -> list:
         ).update(is_resolved=True, resolved_at=timezone.now())
 
     return created_codes
+
+
+def _sync_latest_sensor_states(tank: Tank) -> None:
+    """최신 SensorReading 기준으로 센서 상태 이벤트를 다시 동기화한다.
+
+    서버 재배포 전 생성된 미해결 이벤트가 남아 있거나,
+    상태 조회 시점에 POST 처리가 누락된 경우에도
+    최신 DB 센서값을 기준으로 생성/해제를 보정한다.
+    """
+    latest = (
+        SensorReading.objects
+        .filter(tank=tank)
+        .order_by('-created_at')
+        .first()
+    )
+    if latest is not None:
+        _check_state_events(tank, latest)
 
 
 # ──────────────────────────────────────────────
@@ -1108,6 +1131,8 @@ def get_active_alerts(request):
     # ✅ 조회 전에 사용자의 모든 어항에 대해 미수신 여부를 먼저 갱신
     user_tanks = Tank.objects.filter(user=request.user)
     for t in user_tanks:
+        # 최신 DB 센서값으로 상태 이벤트를 먼저 재동기화
+        _sync_latest_sensor_states(t)
         _check_data_freshness(t)
 
     events = (
@@ -1155,6 +1180,11 @@ def get_active_states(request):
         tank = Tank.objects.get(id=tank_id)
     except Tank.DoesNotExist:
         return JsonResponse({'states': []})
+
+    # 조회 직전에 최신 SensorReading으로 상태를 재판정한다.
+    # 예: 과거 TURB-HIGH-001이 미해결로 남아 있어도
+    # 최신 tds_ppm이 450 이하이면 여기서 자동 resolved 처리된다.
+    _sync_latest_sensor_states(tank)
 
     events = (
         TankStateEvent.objects
