@@ -82,11 +82,7 @@
         <button class="page-btn">‹</button>
       </a>
       {% endif %}
-      {% for num in page_obj.paginator.page_range %}
-      <a href="?page={{ num }}{% if tank_id %}&tank_id={{ tank_id }}{% endif %}{% if level %}&level={{ level }}{% endif %}">
-        <button class="page-btn {% if page_obj.number == num %}active{% endif %}">{{ num }}</button>
-      </a>
-      {% endfor %}
+      <button class="page-btn active" type="button" aria-current="page">{{ page_obj.number }}</button>
       {% if page_obj.has_next %}
       <a href="?page={{ page_obj.next_page_number }}{% if tank_id %}&tank_id={{ tank_id }}{% endif %}{% if level %}&level={{ level }}{% endif %}">
         <button class="page-btn">›</button>

@@ -34,23 +34,40 @@
   }
 
   .page-title{font-size:18px;font-weight:900;letter-spacing:.5px;margin-bottom:32px}
-  .stream-wrap{position:relative;background:#111827;border-radius:24px;overflow:hidden;aspect-ratio:16/9;margin-bottom:24px;display:flex;align-items:center;justify-content:center}
+  .stream-wrap{position:relative;background:#05070b;border-radius:24px;overflow:hidden;width:86%;max-width:980px;aspect-ratio:1.45/1;margin:0 auto 24px;display:flex;align-items:center;justify-content:center}
+  .video-crop-frame{
+    position:relative;
+    height:100%;
+    aspect-ratio:1/1;
+    overflow:hidden;
+    background:#000;
+    border-radius:0;
+    flex:none;
+  }
+  .video-crop-frame video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:50% 50%;
+    display:block;
+    background:#000;
+    transform:scale(1.045);
+    transform-origin:center center;
+  }
   .stream-wrap img{width:100%;height:100%;object-fit:contain;display:block}
   .stream-offline{color:#9ca3af;font-size:14px;font-weight:700;text-align:center;padding:20px}
   .stream-overlay{position:absolute;bottom:14px;left:14px;right:14px;display:flex;justify-content:space-between;align-items:center}
   .live-badge{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:900}
-  .btn-row{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap}
+  .btn-row{display:flex;gap:10px;width:86%;max-width:980px;margin:0 auto 24px;flex-wrap:wrap}
   .ctrl-btn{height:44px;padding:0 20px;border:1px solid #dde1ea;border-radius:12px;background:#fff;font-size:13px;font-weight:800;cursor:pointer;color:#333}
   .ctrl-btn.active{background:#30375f;color:#fff;border-color:#30375f}
 
-  .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-  .summary-card{background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);text-align:center}
-  .summary-label{font-size:11px;font-weight:900;color:#8090a5;margin-bottom:8px}
-  .summary-val{font-size:22px;font-weight:900}
   @media(max-width:900px){
     .sidebar{display:none}
     main{margin-left:0!important;padding:24px 18px 80px}
-    .summary-grid{grid-template-columns:repeat(2,1fr)}
+    .stream-wrap{width:100%;aspect-ratio:1.35/1}
+    .video-crop-frame{height:100%}
+    .btn-row{width:100%}
   }
 </style>
 {% endblock %}
@@ -100,20 +117,21 @@
 
     <!-- Raspberry Pi 카메라 데모 영상 -->
     <div class="stream-wrap" id="streamWrap" style="position:relative;overflow:hidden;background:#0b1220">
-      <video id="demoStream"
-             autoplay muted loop playsinline preload="auto"
-             webkit-playsinline="true"
-             style="width:100%;height:100%;object-fit:cover;display:block;background:#0b1220">
-        <source src="{% static 'monitoring/videos/pi_camera_demo.mp4' %}" type="video/mp4">
-        브라우저에서 영상을 재생할 수 없습니다.
-      </video>
+      <div class="video-crop-frame" id="videoFrame">
+        <video id="demoStream"
+               autoplay muted loop playsinline preload="auto"
+               webkit-playsinline="true">
+          <source src="{% static 'monitoring/videos/pi_camera_demo.mp4' %}" type="video/mp4">
+          브라우저에서 영상을 재생할 수 없습니다.
+        </video>
+      </div>
       <div class="stream-overlay">
         <div class="live-badge">
           <span id="liveDot" style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:pulse 1s infinite"></span>
           LIVE
         </div>
         <div style="position:absolute;right:14px;bottom:12px;padding:6px 10px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:800">
-          Raspberry Pi Camera · 1280×720
+          Raspberry Pi Camera
         </div>
       </div>
     </div>
@@ -129,25 +147,6 @@
       </span>
     </div>
 
-    <!-- AI 요약 -->
-    <div class="summary-grid">
-      <div class="summary-card">
-        <div class="summary-label">개체 수</div>
-        <div class="summary-val" id="sumCount">--</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">활동량</div>
-        <div class="summary-val" id="sumActivity">--</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">주 체류구역</div>
-        <div class="summary-val" id="sumZone">--</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">상태</div>
-        <div class="summary-val" id="sumStatus" style="font-size:16px;color:#6b7280">--</div>
-      </div>
-    </div>
 
   </div>
 </main>
@@ -184,7 +183,7 @@ function toggleZone(){
   const btn=document.getElementById('zoneBtn');
   let cv=document.getElementById('zoneCv');
   if(zoneOn){
-    if(!cv){cv=document.createElement('canvas');cv.id='zoneCv';cv.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:.6;';document.getElementById('streamWrap').appendChild(cv);}
+    if(!cv){cv=document.createElement('canvas');cv.id='zoneCv';cv.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:.6;';document.getElementById('videoFrame').appendChild(cv);}
     const w=cv.parentElement.offsetWidth,h=cv.parentElement.offsetHeight;
     cv.width=w;cv.height=h;
     const ctx=cv.getContext('2d');
@@ -198,37 +197,6 @@ function toggleZone(){
 }
 function toggleFs(){const el=document.getElementById('streamWrap');if(!document.fullscreenElement)el.requestFullscreen?.();else document.exitFullscreen?.();}
 
-function f2(v){const n=parseFloat(v);return isNaN(n)?'--':n.toFixed(2);}
-async function sf(url){try{const r=await fetch(url);return r.ok?await r.json():null;}catch{return null;}}
-
-const ZONE_KO={TOP:'상층',MID:'중층',BOT:'하층'};
-
-// AI 요약 카드
-async function fetchBeh(){
-  const d=await sf(`/monitoring/api/behavior/latest/?tank_id=${TANK_ID}`);
-  const STATUS_KO={EXCELLENT:'매우 좋음',GOOD:'좋음',NORMAL:'정상',WARNING:'주의',POOR:'나쁨'};
-  const STATUS_C={EXCELLENT:'#10b981',GOOD:'#3b82f6',NORMAL:'#6b7280',WARNING:'#f59e0b',POOR:'#ef4444'};
-
-  if(!d){
-    document.getElementById('sumCount').textContent='2마리';
-    document.getElementById('sumActivity').textContent='--';
-    document.getElementById('sumZone').textContent='--';
-    document.getElementById('sumStatus').textContent='데이터 없음';
-    return;
-  }
-
-  document.getElementById('sumCount').textContent='2마리';
-  document.getElementById('sumActivity').textContent=f2(d.activity_level);
-  document.getElementById('sumZone').textContent=ZONE_KO[d.dominant_zone]||d.dominant_zone||'--';
-
-  const el=document.getElementById('sumStatus');
-  el.textContent=STATUS_KO[d.status]||d.status||'--';
-  el.style.color=STATUS_C[d.status]||'#6b7280';
-}
-
-// 요약 데이터 갱신
-fetchBeh();
-setInterval(fetchBeh,30000);
 
 // 카메라 페이지 진입 즉시 데모 영상을 자동 재생합니다.
 const demoVideo = document.getElementById('demoStream');
