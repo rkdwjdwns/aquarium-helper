@@ -46,6 +46,9 @@ WATER_STANDARDS = {
     'ph_optimal_hi':  7.5,
     'do_min':         5.0,
     'do_danger':      4.0,
+    'turbidity_max':  450.0,
+    'turbidity_ok':   440.0,
+    'turbidity_warn': 500.0,
 }
 
 STATUS_KO = {
@@ -237,6 +240,8 @@ def _check_state_events(tank: Tank, reading: SensorReading) -> list:
         triggered.append(('DO-LOW-001', reading.dissolved_oxygen))
     if reading.ph < s['ph_min'] or reading.ph > s['ph_max']:
         triggered.append(('PH-OUT-001', reading.ph))
+    if reading.turbidity > s['turbidity_max']:
+        triggered.append(('TURB-HIGH-001', reading.tds_ppm))
 
     triggered_codes = {code for code, _ in triggered}
     created_codes = []
