@@ -867,6 +867,7 @@ const C_CONFIG = {
 
 let metric = 'temp';
 let history = {{ chart_history|safe|default:"{}" }};
+let mainHistorySignature = JSON.stringify(history || {});
 
 /*
  * Raspberry Pi dashboard-v2 API 호환
@@ -1149,8 +1150,15 @@ async function poll(){
 
     const nextHistory = historyFromApiPayload(d);
     if(nextHistory.labels.length){
-      history = nextHistory;
-      setChart(metric);
+      const nextHistorySignature = JSON.stringify(nextHistory);
+
+      // 24시간 그래프 데이터가 실제로 달라졌을 때만 다시 그림.
+      // 센서 카드와 상세 최근 12회 데이터는 계속 5초마다 갱신된다.
+      if(nextHistorySignature !== mainHistorySignature){
+        history = nextHistory;
+        mainHistorySignature = nextHistorySignature;
+        setChart(metric);
+      }
     }
 
     const banner = document.getElementById('staleBanner');

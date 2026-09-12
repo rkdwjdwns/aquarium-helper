@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, StreamingHttpResponse
 from django.core.paginator import Paginator
+from django.core.cache import cache
 from django.conf import settings
 from django.views.decorators.http import require_POST
 from django.apps import apps
@@ -80,17 +81,16 @@ def _get_recent_chart_history(tank, limit=12):
 
 def _get_24h_chart_history(tank):
     """
-    메인 수질 트렌드용.
+    메인 수질 트렌드용 최적화 버전.
 
-    현재 시각에서 가장 최근에 지난 짝수 정각을 마지막 기준점으로 잡고,
-    그 시각까지 최근 24시간 범위 안에서 2시간 간격 12포인트를 만든다.
+    - 현재보다 같거나 이전인 가장 가까운 짝수 정각을 마지막 기준점으로 사용
+    - 최근 24시간을 2시간 간격 12포인트로 표시
+    - 24시간치 SensorReading 전체를 메모리로 읽지 않음
+    - 각 기준 시각마다 직전 30분 범위의 가장 최신 기록 1개만 조회
+    - 결과를 Django cache에 저장해서 5초 폴링마다 DB를 다시 읽지 않음
 
     예: 현재 21:39 -> 마지막 기준점 20:00
         전날 22:00, 00:00, 02:00, ... , 오늘 20:00
-
-    각 기준 시각에서는 ±1시간 안에 존재하는 SensorReading 중
-    기준 시각과 가장 가까운 측정값 하나를 사용한다.
-    데이터가 없으면 None으로 둔다.
     """
     if not tank:
         return {
@@ -103,71 +103,69 @@ def _get_24h_chart_history(tank):
 
     now = timezone.localtime()
 
+    # 현재 시각보다 같거나 이전인 가장 가까운 짝수 정각
     end = now.replace(minute=0, second=0, microsecond=0)
     end = end.replace(hour=(end.hour // 2) * 2)
+
+    # 같은 2시간 구간에서는 같은 캐시를 재사용
+    cache_key = f"dashboard:24h-history:tank:{tank.id}:end:{end.strftime('%Y%m%d%H')}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
 
     targets = [
         end - timedelta(hours=2 * (11 - i))
         for i in range(12)
     ]
 
-    query_start = targets[0] - timedelta(hours=1)
-    query_end = min(now, targets[-1] + timedelta(hours=1))
-
-    readings = list(
-        SensorReading.objects
-        .filter(
-            tank=tank,
-            created_at__gte=query_start,
-            created_at__lte=query_end,
-        )
-        .only(
-            "created_at",
-            "temperature",
-            "ph",
-            "dissolved_oxygen",
-            "tds_ppm",
-        )
-        .order_by("created_at")
-    )
-
     sampled = []
 
     for target in targets:
-        nearest = None
-        nearest_distance = None
+        # 기준시각 바로 이전의 실제 센서값을 사용.
+        # 30분 이상 데이터가 없었다면 해당 포인트는 None 처리.
+        row = (
+            SensorReading.objects
+            .filter(
+                tank=tank,
+                created_at__lte=target,
+                created_at__gte=target - timedelta(minutes=30),
+            )
+            .order_by('-created_at')
+            .values(
+                "temperature",
+                "ph",
+                "dissolved_oxygen",
+                "tds_ppm",
+            )
+            .first()
+        )
+        sampled.append(row)
 
-        for reading in readings:
-            reading_time = timezone.localtime(reading.created_at)
-            distance = abs((reading_time - target).total_seconds())
-
-            if distance <= 3600 and (
-                nearest_distance is None or distance < nearest_distance
-            ):
-                nearest = reading
-                nearest_distance = distance
-
-        sampled.append(nearest)
-
-    return {
+    result = {
         "labels": [target.strftime("%m/%d %H:%M") for target in targets],
         "temp": [
-            reading.temperature if reading is not None else None
-            for reading in sampled
+            row["temperature"] if row is not None else None
+            for row in sampled
         ],
         "ph": [
-            reading.ph if reading is not None else None
-            for reading in sampled
+            row["ph"] if row is not None else None
+            for row in sampled
         ],
         "do": [
-            reading.dissolved_oxygen if reading is not None else None
-            for reading in sampled
+            row["dissolved_oxygen"] if row is not None else None
+            for row in sampled
         ],
         "tds": [
-            reading.tds_ppm if reading is not None else None
-            for reading in sampled
+            row["tds_ppm"] if row is not None else None
+            for row in sampled
         ],
     }
+
+    # 센서 지연/재전송이 있어도 너무 오래 고정되지 않도록 10분 캐시.
+    # 5초 polling 기준 약 120회의 요청이 같은 결과를 재사용한다.
+    cache.set(cache_key, result, timeout=600)
+
+    return result
 
 
 def _get_chart_history(tank):
