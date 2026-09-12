@@ -46,9 +46,9 @@ WATER_STANDARDS = {
     'ph_optimal_hi':  7.5,
     'do_min':         5.0,
     'do_danger':      4.0,
-    'turbidity_max':  450.0,
-    'turbidity_ok':   440.0,
-    'turbidity_warn': 500.0,
+    'turbidity_max':  50.0,
+    'turbidity_ok':   20.0,
+    'turbidity_warn': 100.0,
 }
 
 STATUS_KO = {
@@ -120,7 +120,7 @@ def _check_api_key(request) -> bool:
 # 수질 점수 계산 (금붕어 기준)
 # ──────────────────────────────────────────────
 
-def _calc_water_quality(temp, ph, do_val, tds_ppm=None) -> int:
+def _calc_water_quality(temp, ph, do_val, turbidity) -> int:
     score = 100
     s = WATER_STANDARDS
 
@@ -141,7 +141,13 @@ def _calc_water_quality(temp, ph, do_val, tds_ppm=None) -> int:
     elif do_val < s['do_min']:
         score -= 15
 
-    # TDS는 현재 모니터링 전용이며 종합 수질점수에는 반영하지 않는다.
+    if turbidity > s['turbidity_warn']:
+        score -= 30
+    elif turbidity > s['turbidity_max']:
+        score -= 15
+    elif turbidity > 30:
+        score -= 5
+
     return max(score, 0)
 
 
@@ -149,25 +155,8 @@ def _calc_water_quality(temp, ph, do_val, tds_ppm=None) -> int:
 # 장치 자동 제어 (금붕어 기준)
 # ──────────────────────────────────────────────
 
-def _schedule_target(on_hour: int, off_hour: int, current_hour: int) -> bool:
-    """Hour-based schedule. Equal ON/OFF means 24-hour ON (safe filter default)."""
-    on_hour %= 24
-    off_hour %= 24
-    if on_hour == off_hour:
-        return True
-    if on_hour < off_hour:
-        return on_hour <= current_hour < off_hour
-    return current_hour >= on_hour or current_hour < off_hour
-
-
 def _auto_control(tank: Tank, reading: SensorReading) -> list:
-    """Server-owned automatic control: HEATER, COOLING and FILTER only.
-
-    HEATER/COOLING use the existing Django Tank hysteresis values.
-    FILTER uses a time schedule. AIR_PUMP is always-on and never controlled here.
-    LIGHT is owned by Raspberry Pi schedule + AI REST supervisory control.
-    """
-    actions = []
+    actions  = []
     controls = {d.type: d for d in DeviceControl.objects.filter(tank=tank, is_auto=True)}
 
     def _set_device(device_type: str, turn_on: bool, reason: str):
@@ -178,40 +167,51 @@ def _auto_control(tank: Tank, reading: SensorReading) -> list:
             state = "ON" if turn_on else "OFF"
             actions.append(f"{device_type}:{state}")
             EventLog.objects.create(
-                tank=tank, level='INFO', event_type='DEVICE_CHANGE',
+                tank=tank, level='INFO',
                 message=f"[자동제어] {device.get_type_display()} {state} — {reason}"
             )
 
-    temp = float(reading.temperature)
-    heater_on = float(getattr(tank, 'heater_on_temp', 21.0))
-    heater_off = float(getattr(tank, 'heater_off_temp', 22.0))
-    cooling_on = float(getattr(tank, 'cooling_on_temp', 24.0))
-    cooling_off = float(getattr(tank, 'cooling_off_temp', 23.0))
+    temp = reading.temperature
+    do_v = reading.dissolved_oxygen
+    turb = reading.turbidity
+    ph   = reading.ph
+
+    heater_on   = getattr(tank, 'heater_on_temp',   WATER_STANDARDS['temp_min'])
+    heater_off  = getattr(tank, 'heater_off_temp',  WATER_STANDARDS['temp_optimal'])
+    cooling_on  = getattr(tank, 'cooling_on_temp',  WATER_STANDARDS['temp_max'])
+    cooling_off = getattr(tank, 'cooling_off_temp', WATER_STANDARDS['temp_max'] - 1)
+    filter_on   = getattr(tank, 'filter_on_ntu',    WATER_STANDARDS['turbidity_max'])
+    filter_off  = getattr(tank, 'filter_off_ntu',   WATER_STANDARDS['turbidity_ok'])
+    airpump_on  = getattr(tank, 'airpump_on_do',    WATER_STANDARDS['do_danger'])
+    airpump_off = getattr(tank, 'airpump_off_do',   6.0)
+    ph_min      = getattr(tank, 'ph_min',           WATER_STANDARDS['ph_min'])
+    ph_max      = getattr(tank, 'ph_max',           WATER_STANDARDS['ph_max'])
+    turb_warn   = getattr(tank, 'turbidity_max',    WATER_STANDARDS['turbidity_max']) * 2
 
     if temp < heater_on:
-        _set_device('HEATER', True, f"수온 {temp:.1f}°C < {heater_on:.1f}°C")
-    elif temp >= heater_off:
-        _set_device('HEATER', False, f"수온 {temp:.1f}°C >= {heater_off:.1f}°C")
+        _set_device('HEATER', True,  f"수온 {temp}°C → {heater_on}°C 미달")
+    elif temp > heater_off:
+        _set_device('HEATER', False, f"수온 {temp}°C → {heater_off}°C 도달")
 
     if temp > cooling_on:
-        _set_device('COOLING', True, f"수온 {temp:.1f}°C > {cooling_on:.1f}°C")
+        _set_device('COOLING', True,  f"수온 {temp}°C → {cooling_on}°C 초과")
     elif temp <= cooling_off:
-        _set_device('COOLING', False, f"수온 {temp:.1f}°C <= {cooling_off:.1f}°C")
+        _set_device('COOLING', False, f"수온 {temp}°C → 정상 범위")
 
-    now_hour = timezone.localtime().hour
-    filter_on = int(getattr(tank, 'filter_on_hour', 0))
-    filter_off = int(getattr(tank, 'filter_off_hour', 0))
-    filter_target = _schedule_target(filter_on, filter_off, now_hour)
-    schedule_text = "24시간" if filter_on % 24 == filter_off % 24 else f"{filter_on:02d}:00~{filter_off:02d}:00"
-    _set_device('FILTER', filter_target, f"시간 스케줄 {schedule_text}")
+    if turb > filter_on:
+        _set_device('FILTER', True,  f"탁도 {turb} NTU → {filter_on} 초과")
+    elif turb <= filter_off:
+        _set_device('FILTER', False, f"탁도 {turb} NTU → 정상")
 
-    ph_min = float(getattr(tank, 'ph_min', WATER_STANDARDS['ph_min']))
-    ph_max = float(getattr(tank, 'ph_max', WATER_STANDARDS['ph_max']))
-    if reading.ph < ph_min or reading.ph > ph_max:
-        EventLog.objects.create(
-            tank=tank, level='DANGER', event_type='SENSOR_ALERT',
-            message=f"pH 이상: {reading.ph}"
-        )
+    if do_v < airpump_on:
+        _set_device('AIR_PUMP', True,  f"DO {do_v} mg/L → {airpump_on} 위험")
+    elif do_v >= airpump_off:
+        _set_device('AIR_PUMP', False, f"DO {do_v} mg/L → 정상")
+
+    if ph < ph_min or ph > ph_max:
+        EventLog.objects.create(tank=tank, level='DANGER', message=f"pH 이상: {ph}")
+    if turb > turb_warn:
+        EventLog.objects.create(tank=tank, level='WARNING', message=f"탁도 위험: {turb} NTU")
 
     return actions
 
@@ -240,8 +240,8 @@ def _check_state_events(tank: Tank, reading: SensorReading) -> list:
         triggered.append(('DO-LOW-001', reading.dissolved_oxygen))
     if reading.ph < s['ph_min'] or reading.ph > s['ph_max']:
         triggered.append(('PH-OUT-001', reading.ph))
-    if reading.tds_ppm > s['turbidity_max']:
-        triggered.append(('TURB-HIGH-001', reading.tds_ppm))
+    if reading.turbidity > s['turbidity_max']:
+        triggered.append(('TURB-HIGH-001', reading.turbidity))
 
     triggered_codes = {code for code, _ in triggered}
     created_codes = []
@@ -254,16 +254,10 @@ def _check_state_events(tank: Tank, reading: SensorReading) -> list:
             continue
 
         # ✅ 같은 code로 미해결 이벤트가 이미 있으면 새로 만들지 않음 (중복 방지)
-        open_event = TankStateEvent.objects.filter(
+        already_open = TankStateEvent.objects.filter(
             tank=tank, state_code=state_code, is_resolved=False
-        ).first()
-
-        if open_event:
-            # 활성 상태가 계속되는 동안에도 최신 측정값으로 갱신
-            open_event.current_value = value
-            open_event.evidence = {'reading_id': reading.id, 'value': value}
-            open_event.save(update_fields=['current_value', 'evidence'])
-        else:
+        ).exists()
+        if not already_open:
             TankStateEvent.objects.create(
                 tank=tank, state_code=state_code,
                 current_value=value,
@@ -279,23 +273,6 @@ def _check_state_events(tank: Tank, reading: SensorReading) -> list:
         ).update(is_resolved=True, resolved_at=timezone.now())
 
     return created_codes
-
-
-def _sync_latest_sensor_states(tank: Tank) -> None:
-    """최신 SensorReading 기준으로 센서 상태 이벤트를 다시 동기화한다.
-
-    서버 재배포 전 생성된 미해결 이벤트가 남아 있거나,
-    상태 조회 시점에 POST 처리가 누락된 경우에도
-    최신 DB 센서값을 기준으로 생성/해제를 보정한다.
-    """
-    latest = (
-        SensorReading.objects
-        .filter(tank=tank)
-        .order_by('-created_at')
-        .first()
-    )
-    if latest is not None:
-        _check_state_events(tank, latest)
 
 
 # ──────────────────────────────────────────────
@@ -381,24 +358,24 @@ def receive_sensor_data(request):
         temp      = float(data['temperature'])
         ph        = float(data['ph'])
         do_val    = float(data.get('dissolved_oxygen', 0.0))
-        tds_ppm   = float(data.get('tds_ppm', data.get('turbidity', 0.0)))
+        turbidity = float(data.get('turbidity', 0.0))
         w_level   = float(data.get('water_level', 100.0))
     except (TypeError, ValueError) as e:
         return _error(f"숫자 변환 오류: {e}")
 
-    score   = _calc_water_quality(temp, ph, do_val, tds_ppm)
+    score   = _calc_water_quality(temp, ph, do_val, turbidity)
     reading = SensorReading.objects.create(
         tank=tank, temperature=temp, ph=ph,
-        dissolved_oxygen=do_val, tds_ppm=tds_ppm,
+        dissolved_oxygen=do_val, turbidity=turbidity,
         water_level=w_level, water_quality_score=score,
     )
     actions = _auto_control(tank, reading)
     new_state_events = _check_state_events(tank, reading)
     recovery_status = _check_data_freshness(tank)   # ✅ 추가 — 데이터가 들어왔다는 건 곧 복구 신호
-    logger.info(f"[센서] tank={tank.id} temp={temp} ph={ph} do={do_val} tds={tds_ppm}ppm score={score}")
+    logger.info(f"[센서] tank={tank.id} temp={temp} ph={ph} do={do_val} score={score}")
 
     return _ok({
-        'reading_id': reading.id, 'water_quality_score': score, 'tds_ppm': tds_ppm,
+        'reading_id': reading.id, 'water_quality_score': score,
         'auto_actions': actions,
         'new_state_events': new_state_events,
         'data_recovery': recovery_status,   # ✅ 추가 — 'recovered'면 방금 복구된 것
@@ -956,14 +933,16 @@ def get_abr(request):
     try:
         b = FishBehavior.objects.filter(tank_id=tank_id).latest('created_at')
         abr_rate = round(float(b.abr_score or 0) * 100, 1)
-        status = '이상' if abr_rate >= 13.0 else '정상'
+        if   abr_rate <= 10: status = '정상'
+        elif abr_rate <= 30: status = '주의'
+        else:                status = '위험'
 
         anomaly_count = FishBehavior.objects.filter(tank_id=tank_id, is_anomaly=True).count()
 
         fish_list = []
         for d in b.fish_details.all().order_by('fish_id'):
             rate = round(float(d.abr_score or 0) * 100, 1)
-            f_status = '이상' if rate >= 13.0 else '정상'
+            f_status = '정상' if rate <= 10 else ('관찰' if rate <= 30 else '위험')
             fish_list.append({'fish_id': d.fish_id, 'abr_rate': rate, 'status': f_status})
 
         return JsonResponse({
@@ -1131,8 +1110,6 @@ def get_active_alerts(request):
     # ✅ 조회 전에 사용자의 모든 어항에 대해 미수신 여부를 먼저 갱신
     user_tanks = Tank.objects.filter(user=request.user)
     for t in user_tanks:
-        # 최신 DB 센서값으로 상태 이벤트를 먼저 재동기화
-        _sync_latest_sensor_states(t)
         _check_data_freshness(t)
 
     events = (
@@ -1180,11 +1157,6 @@ def get_active_states(request):
         tank = Tank.objects.get(id=tank_id)
     except Tank.DoesNotExist:
         return JsonResponse({'states': []})
-
-    # 조회 직전에 최신 SensorReading으로 상태를 재판정한다.
-    # 예: 과거 TURB-HIGH-001이 미해결로 남아 있어도
-    # 최신 tds_ppm이 450 이하이면 여기서 자동 resolved 처리된다.
-    _sync_latest_sensor_states(tank)
 
     events = (
         TankStateEvent.objects
