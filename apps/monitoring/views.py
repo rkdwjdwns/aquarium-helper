@@ -85,12 +85,13 @@ def _get_24h_chart_history(tank):
 
     - 현재보다 같거나 이전인 가장 가까운 짝수 정각을 마지막 기준점으로 사용
     - 최근 24시간을 2시간 간격 12포인트로 표시
-    - 24시간치 SensorReading 전체를 메모리로 읽지 않음
-    - 각 기준 시각마다 직전 30분 범위의 가장 최신 기록 1개만 조회
-    - 결과를 Django cache에 저장해서 5초 폴링마다 DB를 다시 읽지 않음
+    - 24시간치 전체 SensorReading을 메모리로 읽지 않음
+    - 각 기준 시각 이후 30분 안의 첫 측정값을 대표값으로 사용
+    - 마지막(현재) 구간은 아직 30분이 지나지 않았어도 현재까지 들어온 값을 표시
+    - 짧은 캐시를 사용해 5초 polling의 DB 부하는 줄이면서 새 시각 데이터도 빠르게 반영
 
-    예: 현재 21:39 -> 마지막 기준점 20:00
-        전날 22:00, 00:00, 02:00, ... , 오늘 20:00
+    예: 현재 22:17
+        전날 00:00, 02:00, ... , 오늘 20:00, 22:00
     """
     if not tank:
         return {
@@ -107,8 +108,9 @@ def _get_24h_chart_history(tank):
     end = now.replace(minute=0, second=0, microsecond=0)
     end = end.replace(hour=(end.hour // 2) * 2)
 
-    # 같은 2시간 구간에서는 같은 캐시를 재사용
-    cache_key = f"dashboard:24h-history:tank:{tank.id}:end:{end.strftime('%Y%m%d%H')}"
+    # 2시간 구간 키는 유지하되 캐시는 짧게 사용한다.
+    # 22:00 직후 아직 센서값이 없을 때 None이 10분간 고정되는 문제를 방지.
+    cache_key = f"dashboard:24h-history:v2:tank:{tank.id}:end:{end.strftime('%Y%m%d%H')}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -121,24 +123,33 @@ def _get_24h_chart_history(tank):
     sampled = []
 
     for target in targets:
-        # 기준시각 바로 이전의 실제 센서값을 사용.
-        # 30분 이상 데이터가 없었다면 해당 포인트는 None 처리.
-        row = (
-            SensorReading.objects
-            .filter(
-                tank=tank,
-                created_at__lte=target,
-                created_at__gte=target - timedelta(minutes=30),
+        # 기존 코드는 target 이전 30분만 조회했기 때문에
+        # 20:00:05, 22:00:05처럼 정각 직후 들어온 실제 측정값을 놓쳤다.
+        #
+        # 이제 각 정각부터 +30분 범위에서 첫 실제 측정값을 사용한다.
+        # 현재 구간은 미래 시각을 조회하지 않고 now까지만 제한한다.
+        window_end = min(target + timedelta(minutes=30), now)
+
+        if window_end < target:
+            row = None
+        else:
+            row = (
+                SensorReading.objects
+                .filter(
+                    tank=tank,
+                    created_at__gte=target,
+                    created_at__lte=window_end,
+                )
+                .order_by('created_at')
+                .values(
+                    "temperature",
+                    "ph",
+                    "dissolved_oxygen",
+                    "tds_ppm",
+                )
+                .first()
             )
-            .order_by('-created_at')
-            .values(
-                "temperature",
-                "ph",
-                "dissolved_oxygen",
-                "tds_ppm",
-            )
-            .first()
-        )
+
         sampled.append(row)
 
     result = {
@@ -161,9 +172,9 @@ def _get_24h_chart_history(tank):
         ],
     }
 
-    # 센서 지연/재전송이 있어도 너무 오래 고정되지 않도록 10분 캐시.
-    # 5초 polling 기준 약 120회의 요청이 같은 결과를 재사용한다.
-    cache.set(cache_key, result, timeout=600)
+    # 5초 polling마다 DB를 조회하지 않으면서도,
+    # 정각 직후 새 데이터가 최대 약 1분 내 그래프에 반영되도록 한다.
+    cache.set(cache_key, result, timeout=60)
 
     return result
 
