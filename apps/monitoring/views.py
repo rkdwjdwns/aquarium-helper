@@ -48,18 +48,134 @@ def index(request):
     })
 
 
-def _get_chart_history(tank):
+def _get_recent_chart_history(tank, limit=12):
+    """환경정보 상세 그래프용: 실제 최근 센서 측정값 limit개."""
     if not tank:
-        return json.dumps({})
-    readings = list(SensorReading.objects.filter(tank=tank).order_by('-created_at')[:12])
+        return {
+            "labels": [],
+            "temp": [],
+            "ph": [],
+            "do": [],
+            "tds": [],
+        }
+
+    readings = list(
+        SensorReading.objects
+        .filter(tank=tank)
+        .order_by('-created_at')[:limit]
+    )
     readings.reverse()
-    return json.dumps({
-        "labels": [r.created_at.strftime("%H:%M") for r in readings],
-        "temp":   [r.temperature         for r in readings],
-        "ph":     [r.ph                  for r in readings],
-        "do":     [r.dissolved_oxygen   for r in readings],
-        "tds":    [r.tds_ppm            for r in readings],
-    }, ensure_ascii=False)
+
+    return {
+        "labels": [
+            timezone.localtime(r.created_at).strftime("%H:%M")
+            for r in readings
+        ],
+        "temp": [r.temperature for r in readings],
+        "ph": [r.ph for r in readings],
+        "do": [r.dissolved_oxygen for r in readings],
+        "tds": [r.tds_ppm for r in readings],
+    }
+
+
+def _get_24h_chart_history(tank):
+    """
+    메인 수질 트렌드용.
+
+    현재 시각에서 가장 최근에 지난 짝수 정각을 마지막 기준점으로 잡고,
+    그 시각까지 최근 24시간 범위 안에서 2시간 간격 12포인트를 만든다.
+
+    예: 현재 21:39 -> 마지막 기준점 20:00
+        전날 22:00, 00:00, 02:00, ... , 오늘 20:00
+
+    각 기준 시각에서는 ±1시간 안에 존재하는 SensorReading 중
+    기준 시각과 가장 가까운 측정값 하나를 사용한다.
+    데이터가 없으면 None으로 둔다.
+    """
+    if not tank:
+        return {
+            "labels": [],
+            "temp": [],
+            "ph": [],
+            "do": [],
+            "tds": [],
+        }
+
+    now = timezone.localtime()
+
+    end = now.replace(minute=0, second=0, microsecond=0)
+    end = end.replace(hour=(end.hour // 2) * 2)
+
+    targets = [
+        end - timedelta(hours=2 * (11 - i))
+        for i in range(12)
+    ]
+
+    query_start = targets[0] - timedelta(hours=1)
+    query_end = min(now, targets[-1] + timedelta(hours=1))
+
+    readings = list(
+        SensorReading.objects
+        .filter(
+            tank=tank,
+            created_at__gte=query_start,
+            created_at__lte=query_end,
+        )
+        .only(
+            "created_at",
+            "temperature",
+            "ph",
+            "dissolved_oxygen",
+            "tds_ppm",
+        )
+        .order_by("created_at")
+    )
+
+    sampled = []
+
+    for target in targets:
+        nearest = None
+        nearest_distance = None
+
+        for reading in readings:
+            reading_time = timezone.localtime(reading.created_at)
+            distance = abs((reading_time - target).total_seconds())
+
+            if distance <= 3600 and (
+                nearest_distance is None or distance < nearest_distance
+            ):
+                nearest = reading
+                nearest_distance = distance
+
+        sampled.append(nearest)
+
+    return {
+        "labels": [target.strftime("%m/%d %H:%M") for target in targets],
+        "temp": [
+            reading.temperature if reading is not None else None
+            for reading in sampled
+        ],
+        "ph": [
+            reading.ph if reading is not None else None
+            for reading in sampled
+        ],
+        "do": [
+            reading.dissolved_oxygen if reading is not None else None
+            for reading in sampled
+        ],
+        "tds": [
+            reading.tds_ppm if reading is not None else None
+            for reading in sampled
+        ],
+    }
+
+
+def _get_chart_history(tank):
+    """페이지 최초 로딩용 메인 수질 트렌드 JSON."""
+    return json.dumps(
+        _get_24h_chart_history(tank),
+        ensure_ascii=False,
+    )
 
 
 def _get_growth_chart(tank):
@@ -162,12 +278,18 @@ def dashboard(request, tank_id=None):
 
 @login_required
 def dashboard_data(request, tank_id):
-    tank     = get_object_or_404(Tank, id=tank_id, user=request.user)
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+
     from .api_views import _check_data_freshness
-    _check_data_freshness(tank)      
-    latest   = SensorReading.objects.filter(tank=tank).order_by('-created_at').first()
-    readings = list(SensorReading.objects.filter(tank=tank).order_by('-created_at')[:12])
-    readings.reverse()
+    _check_data_freshness(tank)
+
+    latest = (
+        SensorReading.objects
+        .filter(tank=tank)
+        .order_by('-created_at')
+        .first()
+    )
+
     sensor = None
     if latest:
         sensor = {
@@ -177,15 +299,20 @@ def dashboard_data(request, tank_id):
             "tds_ppm":              latest.tds_ppm,
             "water_level":          latest.water_level,
             "water_quality_score":  latest.water_quality_score,
+            "measured_at":          latest.created_at.isoformat(),
         }
-    history = {
-        "labels": [r.created_at.strftime("%H:%M") for r in readings],
-        "temp":   [r.temperature      for r in readings],
-        "ph":     [r.ph               for r in readings],
-        "do":     [r.dissolved_oxygen for r in readings],
-        "tds":    [r.tds_ppm          for r in readings],
-    }
-    return JsonResponse({"sensor": sensor, "history": history})
+
+    # 메인 수질 트렌드: 짝수 정각 기준 최근 24시간 / 2시간 간격
+    history = _get_24h_chart_history(tank)
+
+    # 환경정보 상세 그래프: 기존과 동일하게 실제 최근 측정 12회
+    detail_history = _get_recent_chart_history(tank, limit=12)
+
+    return JsonResponse({
+        "sensor": sensor,
+        "history": history,
+        "detail_history": detail_history,
+    })
 
 
 @login_required

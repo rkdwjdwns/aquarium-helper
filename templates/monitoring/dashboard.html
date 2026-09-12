@@ -404,7 +404,7 @@
     <!-- 트렌드 차트 -->
     <div class="chart-card">
       <div class="chart-title">
-        📈 수질 트렌드 (최근 12회)
+        📈 수질 트렌드 (최근 24시간 · 2시간 간격)
         <div class="chart-tabs">
           <button class="chart-tab active" onclick="setChart('temp',this)">수온</button>
           <button class="chart-tab" onclick="setChart('ph',this)">pH</button>
@@ -517,9 +517,9 @@
             <div class="env-status-desc" id="envDetailStatusDescription"></div>
           </div>
           <div class="env-white-card">
-            <div class="env-card-label">최근 측정</div>
+            <div class="env-card-label">이상 발생 시점</div>
             <div style="font-size:22px;font-weight:900" id="envDetailLastUpdated">-</div>
-            <div class="env-range-text">센서 데이터 기준</div>
+            <div class="env-range-text">상태코드 감지 시각 기준</div>
           </div>
         </section>
 
@@ -551,7 +551,7 @@
           <div class="env-trend-head">
             <div>
               <div class="env-trend-title">최근 센서 변화</div>
-              <div class="env-trend-meta">최근 24시간 · 2시간 간격 12포인트</div>
+              <div class="env-trend-meta">최근 측정 12회</div>
             </div>
             <div class="env-trend-meta" id="envDetailTrendSensorName">수온</div>
           </div>
@@ -1382,8 +1382,28 @@ function getSensorFromDashboard(key){
   return null;
 }
 
+function getDetailHistoryFromDashboard(){
+  const raw = latestDashboard?.detail_history;
+
+  if(raw){
+    return {
+      labels: Array.isArray(raw.labels) ? raw.labels : [],
+      temp: Array.isArray(raw.temp) ? raw.temp : [],
+      ph: Array.isArray(raw.ph) ? raw.ph : [],
+      do: Array.isArray(raw.do) ? raw.do : [],
+      tds: Array.isArray(raw.tds) ? raw.tds :
+           Array.isArray(raw.tds_ppm) ? raw.tds_ppm :
+           Array.isArray(raw.turb) ? raw.turb :
+           Array.isArray(raw.turbidity) ? raw.turbidity : []
+    };
+  }
+
+  // 하위 호환: detail_history가 없는 서버에서는 기존 history 사용
+  return historyFromApiPayload(latestDashboard || {});
+}
+
 function getTrendFromDashboard(key){
-  const h = historyFromApiPayload(latestDashboard || {});
+  const h = getDetailHistoryFromDashboard();
   if(!h) return [];
 
   if(key === 'temperature') return h.temp;
@@ -1595,7 +1615,7 @@ function buildEnvironmentDetailSensor(key){
     lastUpdated:
       state && state.detected_at
         ? formatDate(state.detected_at)
-        : getDashboardUpdatedAt()
+        : '-' 
   };
 
   return sensor;
@@ -1652,7 +1672,8 @@ function renderEnvironmentDetailSensor(key){
 
   makeEnvDetailChart(sensor.trend, envDetailColorMap[key]);
 
-  const labels = latestDashboard?.history?.labels || [];
+  const detailHistory = getDetailHistoryFromDashboard();
+  const labels = Array.isArray(detailHistory?.labels) ? detailHistory.labels : [];
   document.getElementById('envDetailXLabels').innerHTML =
     labels.slice(-6).map(label => `<span>${esc(label)}</span>`).join('');
 
