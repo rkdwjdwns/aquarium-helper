@@ -222,7 +222,7 @@ def _auto_control(tank: Tank, reading: SensorReading) -> list:
 
 # 감시 대상 코드 전체 목록 (정상 복귀 판정에 사용)
 MONITORED_STATE_CODES = [
-    'TMP-HIGH-001', 'TMP-LOW-001', 'DO-LOW-001', 'PH-OUT-001',
+    'TMP-HIGH-001', 'TMP-LOW-001', 'DO-LOW-001', 'PH-OUT-001', 'TURB-HIGH-001',
 ]
 
 
@@ -240,7 +240,7 @@ def _check_state_events(tank: Tank, reading: SensorReading) -> list:
         triggered.append(('DO-LOW-001', reading.dissolved_oxygen))
     if reading.ph < s['ph_min'] or reading.ph > s['ph_max']:
         triggered.append(('PH-OUT-001', reading.ph))
-    if reading.turbidity > s['turbidity_max']:
+    if reading.tds_ppm > s['turbidity_max']:
         triggered.append(('TURB-HIGH-001', reading.tds_ppm))
 
     triggered_codes = {code for code, _ in triggered}
