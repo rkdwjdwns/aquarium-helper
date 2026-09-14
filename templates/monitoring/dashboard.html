@@ -348,29 +348,29 @@
       <div class="sensor-card">
         <div class="sensor-label">🌡️ 수온</div>
         <div><span id="val-temp" class="sensor-value">{{ latest.temperature|floatformat:2|default:"--" }}</span><span class="sensor-unit">°C</span></div>
-        <span id="badge-temp" class="sensor-badge {% if latest.temperature %}{% if latest.temperature >= 21 and latest.temperature <= 24 %}badge-ok{% else %}badge-danger{% endif %}{% endif %}">
-          {% if latest.temperature %}{% if latest.temperature >= 21 and latest.temperature <= 24 %}● 적정{% else %}● 주의{% endif %}{% else %}미연결{% endif %}
+        <span id="badge-temp" class="sensor-badge {% if latest.temperature %}{% if latest.temperature >= tank.temp_min and latest.temperature <= tank.temp_max %}badge-ok{% else %}badge-danger{% endif %}{% endif %}">
+          {% if latest.temperature %}{% if latest.temperature >= tank.temp_min and latest.temperature <= tank.temp_max %}● 적정{% else %}● 주의{% endif %}{% else %}미연결{% endif %}
         </span>
       </div>
       <div class="sensor-card">
         <div class="sensor-label">💧 pH</div>
         <div><span id="val-ph" class="sensor-value">{{ latest.ph|floatformat:2|default:"--" }}</span></div>
-        <span id="badge-ph" class="sensor-badge {% if latest.ph %}{% if latest.ph >= 6.5 and latest.ph <= 8.0 %}badge-ok{% else %}badge-warn{% endif %}{% endif %}">
-          {% if latest.ph %}{% if latest.ph >= 6.5 and latest.ph <= 8.0 %}● 안정{% else %}● 확인필요{% endif %}{% else %}미연결{% endif %}
+        <span id="badge-ph" class="sensor-badge {% if latest.ph %}{% if latest.ph >= tank.ph_min and latest.ph <= tank.ph_max %}badge-ok{% else %}badge-warn{% endif %}{% endif %}">
+          {% if latest.ph %}{% if latest.ph >= tank.ph_min and latest.ph <= tank.ph_max %}● 안정{% else %}● 확인필요{% endif %}{% else %}미연결{% endif %}
         </span>
       </div>
       <div class="sensor-card">
         <div class="sensor-label">🫧 DO</div>
         <div><span id="val-do" class="sensor-value">{{ latest.dissolved_oxygen|floatformat:2|default:"--" }}</span><span class="sensor-unit">mg/L</span></div>
-        <span id="badge-do" class="sensor-badge {% if latest.dissolved_oxygen %}{% if latest.dissolved_oxygen >= 5 %}badge-ok{% else %}badge-danger{% endif %}{% endif %}">
-          {% if latest.dissolved_oxygen %}{% if latest.dissolved_oxygen >= 5 %}● 정상{% else %}● 부족{% endif %}{% else %}미연결{% endif %}
+        <span id="badge-do" class="sensor-badge {% if latest.dissolved_oxygen %}{% if latest.dissolved_oxygen >= tank.do_min %}badge-ok{% else %}badge-danger{% endif %}{% endif %}">
+          {% if latest.dissolved_oxygen %}{% if latest.dissolved_oxygen >= tank.do_min %}● 정상{% else %}● 부족{% endif %}{% else %}미연결{% endif %}
         </span>
       </div>
       <div class="sensor-card">
         <div class="sensor-label">🌫️ TDS</div>
         <div><span id="val-tds" class="sensor-value">{{ latest.tds_ppm|floatformat:2|default:"--" }}</span><span class="sensor-unit">PPM</span></div>
-        <span id="badge-tds" class="sensor-badge {% if latest.tds_ppm %}{% if latest.tds_ppm <= 450 %}badge-ok{% elif latest.tds_ppm <= 500 %}badge-warn{% else %}badge-danger{% endif %}{% endif %}">
-          {% if latest.tds_ppm %}{% if latest.tds_ppm <= 450 %}● 정상{% elif latest.tds_ppm <= 500 %}● 경고{% else %}● 위험{% endif %}{% else %}미연결{% endif %}
+        <span id="badge-tds" class="sensor-badge {% if latest.tds_ppm %}{% if latest.tds_ppm <= tank.turbidity_max %}badge-ok{% else %}badge-danger{% endif %}{% endif %}">
+          {% if latest.tds_ppm %}{% if latest.tds_ppm <= tank.turbidity_max %}● 정상{% else %}● 위험{% endif %}{% else %}미연결{% endif %}
         </span>
       </div>
       <div class="sensor-card">
@@ -582,6 +582,16 @@
 <script>
 const TANK_ID = {{ tank.id }};
 const CSRF = '{{ csrf_token }}';
+
+/* 설정 화면에서 저장한 수질 기준값 */
+const SENSOR_THRESHOLDS = {
+  tempMin: {{ tank.temp_min|default:"21.0" }},
+  tempMax: {{ tank.temp_max|default:"24.0" }},
+  phMin: {{ tank.ph_min|default:"6.5" }},
+  phMax: {{ tank.ph_max|default:"8.0" }},
+  doMin: {{ tank.do_min|default:"5.0" }},
+  tdsMax: {{ tank.turbidity_max|default:"450.0" }}
+};
 
 /* =========================
    공통 유틸
@@ -1043,27 +1053,26 @@ function updateSensorCards(rawSensor){
 
   updateBadge(
     'badge-temp',
-    temp === null ? '미연결' : (temp >= 21 && temp <= 24 ? '● 적정' : '● 주의'),
-    temp === null ? '' : (temp >= 21 && temp <= 24 ? 'badge-ok' : 'badge-danger')
+    temp === null ? '미연결' : (temp >= SENSOR_THRESHOLDS.tempMin && temp <= SENSOR_THRESHOLDS.tempMax ? '● 적정' : '● 주의'),
+    temp === null ? '' : (temp >= SENSOR_THRESHOLDS.tempMin && temp <= SENSOR_THRESHOLDS.tempMax ? 'badge-ok' : 'badge-danger')
   );
 
   updateBadge(
     'badge-ph',
-    ph === null ? '미연결' : (ph >= 6.5 && ph <= 8.0 ? '● 안정' : '● 확인필요'),
-    ph === null ? '' : (ph >= 6.5 && ph <= 8.0 ? 'badge-ok' : 'badge-warn')
+    ph === null ? '미연결' : (ph >= SENSOR_THRESHOLDS.phMin && ph <= SENSOR_THRESHOLDS.phMax ? '● 안정' : '● 확인필요'),
+    ph === null ? '' : (ph >= SENSOR_THRESHOLDS.phMin && ph <= SENSOR_THRESHOLDS.phMax ? 'badge-ok' : 'badge-warn')
   );
 
   updateBadge(
     'badge-do',
-    dissolvedOxygen === null ? '미연결' : (dissolvedOxygen >= 5 ? '● 정상' : '● 부족'),
-    dissolvedOxygen === null ? '' : (dissolvedOxygen >= 5 ? 'badge-ok' : 'badge-danger')
+    dissolvedOxygen === null ? '미연결' : (dissolvedOxygen >= SENSOR_THRESHOLDS.doMin ? '● 정상' : '● 부족'),
+    dissolvedOxygen === null ? '' : (dissolvedOxygen >= SENSOR_THRESHOLDS.doMin ? 'badge-ok' : 'badge-danger')
   );
 
   let tdsText = '미연결';
   let tdsClass = '';
   if(tds !== null){
-    if(tds <= 450){ tdsText='● 정상'; tdsClass='badge-ok'; }
-    else if(tds <= 500){ tdsText='● 경고'; tdsClass='badge-warn'; }
+    if(tds <= SENSOR_THRESHOLDS.tdsMax){ tdsText='● 정상'; tdsClass='badge-ok'; }
     else { tdsText='● 위험'; tdsClass='badge-danger'; }
   }
   updateBadge('badge-tds', tdsText, tdsClass);
@@ -1431,21 +1440,19 @@ function getCurrentState(key){
   if(value === null) return 'normal';
 
   if(key === 'temperature'){
-    return value >= 21 && value <= 24 ? 'normal' : 'danger';
+    return value >= SENSOR_THRESHOLDS.tempMin && value <= SENSOR_THRESHOLDS.tempMax ? 'normal' : 'danger';
   }
 
   if(key === 'ph'){
-    return value >= 6.5 && value <= 8.0 ? 'normal' : 'warning';
+    return value >= SENSOR_THRESHOLDS.phMin && value <= SENSOR_THRESHOLDS.phMax ? 'normal' : 'warning';
   }
 
   if(key === 'do'){
-    return value >= 5 ? 'normal' : 'danger';
+    return value >= SENSOR_THRESHOLDS.doMin ? 'normal' : 'danger';
   }
 
   if(key === 'tds'){
-    if(value <= 450) return 'normal';
-    if(value <= 500) return 'warning';
-    return 'danger';
+    return value <= SENSOR_THRESHOLDS.tdsMax ? 'normal' : 'danger';
   }
 
   return 'normal';
@@ -1453,10 +1460,10 @@ function getCurrentState(key){
 
 function getNormalRange(key){
   const ranges = {
-    temperature:`{{ tank.temp_min|default:"20" }} ~ {{ tank.temp_max|default:"26" }} °C`,
-    ph:`{{ tank.ph_min|default:"6.5" }} ~ {{ tank.ph_max|default:"8.0" }}`,
-    do:`{{ tank.do_min|default:"5" }} mg/L 이상`,
-    tds:'0 ~ 450 PPM',
+    temperature:`${SENSOR_THRESHOLDS.tempMin} ~ ${SENSOR_THRESHOLDS.tempMax} °C`,
+    ph:`${SENSOR_THRESHOLDS.phMin} ~ ${SENSOR_THRESHOLDS.phMax}`,
+    do:`${SENSOR_THRESHOLDS.doMin} mg/L 이상`,
+    tds:`0 ~ ${SENSOR_THRESHOLDS.tdsMax} PPM`,
   };
   return ranges[key] || '-';
 }
