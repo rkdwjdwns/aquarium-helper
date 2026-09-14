@@ -42,6 +42,18 @@
                     </div>
                 </div>
 
+                <div class="space-y-2">
+                    <label class="block text-xs font-black text-blue-600 uppercase tracking-widest ml-1">Pi 등록</label>
+                    <div class="relative">
+                        <select name="pi_device"
+                            class="w-full bg-slate-50/50 border-none focus:ring-2 focus:ring-blue-300 rounded-2xl px-5 py-4 outline-none text-sm font-semibold transition-all shadow-inner appearance-none">
+                            <option value="">Pi를 선택하세요</option>
+                            <option value="pi1" {% if tank and tank.pi_device == 'pi1' %}selected{% endif %}>Pi 1</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-5 flex items-center text-slate-400">▼</div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <label class="block text-xs font-black text-blue-600 uppercase tracking-widest ml-1">목표 온도 (°C)</label>
@@ -72,7 +84,7 @@
     </div>
 </div>
 
-<style>
+<style> 
     @keyframes fade-in { 
         from { opacity: 0; transform: translateY(30px); } 
         to { opacity: 1; transform: translateY(0); } 
@@ -80,6 +92,6 @@
     .animate-fade-in { animation: fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
     
     /* 입력창 포커스 시 배경색 살짝 변경 */
-    input:focus { background-color: white !important; }
+    input:focus, select:focus { background-color: white !important; }
 </style>
 {% endblock %}

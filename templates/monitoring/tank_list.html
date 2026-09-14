@@ -31,6 +31,82 @@
   .reg-input{width:100%;height:52px;border:1px solid #aeb7c3;border-radius:11px;background:#fbfcfe;padding:0 14px;font-size:13px;color:#3a4452;outline:none;font-family:inherit;transition:border-color .2s,box-shadow .2s,background-color .2s}
   .reg-input:focus{background:#fff;border-color:#6473a8;box-shadow:0 0 0 3px rgba(48,55,95,.10)}
   .reg-input::placeholder{color:#c7cfda}
+  /* Pi 선택 UI - 기본 select 대신 등록창 디자인에 맞춘 커스텀 드롭다운 */
+  .pi-picker{position:relative}
+  .pi-trigger{
+    width:100%;
+    height:58px;
+    border:1px solid #aeb7c3;
+    border-radius:13px;
+    background:#fbfcfe;
+    padding:0 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    cursor:pointer;
+    font-family:inherit;
+    transition:border-color .2s,box-shadow .2s,background-color .2s,transform .15s;
+  }
+  .pi-trigger:hover{background:#fff;border-color:#8794a6}
+  .pi-trigger.open{
+    background:#fff;
+    border-color:#6473a8;
+    box-shadow:0 0 0 3px rgba(48,55,95,.10);
+  }
+  .pi-trigger-left{display:flex;align-items:center;gap:12px;min-width:0}
+  .pi-icon{
+    width:34px;height:34px;border-radius:10px;
+    display:grid;place-items:center;flex:none;
+    background:#e9edfa;color:#30375f;
+    font-size:15px;font-weight:900;
+    border:1px solid #d6dced;
+  }
+  .pi-copy{text-align:left;min-width:0}
+  .pi-title{
+    display:block;font-size:13px;font-weight:900;color:#3a4452;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .pi-sub{
+    display:block;margin-top:2px;font-size:10px;font-weight:700;color:#9aa5b4;
+  }
+  .pi-chevron{
+    flex:none;width:28px;height:28px;border-radius:8px;
+    display:grid;place-items:center;
+    background:#eef1f7;color:#68758a;font-size:12px;
+    transition:transform .2s,background .2s;
+  }
+  .pi-trigger.open .pi-chevron{transform:rotate(180deg);background:#e2e7f2}
+  .pi-menu{
+    position:absolute;left:0;right:0;top:calc(100% + 8px);
+    z-index:30;
+    padding:8px;
+    border:1px solid #d7dce5;
+    border-radius:14px;
+    background:#fff;
+    box-shadow:0 14px 32px rgba(35,43,74,.16);
+    opacity:0;visibility:hidden;transform:translateY(-5px);
+    transition:opacity .16s,transform .16s,visibility .16s;
+  }
+  .pi-menu.open{opacity:1;visibility:visible;transform:translateY(0)}
+  .pi-option{
+    width:100%;border:0;border-radius:11px;background:#fff;
+    padding:11px 12px;display:flex;align-items:center;justify-content:space-between;
+    cursor:pointer;font-family:inherit;text-align:left;
+    transition:background .15s;
+  }
+  .pi-option:hover{background:#f2f4fb}
+  .pi-option-main{display:flex;align-items:center;gap:11px}
+  .pi-option-name{font-size:13px;font-weight:900;color:#30375f}
+  .pi-option-desc{font-size:10px;font-weight:700;color:#9ca6b5;margin-top:2px}
+  .pi-status{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:10px;font-weight:900;color:#2e7d5b;
+    background:#eaf8f1;padding:5px 8px;border-radius:999px;
+  }
+  .pi-status::before{
+    content:"";width:6px;height:6px;border-radius:50%;background:#34b27b;
+  }
   .half-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .register-actions{display:flex;gap:28px;margin-top:27px}
   .reg-cancel{width:162px;height:64px;border:0;border-radius:13px;background:#cbdcf3;color:#858585;font-size:19px;font-weight:900;cursor:pointer}
@@ -108,6 +184,39 @@
           <label class="reg-label">주 물고기 종</label>
           <input name="fish_species" class="reg-input" type="text" placeholder="예: 구피, 코메트">
         </div>
+
+        <div class="reg-field">
+          <label class="reg-label">Pi 등록</label>
+
+          <input type="hidden" name="pi_device" id="piDeviceInput" value="">
+
+          <div class="pi-picker" id="piPicker">
+            <button type="button" class="pi-trigger" id="piTrigger" onclick="togglePiMenu()">
+              <span class="pi-trigger-left">
+                <span class="pi-icon">Pi</span>
+                <span class="pi-copy">
+                  <span class="pi-title" id="piSelectedTitle">Pi를 선택하세요</span>
+                  <span class="pi-sub" id="piSelectedSub">연결할 Raspberry Pi를 선택합니다</span>
+                </span>
+              </span>
+              <span class="pi-chevron">⌄</span>
+            </button>
+
+            <div class="pi-menu" id="piMenu">
+              <button type="button" class="pi-option" onclick="selectPi('pi1','Pi 1')">
+                <span class="pi-option-main">
+                  <span class="pi-icon">Pi</span>
+                  <span>
+                    <span class="pi-option-name">Pi 1</span>
+                    <span class="pi-option-desc">졸작용 Raspberry Pi 장치</span>
+                  </span>
+                </span>
+                <span class="pi-status">선택 가능</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="half-row">
           <div class="reg-field">
             <label class="reg-label">목표 온도 (°C)</label>
@@ -131,8 +240,37 @@
 {% block extra_js %}
 <script>
 function openModal(){ document.getElementById('modalBackdrop').classList.add('open') }
-function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open') }
+function closeModal(){
+  document.getElementById('modalBackdrop').classList.remove('open');
+  closePiMenu();
+}
 document.getElementById('modalBackdrop').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal() })
+
+function togglePiMenu(){
+  const menu=document.getElementById('piMenu');
+  const trigger=document.getElementById('piTrigger');
+  const willOpen=!menu.classList.contains('open');
+  menu.classList.toggle('open',willOpen);
+  trigger.classList.toggle('open',willOpen);
+}
+
+function closePiMenu(){
+  document.getElementById('piMenu')?.classList.remove('open');
+  document.getElementById('piTrigger')?.classList.remove('open');
+}
+
+function selectPi(value,label){
+  document.getElementById('piDeviceInput').value=value;
+  document.getElementById('piSelectedTitle').textContent=label;
+  document.getElementById('piSelectedSub').textContent='데모용 Raspberry Pi 장치가 선택되었습니다';
+  document.getElementById('piTrigger').style.borderColor='#536ae8';
+  closePiMenu();
+}
+
+document.addEventListener('click',e=>{
+  const picker=document.getElementById('piPicker');
+  if(picker && !picker.contains(e.target)) closePiMenu();
+});
 
 function toggleAll(el){ document.querySelectorAll('.row-check').forEach(c => c.checked = el.checked) }
 
