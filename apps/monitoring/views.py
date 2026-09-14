@@ -403,6 +403,16 @@ def tank_settings(request, tank_id):
             tank.light_off_hour   = int(request.POST.get('light_off_hour', 20))
             tank.light_auto       = request.POST.get('light_auto') == 'on'
             tank.save()
+
+            # ✅ 조명 자동/수동 상태를 DeviceControl과 동기화
+            #    (설정 화면에서 자동제어 ON으로 바꾸면 수동 override 해제)
+            light_device, _ = DeviceControl.objects.get_or_create(
+                tank=tank,
+                type='LIGHT'
+            )
+            light_device.is_auto = tank.light_auto
+            light_device.save()
+
             messages.success(request, "설정이 저장되었습니다.")
             return redirect('monitoring:tank_settings', tank_id=tank.id)
         except Exception as e:
@@ -524,15 +534,35 @@ def camera_view(request):
 @login_required
 @require_POST
 def toggle_device(request, tank_id):
-    tank        = get_object_or_404(Tank, id=tank_id, user=request.user)
-    device, _ = DeviceControl.objects.get_or_create(tank=tank, type=request.POST.get('device_type'))
+    tank = get_object_or_404(Tank, id=tank_id, user=request.user)
+    device_type = request.POST.get('device_type')
+
+    device, _ = DeviceControl.objects.get_or_create(
+        tank=tank,
+        type=device_type
+    )
+
     device.is_on = not device.is_on
+
+    # ✅ 조명 버튼을 누르면 자동제어 → 수동제어로 전환
+    if device_type == 'LIGHT':
+        device.is_auto = False
+
+        tank.light_auto = False
+        tank.save(update_fields=['light_auto'])
+
     device.save()
+
     EventLog.objects.create(
-        tank=tank, level='INFO',
+        tank=tank,
+        level='INFO',
         message=f"[수동제어] {device.get_type_display()} {'ON' if device.is_on else 'OFF'}"
     )
-    return JsonResponse({'status': 'success', 'is_on': device.is_on})
+
+    return JsonResponse({
+        'status': 'success',
+        'is_on': device.is_on
+    })
 
 
 @login_required
