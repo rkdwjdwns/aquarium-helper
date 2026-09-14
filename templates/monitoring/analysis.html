@@ -694,8 +694,8 @@ function abrGrade(rate){
   // ABR 이상행동률 평가 기준
   // NORMAL  : 0 ~ <5%
   // CAUTION : 5 ~ <13%
-  // ALERT   : 13% 이상
-  if(rate>=13) return "ALERT";
+  // ABNORMAL   : 13% 이상
+  if(rate>=13) return "ABNORMAL";
   if(rate>=5) return "CAUTION";
   return "NORMAL";
 }
@@ -704,7 +704,7 @@ function setAbrStatusStyle(el, grade){
   const colors={
     NORMAL:"#10b981",
     CAUTION:"#f59e0b",
-    ALERT:"#ef4444"
+    ABNORMAL:"#ef4444"
   };
   el.style.color=colors[grade] || "#6b7280";
   el.style.fontWeight="900";
