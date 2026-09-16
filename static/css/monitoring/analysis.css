@@ -30,7 +30,7 @@
   .growth-fish-btn{border:1px solid #b7c3d0;background:#fff;color:#51606f;border-radius:9px;padding:6px 10px;font-size:11px;font-weight:900;cursor:pointer}
   .growth-fish-btn.active{background:#176b45;border-color:#176b45;color:#fff}
 
-  /* 삭제된 요소로 생긴 여백 보정: 회색 정보 패널만 조정 */
+
   .frs-card .three-col{
     margin-top:24px;
     margin-bottom:14px;
@@ -306,7 +306,7 @@
   @media(max-width:620px){.three-col,.quality-row,.detail-three,.detail-four{grid-template-columns:1fr}}
 
 
-/* === Extracted inline styles (phase 2) === */
+/* === Extracted inline === */
 .inl-analysis-001{overflow:hidden;min-width:0}
 .inl-analysis-002{font-size:19px;font-weight:900;margin-bottom:3px}
 .inl-analysis-003{color:#7e8997;font-size:13px}
@@ -336,3 +336,7 @@
 .inl-analysis-027{display:flex;justify-content:space-between;align-items:flex-end;margin:22px 0 12px}
 .inl-analysis-028{margin-bottom:4px}
 .inl-analysis-029{margin:0}
+
+/* FISH 3 폐사 지점 범례 */
+.growth-death-legend{display:inline-flex;align-items:center;gap:5px}
+.growth-death-x{display:inline-flex;align-items:center;justify-content:center;color:#ef4444;font-size:19px;font-weight:900;line-height:1}

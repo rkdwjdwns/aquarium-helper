@@ -183,13 +183,11 @@ async function fetchFeeding(){
     );
 
     rows.forEach(row=>{
-      // 현재 시각 이후에 기록된 미래 mock 데이터는 급이량에 포함하지 않는다.
       if(row._date>now) return;
 
       const key=dayKey(row._date);
       if(!daily[key]) return;
 
-      // 오전/오후 구간은 CSV timestamp 시각으로 구분
       const period=row._date.getHours()<12 ? 'am' : 'pm';
       daily[key][period]+=row._amount;
     });

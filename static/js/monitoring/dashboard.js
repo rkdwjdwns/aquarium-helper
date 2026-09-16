@@ -745,8 +745,6 @@ setInterval(fetchActiveStates, 30000);
 
 /* =========================
    1번째 코드의 환경정보 상세 모달
-   - 기존 ENV_DETAIL_MOCK 제거
-   - active state API + dashboard history 사용
 ========================= */
 const environmentDetailModal = document.getElementById('environmentDetailModal');
 const environmentDetailBtn = document.getElementById('environmentDetailBtn');

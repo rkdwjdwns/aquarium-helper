@@ -75,7 +75,7 @@ function rowsInRecentMinutes(rows, minutes){
   });
 }
 
-function validFeeding(rows){ return rows.filter(r=>r.status==="OK" && r.frs_v2!==""); }
+function validFeeding(rows){ return rows.filter(r=>r.status==="OK" && r.frs_score!==""); }
 
 function frsGrade(score){
   // FRS 평가 기준
@@ -93,16 +93,20 @@ function frsGrade(score){
 
 function activityState(row){
   // 활동 상태는 Activity Index로 프론트에서 재판정하지 않고
-  // CSV의 activity_grade 값을 그대로 사용한다.
-  const grade=String(row?.activity_grade || "").toUpperCase();
-  return ["LOW","NORMAL","HIGH"].includes(grade) ? grade : "--";
+  // CSV의 behavior_status 값을 그대로 사용한다.
+  const grade=String(row?.behavior_status || "").toUpperCase();
+  return grade || "--";
 }
 
 function setActivityStateStyle(el, grade){
   const colors={
     LOW:"#3b82f6",
     NORMAL:"#10b981",
-    HIGH:"#ef4444"
+    HIGH:"#ef4444",
+    WATCH:"#f59e0b",
+    CAUTION:"#f59e0b",
+    WATCH:"#f59e0b",
+    ABNORMAL:"#ef4444"
   };
   el.style.color=colors[grade] || "#6b7280";
   el.style.fontWeight="900";
@@ -128,8 +132,11 @@ function setAbrStatusStyle(el, grade){
   el.style.fontWeight="900";
 }
 
+function boolValue(v){
+  return ["true","1","yes","y"].includes(String(v ?? "").trim().toLowerCase());
+}
+
 function renderSummary(){
-  // 미래 mock 데이터는 제외하고 현재 시각 기준으로만 요약값을 선택한다.
   const abrRecent=rowsInRecentMinutes(ABR_ROWS,5).sort(sortDesc);
   const s=abrRecent.length ? abrRecent[0] : null;
 
@@ -137,16 +144,16 @@ function renderSummary(){
   const activityLatest=activityRecent.length ? activityRecent[0] : null;
 
   if(s){
-    const abrRate=num(s.abr_5min_pct,0);
+    const abrRate=num(s.abr_pct,0);
     document.getElementById("abrRate").innerHTML=`${abrRate.toFixed(1)}<small>%</small>`;
 
-    // ABR 상태는 CSV 문자열에 의존하지 않고 이상행동률 기준으로 판정
-    const abrStatus=abrGrade(abrRate);
+    const abrStatus=String(s.behavior_status || abrGrade(abrRate)).toUpperCase();
     const abrStatusEl=document.getElementById("abrStatus");
     abrStatusEl.textContent=abrStatus;
     setAbrStatusStyle(abrStatusEl,abrStatus);
 
-    document.getElementById("abrCount").textContent=(s.abnormal_count_5min || "0")+"회";
+    const anomalyCount=abrRecent.filter(r=>boolValue(r.is_anomaly)).length;
+    document.getElementById("abrCount").textContent=anomalyCount+"회";
   }else{
     document.getElementById("abrRate").textContent="--";
     document.getElementById("abrStatus").textContent="--";
@@ -155,53 +162,31 @@ function renderSummary(){
   }
 
   if(activityLatest){
-    const idx=num(activityLatest.activity_index,100);
-    document.getElementById("actIndex").innerHTML=`${idx.toFixed(1)}<small> / 100</small>`;
-    const diff=idx-100;
-    document.getElementById("actCompare").textContent=`${diff>=0?"+":""}${diff.toFixed(1)}%`;
-    document.getElementById("actCompare").style.color=diff>=0?"#10b981":"#ef4444";
+    const level=num(activityLatest.activity_level_px_s,null);
+    document.getElementById("actIndex").innerHTML=level===null ? "--" : `${level.toFixed(1)}<small> px/s</small>`;
 
-    // LOW / NORMAL / HIGH는 CSV activity_grade에서 직접 읽음
+    const levels=activityRecent.map(r=>num(r.activity_level_px_s,null)).filter(v=>v!==null);
+    const avg=levels.length ? levels.reduce((a,b)=>a+b,0)/levels.length : null;
+    const diff=(level!==null && avg) ? (level-avg)/avg*100 : null;
+    document.getElementById("actCompare").textContent=diff===null ? "--" : `${diff>=0?"+":""}${diff.toFixed(1)}%`;
+    document.getElementById("actCompare").style.color=diff===null ? "#6b7280" : (diff>=0?"#10b981":"#ef4444");
+
     const actGrade=activityState(activityLatest);
     const actStateEl=document.getElementById("actState");
     actStateEl.textContent=actGrade;
     setActivityStateStyle(actStateEl,actGrade);
 
-    // AI 분석품질은 최근 30분 데이터 전체에서 GOOD / FAIR / POOR 비율을 계산한다.
-    // quality_*_pct 값이 CSV에 이미 존재하면 가장 최근 유효 품질값을 우선 사용하고,
-    // 비어 있는 경우 quality / analysis_quality 계열의 등급 컬럼을 집계한다.
     const qualitySource=activityRecent.find(r=>
-      r.quality_good_pct!=="" &&
-      r.quality_fair_pct!=="" &&
-      r.quality_poor_pct!==""
+      r.quality_good_pct!=="" && r.quality_fair_pct!=="" && r.quality_poor_pct!==""
     );
-
     if(qualitySource){
       document.getElementById("qualityGood").textContent=num(qualitySource.quality_good_pct,0).toFixed(1)+"%";
       document.getElementById("qualityFair").textContent=num(qualitySource.quality_fair_pct,0).toFixed(1)+"%";
       document.getElementById("qualityPoor").textContent=num(qualitySource.quality_poor_pct,0).toFixed(1)+"%";
     }else{
-      const qualityValues=activityRecent
-        .map(r=>String(
-          r.quality_grade ||
-          r.analysis_quality ||
-          r.ai_quality ||
-          r.quality ||
-          ""
-        ).trim().toUpperCase())
-        .filter(v=>["GOOD","FAIR","POOR"].includes(v));
-
-      if(qualityValues.length){
-        const total=qualityValues.length;
-        const pct=grade=>qualityValues.filter(v=>v===grade).length/total*100;
-        document.getElementById("qualityGood").textContent=pct("GOOD").toFixed(1)+"%";
-        document.getElementById("qualityFair").textContent=pct("FAIR").toFixed(1)+"%";
-        document.getElementById("qualityPoor").textContent=pct("POOR").toFixed(1)+"%";
-      }else{
-        document.getElementById("qualityGood").textContent="--";
-        document.getElementById("qualityFair").textContent="--";
-        document.getElementById("qualityPoor").textContent="--";
-      }
+      document.getElementById("qualityGood").textContent="--";
+      document.getElementById("qualityFair").textContent="--";
+      document.getElementById("qualityPoor").textContent="--";
     }
   }else{
     document.getElementById("actIndex").textContent="--";
@@ -235,16 +220,18 @@ function renderActivity(){
 
   // 현재 30분 안에 데이터가 없으면 빈 그래프를 표시한다.
   const labels=rows.map(r=>formatTime(r.timestamp).slice(-5));
-  const vals=rows.map(r=>num(r.activity_index,100));
-  const baseline=rows.map(()=>100);
+  const vals=rows.map(r=>num(r.activity_level_px_s,null));
+  const validVals=vals.filter(v=>v!==null);
+  const avg=validVals.length ? validVals.reduce((a,b)=>a+b,0)/validVals.length : 0;
+  const baseline=rows.map(()=>avg);
   if(activityChartInst) activityChartInst.destroy();
   activityChartInst=new Chart(ctx,{
     type:"line",
     data:{
       labels,
       datasets:[
-        {label:"Activity Index",data:vals,borderColor:"#3b82f6",backgroundColor:"rgba(59,130,246,.08)",pointRadius:3,borderWidth:2,tension:.25,fill:true},
-        {label:"동일 시간대 baseline",data:baseline,borderColor:"#94a3b8",pointRadius:0,borderDash:[5,5],borderWidth:1.5}
+        {label:"Activity Level (px/s)",data:vals,borderColor:"#3b82f6",backgroundColor:"rgba(59,130,246,.08)",pointRadius:3,borderWidth:2,tension:.25,fill:true},
+        {label:"최근 30분 평균",data:baseline,borderColor:"#94a3b8",pointRadius:0,borderDash:[5,5],borderWidth:1.5}
       ]
     },
     options:{
@@ -252,14 +239,14 @@ function renderActivity(){
       plugins:{legend:{display:false}},
       scales:{
         x:{grid:{display:false},ticks:{font:{size:9}}},
-        y:{suggestedMin:50,suggestedMax:150,ticks:{font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}}
+        y:{beginAtZero:true,ticks:{font:{size:9}},grid:{color:"rgba(0,0,0,.05)"}}
       }
     }
   });
 }
 
 function renderFRSMain(){
-  // 현재 시각 이후의 예약/미래 mock 급이는 제외한다.
+  // 현재 시각 이후의 예약/미래 급이 데이터는 제외한다.
   const all=rowsUntilNow(FEEDING_ROWS).sort(sortDesc);
   if(!all.length){
     document.getElementById("frsScore").textContent="--";
@@ -281,7 +268,7 @@ function renderFRSMain(){
    * 가장 최근에 정상 분석된 FRS 기록을 표시한다.
    */
   const displayRow =
-    (current.status==="OK" && current.frs_v2!=="")
+    (current.status==="OK" && current.frs_score!=="")
       ? current
       : lastValid;
 
@@ -299,7 +286,7 @@ function renderFRSMain(){
     return;
   }
 
-  const sc=num(displayRow.frs_v2,0);
+  const sc=num(displayRow.frs_score,0);
   const score=document.getElementById("frsScore");
 
   score.innerHTML=`${sc.toFixed(1)}<small>점/100</small>`;
@@ -330,7 +317,8 @@ function renderFRSMain(){
 
 function parseGrowthDate(v){
   if(!v) return null;
-  const d=new Date(v+"T00:00:00");
+  const raw=String(v).trim();
+  const d=new Date(raw.length===10 ? raw+"T00:00:00" : raw);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
@@ -340,11 +328,32 @@ function formatGrowthDate(v){
   return `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-function renderGrowthMain(){
-  const arr=[...GROWTH_ROWS]
-    .filter(r=>r.date)
-    .sort((a,b)=>parseGrowthDate(a.date)-parseGrowthDate(b.date));
+let selectedGrowthFishId=1;
 
+function growthBool(v){
+  return String(v ?? "").trim().toLowerCase()==="true";
+}
+
+function isGrowthDeathRow(r){
+  return !!r && String(r.life_status || "").trim().toUpperCase()==="DECEASED";
+}
+
+function updateGrowthFishButtons(){
+  document.querySelectorAll(".growth-fish-btn").forEach(btn=>{
+    btn.classList.toggle("active",Number(btn.dataset.fishId)===selectedGrowthFishId);
+  });
+}
+
+function selectedFishGrowthRows(){
+  return [...GROWTH_ROWS]
+    .filter(r=>r.timestamp && Number(r.fish_id)===selectedGrowthFishId)
+    .sort((a,b)=>parseGrowthDate(a.timestamp)-parseGrowthDate(b.timestamp));
+}
+
+function renderGrowthMain(){
+  updateGrowthFishButtons();
+
+  const arr=selectedFishGrowthRows();
   if(!arr.length) return;
 
   const now=new Date();
@@ -355,115 +364,143 @@ function renderGrowthMain(){
     String(today.getDate()).padStart(2,"0")
   ].join("-");
 
-  // "우리 성장 이력"에는 주간 측정일(history/current_anchor)만 영구 보존한다.
-  // current_temp 행은 해당 날짜가 오늘일 때만 임시 현재값으로 사용하고,
-  // 날짜가 지나면 과거 성장 이력에서는 자동으로 제외한다.
+  const deathRow=arr.find(isGrowthDeathRow) || null;
+  const isDeadFish=selectedGrowthFishId===3 && !!deathRow;
+
+  // 기존 로직 유지: history/current_anchor는 과거 이력, current_temp는 오늘만 사용.
+  // FISH 3의 deceased 행은 마지막 실제 측정점으로 포함한다.
   const weeklyHistoryRows=arr.filter(r=>{
-    const d=parseGrowthDate(r.date);
+    const d=parseGrowthDate(r.timestamp);
     return d && d<=today &&
-      r.observed_average_length_cm!=="" &&
-      (r.phase==="history" || r.phase==="current_anchor");
+      r.estimated_length_cm!=="" &&
+      (r.phase==="history" || r.phase==="current_anchor" || isGrowthDeathRow(r));
   });
 
-  const todayTempRow=arr.find(r=>
-    r.date===todayKey &&
+  const todayTempRow=isDeadFish ? null : arr.find(r=>
+    String(r.timestamp || "").slice(0,10)===todayKey &&
     r.phase==="current_temp" &&
-    r.observed_average_length_cm!==""
+    r.estimated_length_cm!==""
   );
 
   const historyRows=todayTempRow
-    ? [...weeklyHistoryRows, todayTempRow]
-        .sort((a,b)=>parseGrowthDate(a.date)-parseGrowthDate(b.date))
+    ? [...weeklyHistoryRows,todayTempRow]
+        .sort((a,b)=>parseGrowthDate(a.timestamp)-parseGrowthDate(b.timestamp))
     : weeklyHistoryRows;
 
-  // 오늘 비주기 임시값이 있으면 그것을 현재값으로 표시.
-  // 없으면 가장 최근 정식 주간 측정값을 현재값으로 사용한다.
-  const currentRow=todayTempRow ||
-    (weeklyHistoryRows.length ? weeklyHistoryRows[weeklyHistoryRows.length-1] : null);
+  const currentRow=isDeadFish
+    ? deathRow
+    : (todayTempRow ||
+       (weeklyHistoryRows.length ? weeklyHistoryRows[weeklyHistoryRows.length-1] : null));
 
   if(!currentRow || !historyRows.length) return;
 
   const first=historyRows[0];
-  const current=num(currentRow.observed_average_length_cm,null);
-  const currentError=num(currentRow.observed_error_cm,0);
-  const firstValue=num(first.observed_average_length_cm,null);
+  const current=num(currentRow.estimated_length_cm,null);
+  const currentError=num(currentRow.observed_error_cm,null);
+  const firstValue=num(first.estimated_length_cm,null);
 
+  // 현재 '체장'을 cm로 표시한다.
   document.getElementById("growthAvgCurrent").innerHTML=
     current===null ? "--" : `${current.toFixed(2)}<small>cm</small>`;
 
+  document.getElementById("growthAvgDate").textContent=isDeadFish
+    ? `${formatGrowthDate(currentRow.timestamp)} 폐사 시점 마지막 체장`
+    : `${formatGrowthDate(currentRow.timestamp)} 기준 현재 체장${currentRow.phase==="current_temp" ? " · 현재 데이터" : ""}`;
+
   document.getElementById("growthErrorRange").textContent=
-    current===null ? "--" : `±${currentError.toFixed(2)} cm`;
+    currentError===null ? "--" : `±${currentError.toFixed(2)} cm`;
 
-  document.getElementById("growthAvgDate").textContent=
-    `${formatGrowthDate(currentRow.date)} 기준 현재 평균 추정체장${currentRow.phase==="current_temp" ? " · 임시값" : ""}`;
+  // FISH 3은 요청대로 사육기간/성장속도를 -- 로 표시한다.
+  if(isDeadFish){
+    document.getElementById("growthPeriod").textContent="--";
+    document.getElementById("growthSpeed").textContent="--";
+  }else{
+    const days=num(currentRow.day_since_first,null);
+    document.getElementById("growthPeriod").textContent=
+      days===null ? "--" : `${Math.round(days)}일`;
 
-  const startDate=parseGrowthDate(first.date);
-  const currentDate=parseGrowthDate(currentRow.date);
-  const days=(startDate && currentDate)
-    ? Math.max(1,(currentDate-startDate)/(1000*60*60*24))
-    : null;
-
-  document.getElementById("growthPeriod").textContent=
-    days===null ? "--" : `${Math.round(days)}일`;
-
-  const speed=(days && firstValue!==null && current!==null)
-    ? (current-firstValue)/days
-    : null;
-
-  document.getElementById("growthSpeed").textContent=
-    speed===null ? "--" : `+${speed.toFixed(3)} cm/day`;
+    const speed=num(currentRow.growth_rate_cm_day,null);
+    document.getElementById("growthSpeed").textContent=
+      speed===null ? "--" : `${speed>=0?"+":""}${speed.toFixed(3)} cm/day`;
+  }
 
   const futureDays=Number(document.getElementById("growthPeriodSelect")?.value || 180);
-  renderGrowthMainChart(arr,currentRow,futureDays,today);
+  renderGrowthMainChart(arr,currentRow,futureDays,today,isDeadFish);
 }
 
-function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
+function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null,isDeadFish=false){
   const toggles={};
   document.querySelectorAll(".growth-main-toggle").forEach(
     c=>toggles[c.value]=c.checked
   );
 
-  const anchorDate=parseGrowthDate(currentRow.date);
+  const anchorDate=parseGrowthDate(currentRow.timestamp);
   const currentDay=today || anchorDate;
   const cutoffDate=anchorDate
     ? new Date(anchorDate.getTime()+futureDays*24*60*60*1000)
     : null;
 
-  // 그래프 축 자체에서도 표시하지 않을 날짜를 제거한다.
-  // - history / current_anchor : 정식 성장 이력으로 유지
-  // - current_temp            : 오늘 날짜의 임시 현재값만 유지
-  // - prediction              : 선택한 미래 기간까지만 유지
-  //
-  // 이전에는 current_temp 행을 데이터값만 null 처리했기 때문에
-  // Chart.js의 X축에는 날짜가 남아 간격/곡선 모양에 영향을 주었다.
-  arr=arr.filter(r=>{
-    const d=parseGrowthDate(r.date);
+  // FISH 3은 폐사일까지의 실제 성장값만 표시하되,
+  // X축은 6월 한 달 전체(06-01 ~ 06-30)가 보이도록 빈 날짜 구간을 추가한다.
+  let graphRows=[...arr];
+
+  graphRows=graphRows.filter(r=>{
+    const d=parseGrowthDate(r.timestamp);
     if(!d) return false;
+
+    if(isDeadFish){
+      return d<=anchorDate &&
+        (r.phase==="history" || r.phase==="current_anchor" || isGrowthDeathRow(r));
+    }
 
     if(r.phase==="history" || r.phase==="current_anchor"){
       return d<=currentDay;
     }
-
     if(r.phase==="current_temp"){
       return d.getFullYear()===currentDay.getFullYear() &&
              d.getMonth()===currentDay.getMonth() &&
              d.getDate()===currentDay.getDate();
     }
-
     if(r.phase==="prediction"){
       return d>currentDay && (!cutoffDate || d<=cutoffDate);
     }
-
     return false;
   });
 
-  const labels=arr.map(r=>formatGrowthDate(r.date));
+  // FISH 3의 X축은 기간 선택값과 관계없이 6월 1일~6월 30일로 고정한다.
+  // 데이터가 없는 날짜에는 빈 행을 넣어 실제 날짜 간격을 유지하고,
+  // 성장선 자체는 폐사일 이후 이어지지 않도록 한다.
+  if(isDeadFish && anchorDate){
+    const year=anchorDate.getFullYear();
+    const rowByDate=new Map(
+      graphRows.map(r=>[String(r.timestamp || "").slice(0,10),r])
+    );
+    const fixedJuneRows=[];
+    for(let day=1;day<=30;day++){
+      const key=`${year}-06-${String(day).padStart(2,"0")}`;
+      fixedJuneRows.push(rowByDate.get(key) || {
+        timestamp:key,
+        fish_id:String(selectedGrowthFishId),
+        estimated_length_cm:"",
+        life_status:"",
+        phase:"axis_padding"
+      });
+    }
+    graphRows=fixedJuneRows;
+  }
 
-  // 과거 성장 이력은 정식 주간 측정점만 유지한다.
-  // 비주기 current_temp 값은 "오늘"과 일치할 때만 그래프에 나타난다.
+  const labels=graphRows.map(r=>formatGrowthDate(r.timestamp));
+
   const isVisibleObservedRow=r=>{
-    const d=parseGrowthDate(r.date);
-    if(!d || d>currentDay || r.observed_average_length_cm==="") return false;
+    const d=parseGrowthDate(r.timestamp);
+    if(!d || r.estimated_length_cm==="") return false;
+
+    if(isDeadFish){
+      return d<=anchorDate &&
+        (r.phase==="history" || r.phase==="current_anchor" || isGrowthDeathRow(r));
+    }
+
+    if(d>currentDay) return false;
     if(r.phase==="history" || r.phase==="current_anchor") return true;
     return r.phase==="current_temp" &&
       d.getFullYear()===currentDay.getFullYear() &&
@@ -471,32 +508,31 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       d.getDate()===currentDay.getDate();
   };
 
-  const observed=arr.map(r=>
-    isVisibleObservedRow(r) ? num(r.observed_average_length_cm,null) : null
+  const observed=graphRows.map(r=>
+    isVisibleObservedRow(r) ? num(r.estimated_length_cm,null) : null
   );
-
-  const observedLower=arr.map(r=>
+  const observedLower=graphRows.map(r=>
     isVisibleObservedRow(r) ? num(r.observed_lower_cm,null) : null
   );
-
-  const observedUpper=arr.map(r=>
+  const observedUpper=graphRows.map(r=>
     isVisibleObservedRow(r) ? num(r.observed_upper_cm,null) : null
   );
 
-  // vBGF: 현재점부터 미래 구간을 연결.
-  // 현재점에 예측값이 없으면 관측값을 사용해 선이 끊기지 않게 한다.
-  const vbgf=arr.map(r=>{
-    const d=parseGrowthDate(r.date);
+  // FISH 3은 미래 성장 예측을 표시하지 않는다.
+  const vbgf=graphRows.map(r=>{
+    if(isDeadFish) return null;
+    const d=parseGrowthDate(r.timestamp);
     if(!d || d<anchorDate) return null;
     if(d.getTime()===anchorDate.getTime()){
       return num(r.vbgf_predicted_length_cm,
-        num(r.observed_average_length_cm,null));
+        num(r.estimated_length_cm,null));
     }
     return num(r.vbgf_predicted_length_cm,null);
   });
 
-  const vbgfLower=arr.map(r=>{
-    const d=parseGrowthDate(r.date);
+  const vbgfLower=graphRows.map(r=>{
+    if(isDeadFish) return null;
+    const d=parseGrowthDate(r.timestamp);
     if(!d || d<anchorDate) return null;
     if(d.getTime()===anchorDate.getTime()){
       return num(r.vbgf_prediction_lower_cm,
@@ -505,8 +541,9 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
     return num(r.vbgf_prediction_lower_cm,null);
   });
 
-  const vbgfUpper=arr.map(r=>{
-    const d=parseGrowthDate(r.date);
+  const vbgfUpper=graphRows.map(r=>{
+    if(isDeadFish) return null;
+    const d=parseGrowthDate(r.timestamp);
     if(!d || d<anchorDate) return null;
     if(d.getTime()===anchorDate.getTime()){
       return num(r.vbgf_prediction_upper_cm,
@@ -515,15 +552,20 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
     return num(r.vbgf_prediction_upper_cm,null);
   });
 
-  // 코메트 참고곡선: CSV 전체 날짜 범위
-  const comet=arr.map(r=>num(r.comet_reference_length_cm,null));
-  const cometLower=arr.map(r=>num(r.comet_reference_lower_cm,null));
-  const cometUpper=arr.map(r=>num(r.comet_reference_upper_cm,null));
+  // FISH 3은 참고 성장선도 표시하지 않는다.
+  const comet=graphRows.map(r=>
+    isDeadFish ? null : num(r.comet_reference_length_cm,null)
+  );
+  const cometLower=graphRows.map(r=>
+    isDeadFish ? null : num(r.comet_reference_lower_cm,null)
+  );
+  const cometUpper=graphRows.map(r=>
+    isDeadFish ? null : num(r.comet_reference_upper_cm,null)
+  );
 
   if(growthMainChartInst) growthMainChartInst.destroy();
 
   const datasets=[
-    // 관측 오차범위
     {
       label:"관측 오차 상한",
       data:observedUpper,
@@ -542,8 +584,6 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       fill:false,
       hidden:!toggles.error
     },
-
-    // vBGF 오차범위
     {
       label:"vBGF 예측 오차 상한",
       data:vbgfUpper,
@@ -551,7 +591,7 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       backgroundColor:"rgba(255,91,127,.16)",
       pointRadius:0,
       fill:"+1",
-      hidden:!(toggles.error && toggles.future)
+      hidden:isDeadFish || !(toggles.error && toggles.future)
     },
     {
       label:"vBGF 예측 오차 하한",
@@ -560,10 +600,8 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       backgroundColor:"rgba(255,91,127,.16)",
       pointRadius:0,
       fill:false,
-      hidden:!(toggles.error && toggles.future)
+      hidden:isDeadFish || !(toggles.error && toggles.future)
     },
-
-    // 코메트 참고 오차범위
     {
       label:"코메트 참고 오차 상한",
       data:cometUpper,
@@ -571,7 +609,7 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       backgroundColor:"rgba(126,87,194,.06)",
       pointRadius:0,
       fill:"+1",
-      hidden:!(toggles.error && toggles.comet)
+      hidden:isDeadFish || !(toggles.error && toggles.comet)
     },
     {
       label:"코메트 참고 오차 하한",
@@ -580,25 +618,28 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       backgroundColor:"rgba(126,87,194,.06)",
       pointRadius:0,
       fill:false,
-      hidden:!(toggles.error && toggles.comet)
+      hidden:isDeadFish || !(toggles.error && toggles.comet)
     },
-
-    // 우리 과거 성장: 실선
     {
-      label:"우리 성장 이력",
+      label:`FISH ${selectedGrowthFishId} 성장 이력`,
       data:observed,
       borderColor:"#2563eb",
       backgroundColor:"#2563eb",
       borderWidth:3,
-      pointRadius:2.5,
-      pointHoverRadius:5,
+      // FISH 3의 폐사일에는 파란 점을 그리지 않고 X만 표시한다.
+      pointRadius:(ctx)=>{
+        const row=graphRows[ctx.dataIndex];
+        return isDeadFish && row && isGrowthDeathRow(row) ? 0 : 2.5;
+      },
+      pointHoverRadius:(ctx)=>{
+        const row=graphRows[ctx.dataIndex];
+        return isDeadFish && row && isGrowthDeathRow(row) ? 0 : 5;
+      },
       tension:.22,
       spanGaps:false,
       fill:false,
       hidden:!toggles.past
     },
-
-    // 우리 미래 vBGF: 점선
     {
       label:"향후 vBGF 예측",
       data:vbgf,
@@ -610,10 +651,8 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       tension:.25,
       spanGaps:false,
       fill:false,
-      hidden:!toggles.future
+      hidden:isDeadFish || !toggles.future
     },
-
-    // 코메트 참고: 얇은 비교선
     {
       label:"코메트 참고 성장",
       data:comet,
@@ -624,21 +663,20 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       tension:.22,
       spanGaps:false,
       fill:false,
-      hidden:!toggles.comet
+      hidden:isDeadFish || !toggles.comet
     }
   ];
 
   const currentAnchorPlugin={
     id:"growthCurrentAnchor",
     afterDatasetsDraw(chart){
-      const currentIndex=arr.findIndex(r=>r.date===currentRow.date);
-      if(currentIndex<0 || !toggles.past) return;
-
+      if(isDeadFish || !toggles.past) return;
+      const currentIndex=graphRows.findIndex(r=>r.timestamp===currentRow.timestamp);
+      if(currentIndex<0) return;
       const meta=chart.getDatasetMeta(6);
       const point=meta.data[currentIndex];
       if(!point) return;
-
-      const value=num(currentRow.observed_average_length_cm,null);
+      const value=num(currentRow.estimated_length_cm,null);
       if(value===null) return;
 
       const ctx=chart.ctx;
@@ -650,6 +688,48 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       ctx.lineWidth=2;
       ctx.strokeStyle="#ffffff";
       ctx.stroke();
+      ctx.restore();
+    }
+  };
+
+  const deathMarkerPlugin={
+    id:"growthDeathMarker",
+    afterDatasetsDraw(chart){
+      if(!isDeadFish || !toggles.past) return;
+
+      const deathIndex=graphRows.findIndex(r=>isGrowthDeathRow(r));
+      if(deathIndex<0) return;
+
+      const deathValue=num(graphRows[deathIndex].estimated_length_cm,null);
+      if(deathValue===null) return;
+
+      // dataset point의 렌더링 여부와 무관하게 x/y scale에서 직접 좌표를 계산한다.
+      const x=chart.scales.x.getPixelForValue(deathIndex);
+      const y=chart.scales.y.getPixelForValue(deathValue);
+      if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+      const ctx=chart.ctx;
+      const size=8;
+      ctx.save();
+      ctx.strokeStyle="#ef4444";
+      ctx.lineWidth=4;
+      ctx.lineCap="round";
+
+      ctx.beginPath();
+      ctx.moveTo(x-size,y-size);
+      ctx.lineTo(x+size,y+size);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x+size,y-size);
+      ctx.lineTo(x-size,y+size);
+      ctx.stroke();
+
+      ctx.fillStyle="#ef4444";
+      ctx.font="bold 11px Arial";
+      ctx.textAlign="center";
+      ctx.textBaseline="bottom";
+      ctx.fillText("폐사",x,y-13);
       ctx.restore();
     }
   };
@@ -676,20 +756,22 @@ function renderGrowthMainChart(arr,currentRow,futureDays=180,today=null){
       scales:{
         x:{
           grid:{display:false},
-          ticks:{
-            font:{size:9},
-            maxRotation:0,
-            autoSkip:true,
-            maxTicksLimit:12
-          }
+          ticks:{font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12}
         },
         y:{
-          ticks:{font:{size:9},callback:v=>v+"cm"},
+          // FISH 3은 1~4cm 고정 범위, 0.5cm 간격으로 표시한다.
+          min:isDeadFish ? 1 : undefined,
+          max:isDeadFish ? 4 : undefined,
+          ticks:{
+            font:{size:9},
+            stepSize:isDeadFish ? 0.5 : undefined,
+            callback:v=>v+"cm"
+          },
           grid:{color:"rgba(0,0,0,.05)"}
         }
       }
     },
-    plugins:[currentAnchorPlugin]
+    plugins:[currentAnchorPlugin,deathMarkerPlugin]
   });
 }
 
@@ -717,7 +799,7 @@ function renderFeedingSelect(){
   }
 
   sel.disabled=false;
-  sel.innerHTML=all.map((r,i)=>`<option value="${i}">${formatTime(r.timestamp)} · ${r.status==="OK"?(num(r.frs_v2,0).toFixed(1)+"점"):"분석불가"}</option>`).join("");
+  sel.innerHTML=all.map((r,i)=>`<option value="${i}">${formatTime(r.timestamp)} · ${r.status==="OK"?(num(r.frs_score,0).toFixed(1)+"점"):"분석불가"}</option>`).join("");
   renderFeedingDetail(0);
 }
 
@@ -731,10 +813,10 @@ function renderFeedingDetail(index){
 
   const scoreEl=document.getElementById("detailFrsScore");
   const statusEl=document.getElementById("detailFrsStatus");
-  const isValid=row.status==="OK" && row.frs_v2!=="";
+  const isValid=row.status==="OK" && row.frs_score!=="";
 
   if(isValid){
-    const score=num(row.frs_v2,0);
+    const score=num(row.frs_score,0);
     scoreEl.textContent=score.toFixed(1)+"점";
     scoreEl.style.color="#3476ef";
     statusEl.textContent=frsGrade(score);
@@ -769,7 +851,7 @@ function renderFeedingDetail(index){
   document.getElementById("detailLatencyFill").style.width=isValid?Math.min(100,latScore)+"%":"0";
 
   document.getElementById("detailLastValid").textContent=lastValid
-    ? `최근 유효 FRS ${num(lastValid.frs_v2,0).toFixed(1)}점 / ${formatTime(lastValid.timestamp)}`
+    ? `최근 유효 FRS ${num(lastValid.frs_score,0).toFixed(1)}점 / ${formatTime(lastValid.timestamp)}`
     : "최근 유효 FRS 없음";
   document.getElementById("detailValidMessage").textContent=isValid
     ? "선택한 이벤트는 정상적으로 FRS v2가 산출되었습니다."
@@ -825,8 +907,8 @@ function renderFeedingEventChart(rows){
   });
 
   const values=ordered.map(r=>{
-    const valid=r.status==="OK" && r.frs_v2!=="";
-    return valid ? num(r.frs_v2,0) : null;
+    const valid=r.status==="OK" && r.frs_score!=="";
+    return valid ? num(r.frs_score,0) : null;
   });
 
   if(feedingEventChartInst) feedingEventChartInst.destroy();
@@ -961,6 +1043,13 @@ document.getElementById("feedingNextPage").addEventListener("click",()=>{
     renderFeedingRecordPage();
   }
 });
+document.querySelectorAll(".growth-fish-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    selectedGrowthFishId=Number(btn.dataset.fishId);
+    renderGrowthMain();
+  });
+});
+
 document.querySelectorAll(".growth-main-toggle").forEach(cb=>{
   cb.addEventListener("change",()=>renderGrowthMain());
 });

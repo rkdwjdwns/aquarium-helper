@@ -71,7 +71,7 @@
     .device-grid{grid-template-columns:repeat(2,1fr)}
   }
 
-  /* ===== 1번째 코드의 환경정보 상세 모달 연동 ===== */
+  /* =====  환경정보 상세 모달 연동 ===== */
   #environmentDetailModal{
     position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.42);
     display:none;align-items:center;justify-content:center;padding:28px;
@@ -230,7 +230,7 @@
   }
 
 
-/* === Extracted inline styles (phase 2) === */
+/* === Extracted inline  === */
 .inl-dashboard-001{overflow:hidden;min-width:0}
 .inl-dashboard-002{font-size:19px;font-weight:900;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .inl-dashboard-003{color:#7e8997;font-size:13px}
