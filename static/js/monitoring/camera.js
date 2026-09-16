@@ -65,3 +65,9 @@ if(liveStream){
   liveStream.addEventListener('load',()=>setConnectionState(true));
   liveStream.addEventListener('error',()=>setConnectionState(false));
 }
+
+
+document.getElementById('sbToggle')?.addEventListener('click',toggleSb);
+document.getElementById('zoneBtn')?.addEventListener('click',toggleZone);
+document.getElementById('fullscreenBtn')?.addEventListener('click',toggleFs);
+document.getElementById('reconnectBtn')?.addEventListener('click',reconnectStream);

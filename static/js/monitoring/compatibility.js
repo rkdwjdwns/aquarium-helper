@@ -34,3 +34,6 @@ function checkFish() {
         btn.innerText = "호환성 분석 시작";
     });
 }
+
+
+document.getElementById('check-btn')?.addEventListener('click',checkFish);

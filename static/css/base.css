@@ -30,3 +30,17 @@
       .topbar{padding:0 18px}
       .topbar-right{gap:10px;font-size:14px}
     }
+
+
+/* === Extracted inline styles (phase 2) === */
+.inl-base-001{position:relative}
+.inl-base-002{position:relative;border:0;background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;padding:6px}
+.inl-base-003{display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:900;align-items:center;justify-content:center}
+.inl-base-004{display:none;position:absolute;top:44px;right:0;width:340px;max-height:420px;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.2);z-index:2500;color:#252d3b}
+.inl-base-005{padding:16px 18px;border-bottom:1px solid #eef1f5;font-weight:900;font-size:14px}
+.inl-base-006{padding:8px}
+.inl-base-007{margin:0}
+.inl-base-008{font-size:24px}
+.inl-base-009{color:#fff;text-decoration:none;font-weight:700}
+.inl-base-010{position:fixed;top:96px;right:18px;z-index:2000;display:flex;flex-direction:column;gap:6px}
+.inl-base-011{padding-top:86px}

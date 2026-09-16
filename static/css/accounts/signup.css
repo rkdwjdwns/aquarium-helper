@@ -23,3 +23,7 @@
   .auth-btn:hover{background:#1a8adb}
   .field-error{color:#dc2626;font-size:12px;margin-top:5px}
   .field-help{color:#9ca3af;font-size:11px;margin-top:4px;line-height:1.4}
+
+
+/* === Extracted inline styles (phase 2) === */
+.inl-signup-001{padding:30px 18px}

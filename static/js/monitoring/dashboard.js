@@ -1219,3 +1219,13 @@ if(logoutBtn){
     location.href = '/';
   });
 }
+
+
+// HTML 인라인 이벤트를 외부 JS에서 연결
+document.getElementById('sbToggle')?.addEventListener('click',toggleSb);
+document.getElementById('stateModalCloseBtn')?.addEventListener('click',closeStateModal);
+document.querySelectorAll('.chart-tab[data-chart]').forEach(btn=>btn.addEventListener('click',()=>setChart(btn.dataset.chart,btn)));
+document.querySelectorAll('.device-card[data-device]').forEach(card=>card.addEventListener('click',()=>toggleDevice(card.dataset.device)));
+document.getElementById('waterChangeCheckBtn')?.addEventListener('click',checkWaterChange);
+document.getElementById('waterChangeCancelBtn')?.addEventListener('click',()=>closeWaterChangeConfirm(false));
+document.getElementById('waterChangeConfirmBtn')?.addEventListener('click',()=>closeWaterChangeConfirm(true));

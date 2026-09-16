@@ -1,0 +1,24 @@
+/* Shared UI styles consolidated during phase-2 CSS refactor. */
+
+:root{--sw:270px}
+.sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
+.sidebar.collapsed{width:44px;overflow:hidden}
+.sidebar.collapsed .hide-on-collapse{display:none!important}
+.sidebar.collapsed .tank-title-row{justify-content:center}
+.sidebar.collapsed .tank-summary{padding:18px 7px;border-bottom:0}
+.tank-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tank-summary{padding:22px 22px 18px;border-bottom:1px solid #e4e8ee}
+.sidebar-toggle{width:30px;height:30px;flex:none;border:0;border-radius:8px;background:#f1f5fa;color:#596474;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.sidebar-toggle:hover{background:#dcecff;color:#2572e9}
+.s-menu{list-style:none;padding:0 6px}
+.s-menu a{display:flex;align-items:center;height:44px;padding:0 12px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:14px;margin-bottom:2px}
+.s-menu a.active{background:#dcecff;color:#2572e9;font-weight:800}
+.s-menu a:hover{background:#f1f5fa}
+.sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
+.sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
+.tank-chip{font-size:11px;padding:4px 10px;border-radius:16px;border:1px solid #dde1ea;background:#fff;color:#555;text-decoration:none;font-weight:700}
+.tank-chip.is-active{border-color:#536ae8;background:#e8f0ff;color:#536ae8}
+.flash-message{padding:10px 18px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.12);color:#fff}
+.flash-success{background:#10b981}
+.flash-error{background:#ef4444}
+.flash-info{background:#3b82f6}

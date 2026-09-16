@@ -66,3 +66,12 @@ if('serviceWorker' in navigator){
   });
 }
 window.addEventListener('beforeinstallprompt',e=>e.preventDefault());
+
+
+const googleFontStylesheet=document.getElementById('googleFontStylesheet');
+if(googleFontStylesheet){
+  const activateGoogleFont=()=>{ googleFontStylesheet.media='all'; };
+  googleFontStylesheet.addEventListener('load',activateGoogleFont,{once:true});
+  if(googleFontStylesheet.sheet) activateGoogleFont();
+}
+document.getElementById('alertBellBtn')?.addEventListener('click',toggleAlerts);

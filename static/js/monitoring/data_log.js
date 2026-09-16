@@ -69,3 +69,7 @@ function toggleSb(){
     });
   }
 })();
+
+
+document.getElementById('sbToggle')?.addEventListener('click',toggleSb);
+document.getElementById('dataLogRefreshBtn')?.addEventListener('click',()=>window.location.reload());

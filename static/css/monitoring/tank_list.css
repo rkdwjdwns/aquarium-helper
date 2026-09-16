@@ -110,3 +110,13 @@
   .reg-save{flex:1;height:64px;border:0;border-radius:13px;background:#30375f;color:#fff;font-size:19px;font-weight:900;cursor:pointer;box-shadow:0 4px 7px rgba(48,55,95,.22)}
 
   @media(max-width:768px){.half-row{grid-template-columns:1fr}.register-card{width:95vw}.register-body{padding:24px 18px}}
+
+
+/* === Extracted inline styles (phase 2) === */
+.inl-tank-list-001{padding:40px 5vw 120px}
+.inl-tank-list-002{font-size:34px}
+.inl-tank-list-003{margin:0}
+.inl-tank-list-004{width:60px;text-align:center}
+.inl-tank-list-005{text-align:center}
+.inl-tank-list-006{font-size:23px;font-weight:900;letter-spacing:-.8px;line-height:1.2}
+.inl-tank-list-007{font-size:9px;margin-top:4px;opacity:.78}

@@ -63,3 +63,12 @@
     .panel:first-child{display:none}
     .chat-messages{height:calc(100vh - 86px - 280px)}
   }
+
+
+/* === Extracted inline styles (phase 2) === */
+.inl-chat-001{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.inl-chat-002{border:0;background:none;color:#9da8b7;font-size:12px;cursor:pointer}
+.inl-chat-003{text-align:center;padding:32px;color:#a2adbc;font-size:14px}
+.inl-chat-004{display:flex;flex-direction:column}
+.inl-chat-005{font-size:12px;color:#a2adbc}
+.inl-chat-006{background:#2f69ef;color:#fff}

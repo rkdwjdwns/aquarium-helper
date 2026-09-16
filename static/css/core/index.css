@@ -50,3 +50,10 @@
     .metrics{gap:10px}
     .card-actions{gap:12px}
   }
+
+
+/* === Extracted inline styles (phase 2) === */
+.inl-index-001{padding:99px 6.2vw 120px}
+.inl-index-002{text-decoration:none}
+.inl-index-003{width:100%}
+.inl-index-004{color:#536ae8;font-weight:800}

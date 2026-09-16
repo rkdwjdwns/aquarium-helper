@@ -70,3 +70,12 @@
         nextBtn.style.cursor = 'default';
       }
     })();
+
+
+const logsTankSelect=document.getElementById('logsTankSelect');
+if(logsTankSelect){
+  logsTankSelect.addEventListener('change',()=>{
+    const level=logsTankSelect.dataset.level;
+    window.location.href=`?tank_id=${encodeURIComponent(logsTankSelect.value)}${level?`&level=${encodeURIComponent(level)}`:''}`;
+  });
+}

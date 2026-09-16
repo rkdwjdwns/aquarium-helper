@@ -50,3 +50,12 @@ async function sendMsg(){
   }
   win.scrollTop = win.scrollHeight;
 }
+
+
+const chatInputEl=document.getElementById('chatInput');
+const chatSendBtn=document.getElementById('chatSendBtn');
+if(chatInputEl){
+  chatInputEl.addEventListener('keydown',handleKey);
+  chatInputEl.addEventListener('input',()=>autoResize(chatInputEl));
+}
+if(chatSendBtn) chatSendBtn.addEventListener('click',sendMsg);

@@ -967,3 +967,6 @@ document.querySelectorAll(".growth-main-toggle").forEach(cb=>{
 document.getElementById("growthPeriodSelect").addEventListener("change",()=>renderGrowthMain());
 
 loadCSV();
+
+
+document.getElementById('sbToggle')?.addEventListener('click',toggleSb);

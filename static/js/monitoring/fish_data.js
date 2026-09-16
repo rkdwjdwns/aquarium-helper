@@ -365,3 +365,9 @@ async function loadAll(){
 }
 loadAll();
 setInterval(loadAll, 30000);
+
+
+document.getElementById('sbToggle')?.addEventListener('click',toggleSb);
+document.querySelectorAll('.feed-filter-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>setFeed(btn.dataset.feed,btn));
+});
