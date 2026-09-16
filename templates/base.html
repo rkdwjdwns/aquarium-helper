@@ -15,8 +15,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
-        media="print" onload="this.media='all'">
+        media="print" id="googleFontStylesheet">
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/common.css' %}">
   {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -25,45 +26,42 @@
   <a class="topbar-brand" href="/">어항 도우미</a>
   <div class="topbar-right">
     {% if user.is_authenticated %}
-    <div style="position:relative">
-      <button id="alertBellBtn" onclick="toggleAlerts()" style="position:relative;border:0;background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;padding:6px">
+    <div class="inl-base-001">
+      <button id="alertBellBtn" class="inl-base-002">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" fill="#fff"/>
         </svg>
-        <span id="alertBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:900;align-items:center;justify-content:center"></span>
+        <span id="alertBadge" class="inl-base-003"></span>
       </button>
-      <div id="alertDropdown" style="display:none;position:absolute;top:44px;right:0;width:340px;max-height:420px;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.2);z-index:2500;color:#252d3b">
-        <div style="padding:16px 18px;border-bottom:1px solid #eef1f5;font-weight:900;font-size:14px">이상 경고</div>
-        <div id="alertList" style="padding:8px"></div>
+      <div id="alertDropdown" class="inl-base-004">
+        <div class="inl-base-005">이상 경고</div>
+        <div id="alertList" class="inl-base-006"></div>
       </div>
     </div>
     <div class="user-pill">
       <div class="user-circle">{{ user.nickname|default:user.username|first }}</div>
       <span>{{ user.nickname|default:user.username }} 님</span>
     </div>
-    <form action="{% url 'accounts:logout' %}" method="post" style="margin:0">
+    <form action="{% url 'accounts:logout' %}" method="post" class="inl-base-007">
       {% csrf_token %}
-      <button type="submit" class="logout-btn">로그아웃 <span style="font-size:24px">⇥</span></button>
+      <button type="submit" class="logout-btn">로그아웃 <span class="inl-base-008">⇥</span></button>
     </form>
     {% else %}
-    <a href="{% url 'accounts:login' %}" style="color:#fff;text-decoration:none;font-weight:700">로그인</a>
+    <a href="{% url 'accounts:login' %}" class="inl-base-009">로그인</a>
     {% endif %}
   </div>
 </header>
 
 {% if messages %}
-<div style="position:fixed;top:96px;right:18px;z-index:2000;display:flex;flex-direction:column;gap:6px">
+<div class="inl-base-010">
   {% for msg in messages %}
-  <div style="padding:10px 18px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.12);
-    {% if msg.tags == 'success' %}background:#10b981;color:#fff
-    {% elif msg.tags == 'error' %}background:#ef4444;color:#fff
-    {% else %}background:#3b82f6;color:#fff{% endif %}">{{ msg }}</div>
+  <div class="flash-message {% if msg.tags == 'success' %}flash-success{% elif msg.tags == 'error' %}flash-error{% else %}flash-info{% endif %}">{{ msg }}</div>
   {% endfor %}
 </div>
 
 {% endif %}
 
-<main style="padding-top:86px">
+<main class="inl-base-011">
   {% block content %}{% endblock %}
 </main>
 

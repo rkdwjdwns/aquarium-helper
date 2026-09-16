@@ -8,27 +8,27 @@
 <aside class="sidebar" id="sidebar">
   <div class="tank-summary">
     <div class="tank-title-row">
-      <div class="hide-on-collapse" style="overflow:hidden;min-width:0">
-        <h2 style="font-size:19px;font-weight:900;margin-bottom:3px">{{ selected_tank.name|default:"어항 선택" }}</h2>
-        <p style="color:#7e8997;font-size:13px">데이터 리포트</p>
+      <div class="hide-on-collapse inl-report-list-001">
+        <h2 class="inl-report-list-002">{{ selected_tank.name|default:"어항 선택" }}</h2>
+        <p class="inl-report-list-003">데이터 리포트</p>
       </div>
-      <button class="sidebar-toggle" onclick="toggleSb()" id="sbToggle">‹</button>
+      <button class="sidebar-toggle" id="sbToggle">‹</button>
     </div>
-    <div class="hide-on-collapse" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+    <div class="hide-on-collapse inl-report-list-004">
       {% for t in tanks %}
-      <a href="?tank_id={{ t.id }}" style="font-size:11px;padding:4px 10px;border-radius:16px;border:1px solid {% if t.id == selected_tank.id %}#536ae8{% else %}#dde1ea{% endif %};background:{% if t.id == selected_tank.id %}#e8f0ff{% else %}#fff{% endif %};color:{% if t.id == selected_tank.id %}#536ae8{% else %}#555{% endif %};text-decoration:none;font-weight:700">{{ t.name }}</a>
+      <a href="?tank_id={{ t.id }}" class="tank-chip {% if t.id == selected_tank.id %}is-active{% endif %}">{{ t.name }}</a>
       {% endfor %}
     </div>
   </div>
   
-    <div class="hide-on-collapse" style="padding:14px 14px 0">
-    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:12px 8px 6px;display:flex;justify-content:space-between"><span>어항 정보 확인</span><span>⌄</span></div>
+    <div class="hide-on-collapse inl-report-list-005">
+    <div class="inl-report-list-006"><span>어항 정보 확인</span><span>⌄</span></div>
     <ul class="s-menu">
       <li><a href="{% if tank %}{% url 'monitoring:dashboard' tank.id %}{% else %}{% url 'monitoring:dashboard_default' %}{% endif %}" class="">▱ 환경 정보 및 제어</a></li>
       <li><a href="{% url 'monitoring:fish_data' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ 물고기 데이터</a></li>
       <li><a href="{% url 'monitoring:camera_view' %}" class="">▱ 실시간 모니터링</a></li>
     </ul>
-    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:16px 8px 6px;display:flex;justify-content:space-between"><span>분석 내용 제공</span><span>⌄</span></div>
+    <div class="inl-report-list-007"><span>분석 내용 제공</span><span>⌄</span></div>
     <ul class="s-menu">
       <li><a href="{% url 'monitoring:analysis' %}{% if tank %}?tank_id={{ tank.id }}{% endif %}">▱ AI기반 행동분석</a></li>
       <li><a href="{% url 'reports:report_list' %}" class="active">▱ 데이터 리포트</a></li>
@@ -37,15 +37,15 @@
   </div>
   <div class="sidebar-bottom hide-on-collapse">
     {% if selected_tank %}
-    <a href="{% url 'monitoring:tank_settings' selected_tank.id %}" style="color:#5f6876">⚙ 설정</a>
-    <a href="{% url 'monitoring:logs' %}?tank_id={{ selected_tank.id }}" style="color:#4776e6;font-size:12px">조치 내역 →</a>
+    <a href="{% url 'monitoring:tank_settings' selected_tank.id %}" class="inl-report-list-008">⚙ 설정</a>
+    <a href="{% url 'monitoring:logs' %}?tank_id={{ selected_tank.id }}" class="inl-report-list-009">조치 내역 →</a>
     {% endif %}
   </div>
 </aside>
 
 <main id="mainContent">
-  <div style="max-width:1200px;margin:0 auto">
-    <h1 style="font-size:18px;font-weight:900;letter-spacing:.5px;margin-bottom:32px">DATA REPORTS</h1>
+  <div class="inl-report-list-010">
+    <h1 class="inl-report-list-011">DATA REPORTS</h1>
 
     <!-- 리포트 생성 & 정렬 -->
     {% if selected_tank %}
@@ -61,7 +61,7 @@
           <button class="dl-btn dl-monthly">월간 리포트</button>
         </a>
       </div>
-      <select class="sort-select" onchange="location.href='?tank_id={{ selected_tank.id }}&sort='+this.value">
+      <select class="sort-select" id="reportSortSelect" data-tank-id="{{ selected_tank.id }}">
         <option value="desc" {% if sort == 'desc' %}selected{% endif %}>최신순</option>
         <option value="asc"  {% if sort == 'asc'  %}selected{% endif %}>오래된순</option>
       </select>
@@ -69,7 +69,7 @@
     {% endif %}
 
     <!-- 센서 데이터 테이블 -->
-    <div class="table-card" style="margin-bottom:28px">
+    <div class="table-card inl-report-list-012">
       <table>
         <thead>
           <tr>
@@ -98,7 +98,7 @@
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" style="text-align:center;padding:32px;color:#aab">데이터가 없습니다.</td></tr>
+          <tr><td colspan="7" class="inl-report-list-013">데이터가 없습니다.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -106,18 +106,18 @@
 
     <!-- 생성된 리포트 목록 -->
     {% if reports %}
-    <h2 style="font-size:16px;font-weight:900;margin-bottom:16px;color:#555">생성된 리포트</h2>
+    <h2 class="inl-report-list-014">생성된 리포트</h2>
     <div class="report-list">
       {% for r in reports %}
       <div class="report-item">
         <div>
           <span class="report-type-badge {{ r.report_type }}">{{ r.get_report_type_display }}</span>
           <div class="report-meta">{{ r.created_at|date:"Y년 m월 d일 H:i" }} 생성</div>
-          <p style="font-size:13px;color:#555;margin-top:6px">{{ r.content|truncatechars:80 }}</p>
+          <p class="inl-report-list-015">{{ r.content|truncatechars:80 }}</p>
         </div>
         {% if selected_tank %}
         <a href="{% url 'monitoring:download_report' selected_tank.id %}?period={{ r.report_type|lower }}">
-          <button style="height:38px;padding:0 16px;border:1px solid #dde1ea;border-radius:10px;background:#fff;font-size:13px;font-weight:800;cursor:pointer;color:#536ae8">⬇ 다운로드</button>
+          <button class="inl-report-list-016">⬇ 다운로드</button>
         </a>
         {% endif %}
       </div>

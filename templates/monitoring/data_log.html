@@ -8,26 +8,26 @@
 <aside class="sidebar" id="sidebar">
   <div class="tank-summary">
     <div class="tank-title-row">
-      <div class="hide-on-collapse" style="overflow:hidden;min-width:0">
-        <h2 style="font-size:19px;font-weight:900;margin-bottom:3px">{{ selected_tank.name|default:"어항" }}</h2>
-        <p style="color:#7e8997;font-size:13px">데이터 로그</p>
+      <div class="hide-on-collapse inl-data-log-001">
+        <h2 class="inl-data-log-002">{{ selected_tank.name|default:"어항" }}</h2>
+        <p class="inl-data-log-003">데이터 로그</p>
       </div>
-      <button class="sidebar-toggle" onclick="toggleSb()" id="sbToggle">‹</button>
+      <button class="sidebar-toggle" id="sbToggle">‹</button>
     </div>
-    <div class="hide-on-collapse" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+    <div class="hide-on-collapse inl-data-log-004">
       {% for t in user_tanks %}
-      <a href="?tank_id={{ t.id }}" style="font-size:11px;padding:4px 10px;border-radius:16px;border:1px solid {% if t.id == selected_tank.id %}#536ae8{% else %}#dde1ea{% endif %};background:{% if t.id == selected_tank.id %}#e8f0ff{% else %}#fff{% endif %};color:{% if t.id == selected_tank.id %}#536ae8{% else %}#555{% endif %};text-decoration:none;font-weight:700">{{ t.name }}</a>
+      <a href="?tank_id={{ t.id }}" class="tank-chip {% if t.id == selected_tank.id %}is-active{% endif %}">{{ t.name }}</a>
       {% endfor %}
     </div>
   </div>
-  <div class="hide-on-collapse" style="padding:14px 14px 0">
-    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:12px 8px 6px;display:flex;justify-content:space-between"><span>어항 정보 확인</span><span>⌄</span></div>
+  <div class="hide-on-collapse inl-data-log-005">
+    <div class="inl-data-log-006"><span>어항 정보 확인</span><span>⌄</span></div>
     <ul class="s-menu">
       <li><a href="{% if selected_tank %}{% url 'monitoring:dashboard' selected_tank.id %}{% else %}{% url 'monitoring:dashboard_default' %}{% endif %}">▱ 환경 정보 및 제어</a></li>
       <li><a href="{% url 'monitoring:fish_data' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}">▱ 물고기 데이터</a></li>
       <li><a href="{% url 'monitoring:camera_view' %}">▱ 실시간 모니터링</a></li>
     </ul>
-    <div style="font-size:11px;font-weight:900;color:#9da8b7;margin:16px 8px 6px;display:flex;justify-content:space-between"><span>분석 내용 제공</span><span>⌄</span></div>
+    <div class="inl-data-log-007"><span>분석 내용 제공</span><span>⌄</span></div>
     <ul class="s-menu">
       <li><a href="{% url 'monitoring:analysis' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}">▱ AI기반 행동분석</a></li>
       <li><a href="{% url 'reports:report_list' %}">▱ 데이터 리포트</a></li>
@@ -35,14 +35,14 @@
     </ul>
   </div>
   <div class="sidebar-bottom hide-on-collapse">
-    <a href="{% if selected_tank %}{% url 'monitoring:tank_settings' selected_tank.id %}{% else %}#{% endif %}" style="color:#5f6876">⚙ 설정</a>
-    <a href="{% url 'monitoring:logs' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}" style="color:#4776e6;font-size:12px">조치 내역 →</a>
+    <a href="{% if selected_tank %}{% url 'monitoring:tank_settings' selected_tank.id %}{% else %}#{% endif %}" class="inl-data-log-008">⚙ 설정</a>
+    <a href="{% url 'monitoring:logs' %}{% if selected_tank %}?tank_id={{ selected_tank.id }}{% endif %}" class="inl-data-log-009">조치 내역 →</a>
   </div>
 </aside>
 
 <main id="mainContent">
-  <div style="max-width:1200px;margin:0 auto">
-    <h1 style="font-size:18px;font-weight:900;letter-spacing:.5px;margin-bottom:32px">EVENT LOGS</h1>
+  <div class="inl-data-log-010">
+    <h1 class="inl-data-log-011">EVENT LOGS</h1>
 
     <div class="log-card">
       <div class="log-card-head">
@@ -67,15 +67,15 @@
             <a href="?{% if selected_tank %}tank_id={{ selected_tank.id }}&{% endif %}{% if level %}level={{ level }}&{% endif %}sort=asc">
               <button class="{% if sort == 'asc' %}active{% endif %}">오래된순</button></a>
           </div>
-          <button class="refresh-btn" onclick="location.reload()">⟳ 새로고침</button>
+          <button class="refresh-btn" id="dataLogRefreshBtn">⟳ 새로고침</button>
         </div>
       </div>
 
       <table>
         <thead>
           <tr>
-            <th style="width:30%">시각</th>
-            <th style="width:18%">레벨</th>
+            <th class="inl-data-log-012">시각</th>
+            <th class="inl-data-log-013">레벨</th>
             <th>메시지</th>
           </tr>
         </thead>
@@ -100,7 +100,7 @@
            data-level="{{ level|default:'' }}"
            data-sort="{{ sort|default:'desc' }}">
         <button class="page-btn" type="button" id="pagePrevGroup" aria-label="이전 10페이지">‹</button>
-        <div id="pageNumberGroup" style="display:flex;gap:6px"></div>
+        <div id="pageNumberGroup" class="inl-data-log-014"></div>
         <button class="page-btn" type="button" id="pageNextGroup" aria-label="다음 10페이지">›</button>
       </div>
       {% endif %}

@@ -5,15 +5,15 @@
 {% endblock %}
 
 {% block content %}
-<div style="padding:40px 5vw 120px">
+<div class="inl-tank-list-001">
 
   <div class="section-header">
-    <h1 class="section-title"><span style="font-size:34px">☷</span> 어항 편집</h1>
+    <h1 class="section-title"><span class="inl-tank-list-002">☷</span> 어항 편집</h1>
     <div class="edit-actions">
-      <button class="outline-btn add-btn" onclick="openModal()">＋ 추가</button>
-      <form method="post" action="{% url 'monitoring:delete_tanks' %}" id="deleteForm" style="margin:0">
+      <button class="outline-btn add-btn" id="openTankModalBtn">＋ 추가</button>
+      <form method="post" action="{% url 'monitoring:delete_tanks' %}" id="deleteForm" class="inl-tank-list-003">
         {% csrf_token %}
-        <button type="button" class="outline-btn delete-btn" onclick="confirmDelete()">🗑 삭제</button>
+        <button type="button" class="outline-btn delete-btn" id="deleteTanksBtn">🗑 삭제</button>
       </form>
     </div>
   </div>
@@ -22,21 +22,21 @@
     <table>
       <thead>
         <tr>
-          <th style="width:60px;text-align:center"><input class="all-check" id="allCheck" type="checkbox" onchange="toggleAll(this)"></th>
+          <th class="inl-tank-list-004"><input class="all-check" id="allCheck" type="checkbox"></th>
           <th>어항 이름</th>
           <th>어종</th>
-          <th style="text-align:center">관리</th>
+          <th class="inl-tank-list-005">관리</th>
         </tr>
       </thead>
       <tbody>
         {% for tank in tanks %}
         <tr>
-          <td style="text-align:center">
+          <td class="inl-tank-list-005">
             <input class="row-check" type="checkbox" name="tank_ids" value="{{ tank.id }}" form="deleteForm">
           </td>
           <td>{{ tank.name }}</td>
           <td>{{ tank.fish_species|default:"—" }}</td>
-          <td style="text-align:center">
+          <td class="inl-tank-list-005">
             <a href="{% url 'monitoring:tank_settings' tank.id %}">
               <button class="settings-btn">⚙ 설정</button>
             </a>
@@ -57,8 +57,8 @@
     <div class="register-head">
       <div class="logo-box">FISH</div>
       <div>
-        <h2 style="font-size:23px;font-weight:900;letter-spacing:-.8px;line-height:1.2">새 어항 등록</h2>
-        <p style="font-size:9px;margin-top:4px;opacity:.78">Fish Tank Assistant</p>
+        <h2 class="inl-tank-list-006">새 어항 등록</h2>
+        <p class="inl-tank-list-007">Fish Tank Assistant</p>
       </div>
     </div>
     <div class="register-body">
@@ -79,7 +79,7 @@
           <input type="hidden" name="pi_device" id="piDeviceInput" value="">
 
           <div class="pi-picker" id="piPicker">
-            <button type="button" class="pi-trigger" id="piTrigger" onclick="togglePiMenu()">
+            <button type="button" class="pi-trigger" id="piTrigger">
               <span class="pi-trigger-left">
                 <span class="pi-icon">Pi</span>
                 <span class="pi-copy">
@@ -91,7 +91,7 @@
             </button>
 
             <div class="pi-menu" id="piMenu">
-              <button type="button" class="pi-option" onclick="selectPi('pi1','Pi 1')">
+              <button type="button" class="pi-option" data-pi-value="pi1" data-pi-label="Pi 1">
                 <span class="pi-option-main">
                   <span class="pi-icon">Pi</span>
                   <span>
@@ -116,7 +116,7 @@
           </div>
         </div>
         <div class="register-actions">
-          <button type="button" class="reg-cancel" onclick="closeModal()">취소</button>
+          <button type="button" class="reg-cancel" id="closeTankModalBtn">취소</button>
           <button type="submit" class="reg-save">어항 등록하기</button>
         </div>
       </form>

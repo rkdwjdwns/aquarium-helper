@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block content %}
-<div style="padding:40px 5vw 120px">
+<div class="inl-logs-001">
 
   <div class="page-head">
     <h1 class="page-title">조치 내역</h1>
@@ -31,8 +31,8 @@
         <button class="filter-btn {% if level == 'DANGER' %}active{% endif %}">🚨 위험</button>
       </a>
       {% if user_tanks %}
-      <select onchange="location.href='?tank_id='+this.value+'{% if level %}&level={{ level }}{% endif %}'"
-        style="height:36px;padding:0 12px;border-radius:20px;border:1.5px solid #dde1ea;font-size:13px;font-weight:700;color:#555;cursor:pointer;outline:none">
+      <select id="logsTankSelect" data-level="{{ level|default:'' }}"
+        class="inl-logs-002">
         <option value="">전체 어항</option>
         {% for t in user_tanks %}
         <option value="{{ t.id }}" {% if t.id|stringformat:"s" == tank_id %}selected{% endif %}>{{ t.name }}</option>
@@ -66,7 +66,7 @@
          data-tank-id="{{ tank_id|default:'' }}"
          data-level="{{ level|default:'' }}">
       <button class="page-btn" type="button" id="pagePrevGroup" aria-label="이전 10페이지">‹</button>
-      <div id="pageNumberGroup" style="display:flex;gap:8px"></div>
+      <div id="pageNumberGroup" class="inl-logs-003"></div>
       <button class="page-btn" type="button" id="pageNextGroup" aria-label="다음 10페이지">›</button>
     </div>
     {% endif %}

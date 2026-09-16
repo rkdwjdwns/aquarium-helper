@@ -16,10 +16,11 @@
         <p class="text-slate-400 font-bold text-sm mb-8">
             네트워크 연결을 확인하고 다시 시도해주세요.
         </p>
-        <button onclick="location.reload()"
+        <button id="offlineReloadBtn"
                 class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-blue-700 transition-colors">
             다시 시도
         </button>
     </div>
+<script src="{% static 'js/offline.js' %}"></script>
 </body>
 </html>

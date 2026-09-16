@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block content %}
-<div style="padding:99px 6.2vw 120px">
+<div class="inl-index-001">
 
   <div class="section-header">
     <h1 class="section-title">
@@ -51,18 +51,18 @@
       </div>
 
       <div class="card-actions">
-        <a href="{% url 'monitoring:dashboard' item.tank.id %}" style="text-decoration:none">
-          <button class="card-btn manage-btn" style="width:100%">어항 관리하기</button>
+        <a href="{% url 'monitoring:dashboard' item.tank.id %}" class="inl-index-002">
+          <button class="card-btn manage-btn inl-index-003">어항 관리하기</button>
         </a>
-        <a href="{% url 'reports:report_list' %}" style="text-decoration:none">
-          <button class="card-btn report-btn" style="width:100%">AI 리포트 생성</button>
+        <a href="{% url 'reports:report_list' %}" class="inl-index-002">
+          <button class="card-btn report-btn inl-index-003">AI 리포트 생성</button>
         </a>
       </div>
     </article>
     {% empty %}
     <p class="empty-state">
       등록된 어항이 없습니다.
-      <a href="{% url 'monitoring:add_tank' %}" style="color:#536ae8;font-weight:800">어항 추가하기</a>
+      <a href="{% url 'monitoring:add_tank' %}" class="inl-index-004">어항 추가하기</a>
     </p>
     {% endfor %}
   </section>

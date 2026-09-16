@@ -10,11 +10,11 @@
   <!-- 히스토리 패널 -->
   <aside class="panel">
     <div class="history-head">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="inl-chat-001">
         <span class="history-title">대화 내역</span>
         <form method="post" action="{% url 'chatbot:clear' %}">
           {% csrf_token %}
-          <button type="submit" style="border:0;background:none;color:#9da8b7;font-size:12px;cursor:pointer">전체 삭제</button>
+          <button type="submit" class="inl-chat-002">전체 삭제</button>
         </form>
       </div>
       <a href="{% url 'chatbot:chat_page' %}"><button class="new-chat-btn">+ 새 대화</button></a>
@@ -32,16 +32,16 @@
       </a>
       {% endfor %}
       {% empty %}
-      <p style="text-align:center;padding:32px;color:#a2adbc;font-size:14px">대화 내역이 없습니다.</p>
+      <p class="inl-chat-003">대화 내역이 없습니다.</p>
       {% endfor %}
     </div>
   </aside>
 
   <!-- 채팅 영역 -->
-  <section class="panel" style="display:flex;flex-direction:column">
+  <section class="panel inl-chat-004">
     <div class="chat-header">
       <span class="chat-title">🐟 어항 도우미 AI</span>
-      <span style="font-size:12px;color:#a2adbc">물고기 · 수질 · 관리법 전문</span>
+      <span class="inl-chat-005">물고기 · 수질 · 관리법 전문</span>
     </div>
 
     <div class="chat-messages" id="chatMessages">
@@ -57,7 +57,7 @@
       {% for msg in messages %}
       <!-- 사용자 -->
       <div class="msg-row user">
-        <div class="msg-avatar" style="background:#2f69ef;color:#fff">{{ request.user.nickname|default:request.user.username|first }}</div>
+        <div class="msg-avatar inl-chat-006">{{ request.user.nickname|default:request.user.username|first }}</div>
         <div>
           <div class="msg-bubble">{{ msg.message }}</div>
           <div class="msg-time">{{ msg.created_at|date:"H:i" }}</div>
@@ -76,8 +76,8 @@
 
     <div class="chat-input">
       <textarea id="chatInput" class="chat-textarea" rows="1" placeholder="질문을 입력하세요..."
-        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-      <button class="send-btn" onclick="sendMsg()">
+></textarea>
+      <button class="send-btn" id="chatSendBtn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
           <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" fill="#fff"/>
         </svg>
