@@ -1,0 +1,8 @@
+/* 입력창 플레이스홀더 애니메이션 */
+    input::placeholder {
+        transition: transform 0.3s;
+    }
+    input:focus::placeholder {
+        transform: translateX(10px);
+        opacity: 0.5;
+    }

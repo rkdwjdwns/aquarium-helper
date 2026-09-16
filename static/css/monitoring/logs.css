@@ -1,0 +1,19 @@
+.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+  .page-title{font-size:34px;font-weight:900;letter-spacing:-1.8px}
+  .back-btn{min-width:95px;height:44px;border:1px solid #c9ced6;border-radius:14px;background:#fff;color:#333;font-size:15px;cursor:pointer;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+  .history-card{background:#fff;border-radius:32px;min-height:600px;padding:18px 34px 40px;box-shadow:0 5px 14px rgba(0,0,0,.08)}
+  .filter-row{display:flex;gap:12px;padding:16px 0;border-bottom:1px solid #f0f2f5;margin-bottom:12px;flex-wrap:wrap}
+  .filter-btn{height:36px;padding:0 18px;border-radius:20px;border:1.5px solid #dde1ea;background:#fff;font-size:13px;font-weight:700;cursor:pointer;color:#555}
+  .filter-btn.active{background:#30375f;color:#fff;border-color:#30375f}
+  .history-list{display:flex;flex-direction:column;gap:7px}
+  .history-item{min-height:42px;display:grid;grid-template-columns:110px 1fr 80px;align-items:center;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600}
+  .history-item.INFO{background:#f0f4ff;color:#2c4a8c}
+  .history-item.WARNING{background:#fff3df;color:#7a4a00}
+  .history-item.DANGER{background:#fdebec;color:#7b2628}
+  .history-type{font-weight:900;display:flex;align-items:center;gap:5px}
+  .history-time{font-size:11px;opacity:.7;text-align:right}
+  .empty-msg{text-align:center;padding:60px;color:#9ca3af;font-size:15px}
+  .pagination{display:flex;gap:8px;justify-content:center;margin-top:28px}
+  .page-btn{width:38px;height:38px;border-radius:10px;border:1px solid #dde1ea;background:#fff;cursor:pointer;font-weight:700;font-size:14px}
+  .page-btn.active{background:#30375f;color:#fff;border-color:#30375f}
+  @media(max-width:600px){.history-item{grid-template-columns:90px 1fr}.history-time{display:none}}

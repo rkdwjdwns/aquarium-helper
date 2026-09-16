@@ -1,0 +1,32 @@
+*{box-sizing:border-box}
+    body{font-family:"Pretendard",-apple-system,BlinkMacSystemFont,sans-serif;background:#edf2f6;color:#252d3b;margin:0;padding:0}
+    [x-cloak]{display:none!important}
+
+    .topbar{
+      position:fixed;top:0;left:0;right:0;height:86px;z-index:1000;
+      background:#30375f;display:flex;align-items:center;
+      justify-content:space-between;padding:0 38px;color:#fff;
+    }
+    .topbar-brand{
+      color:#fff;text-decoration:none;font-size:24px;font-weight:900;
+      letter-spacing:-1.5px;text-shadow:0 2px 3px rgba(0,0,0,.35);
+    }
+    .topbar-right{display:flex;align-items:center;gap:18px;font-size:16px}
+    .user-pill{
+      display:flex;align-items:center;gap:8px;
+      border:1.5px solid #fff;border-radius:28px;padding:7px 13px 7px 10px;
+    }
+    .user-circle{
+      width:32px;height:32px;border-radius:50%;
+      display:grid;place-items:center;
+      background:#f5f8ff;color:#2f68e7;font-size:14px;font-weight:900;
+    }
+    .logout-btn{
+      border:0;background:none;color:#fff;font-size:16px;cursor:pointer;
+      display:flex;align-items:center;gap:7px;
+    }
+
+    @media(max-width:700px){
+      .topbar{padding:0 18px}
+      .topbar-right{gap:10px;font-size:14px}
+    }
