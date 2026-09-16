@@ -1,0 +1,30 @@
+# Raspberry Pi 5 - Goldfish AI dependencies
+# Install: pip install -r pi_client/requirements.txt
+
+# Server communication
+requests>=2.31,<3
+
+# ESP32 USB Serial
+pyserial>=3.5,<4
+
+# Configuration / data analysis
+PyYAML>=6.0,<7
+pandas>=2.2,<3
+
+# AI / image processing
+ultralytics>=8.3,<9
+opencv-python>=4.9,<5
+numpy>=1.26,<3
+
+# vBGF nonlinear fitting. The code has a grid-search fallback when scipy is unavailable.
+# Optional for faster/nonlinear vBGF fitting:
+# scipy>=1.14,<2
+
+# GPIO relay control (Raspberry Pi only)
+RPi.GPIO>=0.7.1
+
+# Utility
+python-dotenv>=1.0,<2
+
+# picamera2 is normally installed from Raspberry Pi OS packages:
+#   sudo apt install python3-picamera2

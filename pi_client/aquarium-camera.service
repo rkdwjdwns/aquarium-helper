@@ -1,0 +1,17 @@
+[Unit]
+Description=어항 카메라 스트리밍 서버
+After=network-online.target aquarium.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/pi_client
+ExecStart=/home/pi/venv/bin/python camera_stream.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

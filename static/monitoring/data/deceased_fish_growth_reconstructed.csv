@@ -1,0 +1,20 @@
+﻿day,fish_id,estimated_length_cm,estimated_weight_g,growth_rate_cm_day,activity_level_px_s,abr_score,dominant_zone,status,data_source,note
+1,3,2.90,0.2970,0.000,14.8,0.03,MID,ALIVE,synthetic_reconstruction,
+2,3,2.93,0.3067,0.030,15.1,0.03,MID,ALIVE,synthetic_reconstruction,
+3,3,2.96,0.3167,0.030,15.4,0.04,MID,ALIVE,synthetic_reconstruction,
+4,3,2.99,0.3269,0.030,15.2,0.03,MID,ALIVE,synthetic_reconstruction,
+5,3,3.02,0.3373,0.030,15.8,0.04,MID,ALIVE,synthetic_reconstruction,
+6,3,3.05,0.3479,0.030,16.0,0.03,MID,ALIVE,synthetic_reconstruction,
+7,3,3.08,0.3588,0.030,16.2,0.04,MID,ALIVE,synthetic_reconstruction,
+8,3,3.11,0.3699,0.030,16.4,0.04,MID,ALIVE,synthetic_reconstruction,
+9,3,3.14,0.3812,0.030,16.1,0.05,MID,ALIVE,synthetic_reconstruction,
+10,3,3.17,0.3927,0.030,15.9,0.04,MID,ALIVE,synthetic_reconstruction,
+11,3,3.19,0.4006,0.020,15.6,0.05,MID,ALIVE,synthetic_reconstruction,
+12,3,3.21,0.4085,0.020,15.1,0.05,MID,ALIVE,synthetic_reconstruction,
+13,3,3.23,0.4166,0.020,14.6,0.06,MID,ALIVE,synthetic_reconstruction,
+14,3,3.24,0.4206,0.010,13.8,0.08,MID,ALIVE,synthetic_reconstruction,
+15,3,3.24,0.4206,0.000,12.4,0.11,BOT,ALIVE,synthetic_reconstruction,폐사 전 활동량 감소 및 ABR 상승이 보이도록 재구성한 구간
+16,3,3.24,0.4206,0.000,10.7,0.15,BOT,ALIVE,synthetic_reconstruction,폐사 전 활동량 감소 및 ABR 상승이 보이도록 재구성한 구간
+17,3,3.25,0.4247,0.010,8.6,0.21,BOT,ALIVE,synthetic_reconstruction,폐사 전 활동량 감소 및 ABR 상승이 보이도록 재구성한 구간
+18,3,3.25,0.4247,0.000,6.8,0.27,BOT,ALIVE,synthetic_reconstruction,폐사 전 활동량 감소 및 ABR 상승이 보이도록 재구성한 구간
+19,3,3.25,0.4247,0.000,4.9,0.32,BOT,DECEASED,synthetic_reconstruction,폐사 시점(정확한 실제 날짜 미상)

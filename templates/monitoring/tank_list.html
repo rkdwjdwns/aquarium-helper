@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% block extra_css %}
+<style>
+  .section-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #202020;padding-bottom:18px}
+  .section-title{display:flex;align-items:center;gap:15px;font-size:29px;font-weight:900;letter-spacing:-1.4px}
+  .edit-actions{display:flex;gap:16px}
+  .outline-btn{height:47px;min-width:118px;border:2px solid #555;background:#fff;border-radius:4px;font-size:16px;cursor:pointer;font-weight:700}
+  .add-btn{color:#4169e1;border-color:#4169e1}
+  .delete-btn{color:#ff3d3d;border-color:#ff3d3d}
+  .table-wrap{margin:48px 0 0;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 5px 6px rgba(0,0,0,.2)}
+  table{width:100%;border-collapse:collapse}
+  thead{background:#eef0f2}
+  th,td{height:64px;text-align:left;font-size:16px;padding:0 18px}
+  th{font-weight:900;color:#111}
+  td{color:#777;font-weight:700;border-bottom:1px solid #f3f4f6}
+  .row-check,.all-check{appearance:none;width:20px;height:20px;border:1px solid #999;border-radius:6px;background:#fff;cursor:pointer;position:relative}
+  .row-check:checked,.all-check:checked{background:#536ae8;border-color:#536ae8}
+  .row-check:checked::after,.all-check:checked::after{content:"✓";position:absolute;left:3px;top:-3px;color:#fff;font-size:15px;font-weight:900}
+  .settings-btn{border:1px solid #c2c2c2;border-radius:23px;background:#fff;padding:8px 15px;color:#555;font-size:13px;cursor:pointer}
+  .empty-row td{text-align:center;padding:36px;color:#8b919b}
+
+  /* 등록 모달 */
+  .modal-backdrop{position:fixed;inset:0;z-index:1500;background:rgba(20,25,38,.18);backdrop-filter:blur(1px);display:none;align-items:center;justify-content:center;padding:20px}
+  .modal-backdrop.open{display:flex}
+  .register-card{width:555px;max-width:calc(100vw - 32px);background:#fff;border-radius:27px;overflow:hidden;box-shadow:0 22px 45px rgba(0,0,0,.18)}
+  .register-head{height:98px;background:#30375f;display:flex;align-items:center;gap:14px;padding:0 30px;color:#fff}
+  .logo-box{width:66px;height:52px;border-radius:11px;border:1.5px solid rgba(255,255,255,.75);background:rgba(255,255,255,.10);display:grid;place-items:center;font-size:20px;font-weight:900;color:#fff}
+  .register-body{padding:30px 31px 31px}
+  .reg-field{margin-bottom:17px}
+  .reg-label{display:block;color:#245287;font-size:15px;font-weight:900;margin-bottom:10px;letter-spacing:-.4px}
+  .reg-input{width:100%;height:52px;border:1px solid #aeb7c3;border-radius:11px;background:#fbfcfe;padding:0 14px;font-size:13px;color:#3a4452;outline:none;font-family:inherit;transition:border-color .2s,box-shadow .2s,background-color .2s}
+  .reg-input:focus{background:#fff;border-color:#6473a8;box-shadow:0 0 0 3px rgba(48,55,95,.10)}
+  .reg-input::placeholder{color:#c7cfda}
+  /* Pi 선택 UI - 기본 select 대신 등록창 디자인에 맞춘 커스텀 드롭다운 */
+  .pi-picker{position:relative}
+  .pi-trigger{
+    width:100%;
+    height:58px;
+    border:1px solid #aeb7c3;
+    border-radius:13px;
+    background:#fbfcfe;
+    padding:0 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    cursor:pointer;
+    font-family:inherit;
+    transition:border-color .2s,box-shadow .2s,background-color .2s,transform .15s;
+  }
+  .pi-trigger:hover{background:#fff;border-color:#8794a6}
+  .pi-trigger.open{
+    background:#fff;
+    border-color:#6473a8;
+    box-shadow:0 0 0 3px rgba(48,55,95,.10);
+  }
+  .pi-trigger-left{display:flex;align-items:center;gap:12px;min-width:0}
+  .pi-icon{
+    width:34px;height:34px;border-radius:10px;
+    display:grid;place-items:center;flex:none;
+    background:#e9edfa;color:#30375f;
+    font-size:15px;font-weight:900;
+    border:1px solid #d6dced;
+  }
+  .pi-copy{text-align:left;min-width:0}
+  .pi-title{
+    display:block;font-size:13px;font-weight:900;color:#3a4452;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .pi-sub{
+    display:block;margin-top:2px;font-size:10px;font-weight:700;color:#9aa5b4;
+  }
+  .pi-chevron{
+    flex:none;width:28px;height:28px;border-radius:8px;
+    display:grid;place-items:center;
+    background:#eef1f7;color:#68758a;font-size:12px;
+    transition:transform .2s,background .2s;
+  }
+  .pi-trigger.open .pi-chevron{transform:rotate(180deg);background:#e2e7f2}
+  .pi-menu{
+    position:absolute;left:0;right:0;top:calc(100% + 8px);
+    z-index:30;
+    padding:8px;
+    border:1px solid #d7dce5;
+    border-radius:14px;
+    background:#fff;
+    box-shadow:0 14px 32px rgba(35,43,74,.16);
+    opacity:0;visibility:hidden;transform:translateY(-5px);
+    transition:opacity .16s,transform .16s,visibility .16s;
+  }
+  .pi-menu.open{opacity:1;visibility:visible;transform:translateY(0)}
+  .pi-option{
+    width:100%;border:0;border-radius:11px;background:#fff;
+    padding:11px 12px;display:flex;align-items:center;justify-content:space-between;
+    cursor:pointer;font-family:inherit;text-align:left;
+    transition:background .15s;
+  }
+  .pi-option:hover{background:#f2f4fb}
+  .pi-option-main{display:flex;align-items:center;gap:11px}
+  .pi-option-name{font-size:13px;font-weight:900;color:#30375f}
+  .pi-option-desc{font-size:10px;font-weight:700;color:#9ca6b5;margin-top:2px}
+  .pi-status{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:10px;font-weight:900;color:#2e7d5b;
+    background:#eaf8f1;padding:5px 8px;border-radius:999px;
+  }
+  .pi-status::before{
+    content:"";width:6px;height:6px;border-radius:50%;background:#34b27b;
+  }
+  .half-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .register-actions{display:flex;gap:28px;margin-top:27px}
+  .reg-cancel{width:162px;height:64px;border:0;border-radius:13px;background:#cbdcf3;color:#858585;font-size:19px;font-weight:900;cursor:pointer}
+  .reg-save{flex:1;height:64px;border:0;border-radius:13px;background:#30375f;color:#fff;font-size:19px;font-weight:900;cursor:pointer;box-shadow:0 4px 7px rgba(48,55,95,.22)}
+
+  @media(max-width:768px){.half-row{grid-template-columns:1fr}.register-card{width:95vw}.register-body{padding:24px 18px}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:40px 5vw 120px">
+
+  <div class="section-header">
+    <h1 class="section-title"><span style="font-size:34px">☷</span> 어항 편집</h1>
+    <div class="edit-actions">
+      <button class="outline-btn add-btn" onclick="openModal()">＋ 추가</button>
+      <form method="post" action="{% url 'monitoring:delete_tanks' %}" id="deleteForm" style="margin:0">
+        {% csrf_token %}
+        <button type="button" class="outline-btn delete-btn" onclick="confirmDelete()">🗑 삭제</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:60px;text-align:center"><input class="all-check" id="allCheck" type="checkbox" onchange="toggleAll(this)"></th>
+          <th>어항 이름</th>
+          <th>어종</th>
+          <th style="text-align:center">관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tank in tanks %}
+        <tr>
+          <td style="text-align:center">
+            <input class="row-check" type="checkbox" name="tank_ids" value="{{ tank.id }}" form="deleteForm">
+          </td>
+          <td>{{ tank.name }}</td>
+          <td>{{ tank.fish_species|default:"—" }}</td>
+          <td style="text-align:center">
+            <a href="{% url 'monitoring:tank_settings' tank.id %}">
+              <button class="settings-btn">⚙ 설정</button>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr class="empty-row"><td colspan="4">등록된 어항이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- 어항 등록 모달 -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <section class="register-card">
+    <div class="register-head">
+      <div class="logo-box">FISH</div>
+      <div>
+        <h2 style="font-size:23px;font-weight:900;letter-spacing:-.8px;line-height:1.2">새 어항 등록</h2>
+        <p style="font-size:9px;margin-top:4px;opacity:.78">Fish Tank Assistant</p>
+      </div>
+    </div>
+    <div class="register-body">
+      <form method="post" action="{% url 'monitoring:add_tank' %}">
+        {% csrf_token %}
+        <div class="reg-field">
+          <label class="reg-label">어항 이름</label>
+          <input name="name" class="reg-input" type="text" placeholder="예: 거실 구피항" required>
+        </div>
+        <div class="reg-field">
+          <label class="reg-label">주 물고기 종</label>
+          <input name="fish_species" class="reg-input" type="text" placeholder="예: 구피, 코메트">
+        </div>
+
+        <div class="reg-field">
+          <label class="reg-label">Pi 등록</label>
+
+          <input type="hidden" name="pi_device" id="piDeviceInput" value="">
+
+          <div class="pi-picker" id="piPicker">
+            <button type="button" class="pi-trigger" id="piTrigger" onclick="togglePiMenu()">
+              <span class="pi-trigger-left">
+                <span class="pi-icon">Pi</span>
+                <span class="pi-copy">
+                  <span class="pi-title" id="piSelectedTitle">Pi를 선택하세요</span>
+                  <span class="pi-sub" id="piSelectedSub">연결할 Raspberry Pi를 선택합니다</span>
+                </span>
+              </span>
+              <span class="pi-chevron">⌄</span>
+            </button>
+
+            <div class="pi-menu" id="piMenu">
+              <button type="button" class="pi-option" onclick="selectPi('pi1','Pi 1')">
+                <span class="pi-option-main">
+                  <span class="pi-icon">Pi</span>
+                  <span>
+                    <span class="pi-option-name">Pi 1</span>
+                    <span class="pi-option-desc">졸작용 Raspberry Pi 장치</span>
+                  </span>
+                </span>
+                <span class="pi-status">선택 가능</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="half-row">
+          <div class="reg-field">
+            <label class="reg-label">목표 온도 (°C)</label>
+            <input name="target_temp" class="reg-input" type="number" step="0.1" placeholder="26.0">
+          </div>
+          <div class="reg-field">
+            <label class="reg-label">환수 주기 (일)</label>
+            <input name="water_change_period" class="reg-input" type="number" min="1" placeholder="7">
+          </div>
+        </div>
+        <div class="register-actions">
+          <button type="button" class="reg-cancel" onclick="closeModal()">취소</button>
+          <button type="submit" class="reg-save">어항 등록하기</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openModal(){ document.getElementById('modalBackdrop').classList.add('open') }
+function closeModal(){
+  document.getElementById('modalBackdrop').classList.remove('open');
+  closePiMenu();
+}
+document.getElementById('modalBackdrop').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal() })
+
+function togglePiMenu(){
+  const menu=document.getElementById('piMenu');
+  const trigger=document.getElementById('piTrigger');
+  const willOpen=!menu.classList.contains('open');
+  menu.classList.toggle('open',willOpen);
+  trigger.classList.toggle('open',willOpen);
+}
+
+function closePiMenu(){
+  document.getElementById('piMenu')?.classList.remove('open');
+  document.getElementById('piTrigger')?.classList.remove('open');
+}
+
+function selectPi(value,label){
+  document.getElementById('piDeviceInput').value=value;
+  document.getElementById('piSelectedTitle').textContent=label;
+  document.getElementById('piSelectedSub').textContent='데모용 Raspberry Pi 장치가 선택되었습니다';
+  document.getElementById('piTrigger').style.borderColor='#536ae8';
+  closePiMenu();
+}
+
+document.addEventListener('click',e=>{
+  const picker=document.getElementById('piPicker');
+  if(picker && !picker.contains(e.target)) closePiMenu();
+});
+
+function toggleAll(el){ document.querySelectorAll('.row-check').forEach(c => c.checked = el.checked) }
+
+function confirmDelete(){
+  const checked = [...document.querySelectorAll('.row-check:checked')];
+  if(!checked.length){ alert('삭제할 어항을 선택해 주세요.'); return; }
+  if(confirm('선택한 어항을 삭제하시겠습니까?')){ document.getElementById('deleteForm').submit() }
+}
+</script>
+{% endblock %}
