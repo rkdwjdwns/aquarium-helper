@@ -148,7 +148,6 @@ def _calc_water_quality(temp, ph, do_val, tds_ppm=None) -> int:
     elif tds_ppm > s['turbidity_ok']:
         score -= 5
 
-    # TDS는 현재 모니터링 전용이며 종합 수질점수에는 반영하지 않는다.
     return max(score, 0)
 
 
