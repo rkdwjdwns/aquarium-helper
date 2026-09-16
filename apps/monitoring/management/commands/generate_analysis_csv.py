@@ -82,8 +82,93 @@ def _read_reconstructed(path):
         return list(csv.DictReader(fp))
 
 
+def _read_existing_csv(path):
+    """기존 분석 CSV의 컬럼과 행을 그대로 읽습니다."""
+    if not path.exists():
+        return [], []
+    with path.open("r", newline="", encoding="utf-8-sig") as fp:
+        reader = csv.DictReader(fp)
+        return list(reader.fieldnames or []), list(reader)
+
+
+def _clean_key_value(value):
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _row_key(dataset, row):
+    """재배포 시 같은 DB 기록이 중복 추가되지 않도록 행 식별 키를 만듭니다."""
+    if dataset == "feeding":
+        event_id = _clean_key_value(row.get("event_id"))
+        if event_id:
+            return ("event_id", event_id)
+        return ("timestamp", _clean_key_value(row.get("timestamp")), _clean_key_value(row.get("meal_no")))
+
+    if dataset in {"activity", "abr"}:
+        timestamp = _clean_key_value(row.get("timestamp"))
+        fish_id = _clean_key_value(row.get("fish_id"))
+        if timestamp:
+            return ("tracked", fish_id, timestamp)
+        return (
+            "history", fish_id,
+            _clean_key_value(row.get("day_since_first")),
+            _clean_key_value(row.get("data_source")),
+        )
+
+    if dataset == "growth":
+        timestamp = _clean_key_value(row.get("timestamp"))
+        fish_id = _clean_key_value(row.get("fish_id"))
+        if timestamp:
+            return ("tracked", fish_id, timestamp)
+        return (
+            "history", fish_id,
+            _clean_key_value(row.get("day_since_first")),
+            _clean_key_value(row.get("data_source")),
+        )
+
+    return tuple(sorted((k, _clean_key_value(v)) for k, v in row.items()))
+
+
+def _merge_csv_rows(dataset, existing_fields, existing_rows, generated_fields, generated_rows):
+    """
+    기존 CSV를 기준으로 DB에서 생성한 행을 병합합니다.
+
+    - 기존 추가 컬럼과 기존 값은 유지
+    - 같은 기록이면 DB가 담당하는 generated_fields만 갱신
+    - 새 기록이면 새 행으로 추가하고 기존 전용 컬럼은 빈 값으로 유지
+    """
+    fields = list(existing_fields)
+    for field in generated_fields:
+        if field not in fields:
+            fields.append(field)
+
+    merged = [dict(row) for row in existing_rows]
+    index = {}
+    for i, row in enumerate(merged):
+        key = _row_key(dataset, row)
+        if key not in index:
+            index[key] = i
+
+    for new_row in generated_rows:
+        key = _row_key(dataset, new_row)
+        if key in index:
+            target = merged[index[key]]
+            for field in generated_fields:
+                if field in new_row:
+                    target[field] = new_row.get(field, "")
+        else:
+            row = {field: "" for field in fields}
+            for field in generated_fields:
+                row[field] = new_row.get(field, "")
+            merged.append(row)
+            index[key] = len(merged) - 1
+
+    return fields, merged
+
+
 class Command(BaseCommand):
-    help = "DB의 개체별 성장/행동/ABR/급이 데이터를 프론트용 분석 CSV로 자동 생성합니다."
+    help = "기존 분석 CSV를 유지하면서 DB의 성장/행동/ABR/급이 데이터를 병합 갱신합니다."
 
     def add_arguments(self, parser):
         parser.add_argument("--tank-id", type=int, default=None)
@@ -153,21 +238,37 @@ class Command(BaseCommand):
             ),
         }
 
-        for key, (fields, rows) in datasets.items():
+        for key, (generated_fields, generated_rows) in datasets.items():
             out_path = output_dir / OUTPUT_FILENAMES[key]
+            existing_fields, existing_rows = _read_existing_csv(out_path)
+
+            fields, rows = _merge_csv_rows(
+                key,
+                existing_fields,
+                existing_rows,
+                generated_fields,
+                generated_rows,
+            )
             _write_csv(out_path, fields, rows)
+
             try:
                 display = out_path.relative_to(settings.BASE_DIR)
             except ValueError:
                 display = out_path
+
+            added_count = max(len(rows) - len(existing_rows), 0)
             self.stdout.write(
-                self.style.SUCCESS(f"[생성] {display} ({len(rows)}행)")
+                self.style.SUCCESS(
+                    f"[갱신] {display} "
+                    f"(기존 {len(existing_rows)}행 / DB {len(generated_rows)}행 / "
+                    f"추가 {added_count}행 / 결과 {len(rows)}행)"
+                )
             )
 
         tank_text = f"Tank #{tank.id} ({tank.name})" if tank else "DB Tank 없음"
         self.stdout.write(
             self.style.SUCCESS(
-                f"분석 CSV 생성 완료 | 대상={tank_text} | "
+                f"분석 CSV 갱신 완료 | 대상={tank_text} | "
                 f"폐사 개체 재구성={len(reconstructed_rows)}행"
             )
         )
