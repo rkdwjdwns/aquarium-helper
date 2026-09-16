@@ -79,21 +79,21 @@
 
         <div class="two-col">
           <div class="panel"><div class="panel-label">상태 평가</div><strong id="abrStatus">--</strong></div>
-          <div class="panel"><div class="panel-label">최근 5분 이상구간</div><strong id="abrCount">--</strong></div>
+          <div class="panel"><div class="panel-label">최근 5분 이상 이벤트</div><strong id="abrCount">--</strong></div>
         </div>
 
 
       </article>
 
-      <!-- Activity Index -->
+      <!-- Activity Level -->
       <article class="analysis-card inl-analysis-012">
         <div class="card-title">활동패턴 분석</div>
-        <div class="card-sub">최근 30분 · 동일 시간대 평소 수준을 100으로 환산</div>
+        <div class="card-sub">최근 30분 · 개체 활동량(px/s) 분석</div>
         <div class="big-number inl-analysis-013" id="actIndex">--</div>
-        <div class="big-sub">Activity Index</div>
+        <div class="big-sub">Activity Level</div>
 
         <div class="two-col">
-          <div class="panel"><div class="panel-label">동일시간대 대비율</div><strong id="actCompare">--</strong></div>
+          <div class="panel"><div class="panel-label">최근 30분 평균 대비율</div><strong id="actCompare">--</strong></div>
           <div class="panel"><div class="panel-label">활동 상태</div><strong id="actState">--</strong></div>
         </div>
 
@@ -110,12 +110,20 @@
       <!-- 성장 분석 -->
       <article class="analysis-card growth-card inl-analysis-015">
         <div class="card-title">성장 분석</div>
-        <div class="card-sub">평균 체장 · 주간 성장 이력 </div>
+        <div class="card-sub">개체별 체장 · 주간 성장 이력</div>
+
+        <div class="growth-card-actions">
+          <div class="growth-switch" aria-label="성장 분석 개체 선택">
+            <button type="button" class="growth-fish-btn active" data-fish-id="1">FISH 1</button>
+            <button type="button" class="growth-fish-btn" data-fish-id="2">FISH 2</button>
+            <button type="button" class="growth-fish-btn" data-fish-id="3">FISH 3</button>
+          </div>
+        </div>
 
         <div class="growth-current-summary">
           <div class="value" id="growthAvgCurrent">--<small>cm</small></div>
         </div>
-        <div class="big-sub" id="growthAvgDate">현재 평균 추정체장</div>
+        <div class="big-sub" id="growthAvgDate">현재 체장</div>
 
         <div class="growth-summary-grid">
           <div class="growth-summary-item">
@@ -123,7 +131,7 @@
             <strong id="growthPeriod">--</strong>
           </div>
           <div class="growth-summary-item">
-            <div class="label">평균 성장속도</div>
+            <div class="label">성장속도</div>
             <strong id="growthSpeed">--</strong>
           </div>
           <div class="growth-summary-item">
@@ -156,6 +164,7 @@
           <span><i class="growth-line-sample"></i>우리 성장 이력</span>
           <span><i class="growth-line-sample future"></i>향후 vBGF 예측</span>
           <span><i class="growth-line-sample comet"></i>참고 성장</span>
+          <span class="growth-death-legend"><i class="growth-death-x">×</i> 폐사 지점</span>
           <span>음영 = 각 곡선 오차범위</span>
         </div>
       </article>
