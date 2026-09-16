@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== 정적 파일 수집 ==="
-python manage.py collectstatic --no-input
-
 echo "=== DB 마이그레이션 ==="
 python manage.py migrate
 
 echo "=== 상태 진단 코드(StateCode) 초기화 ==="
 python manage.py seed_state_codes
 
+echo "=== 분석용 CSV 자동 생성 ==="
+if [ -n "${ANALYSIS_TANK_ID:-}" ]; then
+    python manage.py generate_analysis_csv --tank-id "$ANALYSIS_TANK_ID"
+else
+    python manage.py generate_analysis_csv
+fi
+
+echo "=== 정적 파일 수집 ==="
+python manage.py collectstatic --no-input
+
 # 수집된 연구/분석 데이터를 배포 시 자동 삭제하지 않는다.
-# cleanup_old_data는 필요한 경우 관리자가 명시적으로 실행한다.
+# cleanup_old_data는 관리자가 필요할 때만 명시적으로 실행한다.
 
 echo "=== 관리자 계정 확인 ==="
 python manage.py shell << 'EOF'

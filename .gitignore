@@ -73,3 +73,9 @@ goldfish_ai/data/*
 
 # Runtime-generated decision history remains local
 goldfish_ai/data/presentation/ai_control_decisions.csv
+
+# Generated analysis CSVs
+static/monitoring/data/growth_analysis.csv
+static/monitoring/data/activity_analysis.csv
+static/monitoring/data/abr_analysis.csv
+static/monitoring/data/feeding_analysis.csv
