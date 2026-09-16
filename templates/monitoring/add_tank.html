@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="max-w-xl mx-auto py-12">
@@ -50,14 +51,5 @@
     </div>
 </div>
 
-<style>
-    /* 입력창 플레이스홀더 애니메이션 */
-    input::placeholder {
-        transition: transform 0.3s;
-    }
-    input:focus::placeholder {
-        transform: translateX(10px);
-        opacity: 0.5;
-    }
-</style>
+<link rel="stylesheet" href="{% static 'css/monitoring/add_tank.css' %}">
 {% endblock %}

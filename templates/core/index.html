@@ -1,59 +1,7 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block extra_css %}
-<style>
-  .section-header{
-    display:flex;align-items:center;justify-content:space-between;
-    border-bottom:1px solid #202020;padding-bottom:18px;
-  }
-  .section-title{
-    display:flex;align-items:center;gap:18px;
-    font-size:29px;font-weight:900;letter-spacing:-1.4px;
-  }
-  .list-icon{font-size:34px;color:#050505}
-  .edit-btn{
-    min-width:103px;height:43px;border:0;border-radius:13px;
-    background:#536ae8;color:#fff;font-size:15px;font-weight:800;
-    cursor:pointer;box-shadow:0 4px 7px rgba(0,0,0,.2);
-  }
-  .cards{
-    display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(500px,550px));
-    gap:28px;padding:40px 32px 0;align-items:start;
-  }
-  .tank-card{
-    min-height:323px;background:#fff;border-radius:30px;
-    padding:27px 38px 26px;box-shadow:0 10px 13px rgba(0,0,0,.25);
-  }
-  .card-head{
-    display:flex;align-items:flex-start;justify-content:space-between;
-    margin-bottom:31px;
-  }
-  .tank-name{font-size:30px;font-weight:900;letter-spacing:-1.7px}
-  .tank-code{margin-top:8px;color:#45bfff;font-size:14px;font-weight:900}
-  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-bottom:23px}
-  .metric{
-    height:126px;border-radius:31px;background:#ececec;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-  }
-  .metric-label{margin-bottom:25px;color:#737373;font-size:16px;font-weight:800}
-  .metric-value{color:#000;font-size:36px;line-height:1;font-weight:900}
-  .card-actions{display:grid;grid-template-columns:1fr 1fr;gap:39px}
-  .card-btn{
-    height:56px;border:0;border-radius:30px;
-    color:#fff;font-size:17px;font-weight:900;cursor:pointer;
-  }
-  .manage-btn{background:#263f50}
-  .report-btn{background:#2c9df3}
-  .empty-state{padding:45px 32px;color:#7b8390;font-size:16px}
-  @media(max-width:700px){
-    main>div{padding:0 18px}
-    .section-title{font-size:24px}
-    .cards{grid-template-columns:1fr;padding:28px 0 0}
-    .tank-card{padding:24px 20px}
-    .metrics{gap:10px}
-    .card-actions{gap:12px}
-  }
-</style>
+<link rel="stylesheet" href="{% static 'css/core/index.css' %}">
 {% endblock %}
 
 {% block content %}

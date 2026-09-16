@@ -1,77 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block extra_css %}
-<style>
-  :root{--sw:270px}
-  .sidebar{position:fixed;top:86px;left:0;bottom:0;width:var(--sw);background:#fff;border-right:1px solid #dfe5ec;box-shadow:4px 0 15px rgba(0,0,0,.05);z-index:900;display:flex;flex-direction:column;transition:width .3s}
-  .sidebar.collapsed{width:44px;overflow:hidden}
-  .sidebar.collapsed .hide-on-collapse{display:none!important}
-  .sidebar.collapsed .tank-title-row{justify-content:center}
-  .sidebar.collapsed .tank-summary{padding:18px 7px;border-bottom:0}
-  .tank-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .tank-summary{padding:22px 22px 18px;border-bottom:1px solid #e4e8ee}
-  .sidebar-toggle{width:30px;height:30px;flex:none;border:0;border-radius:8px;background:#f1f5fa;color:#596474;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
-  .sidebar-toggle:hover{background:#dcecff;color:#2572e9}
-  .s-menu{list-style:none;padding:0 6px}
-  .s-menu a{display:flex;align-items:center;height:44px;padding:0 12px;border-radius:7px;color:#4b5564;text-decoration:none;font-size:14px;margin-bottom:2px}
-  .s-menu a.active{background:#dcecff;color:#2572e9;font-weight:800}
-  .s-menu a:hover{background:#f1f5fa}
-  .sidebar-bottom{margin-top:auto;width:100%;min-height:58px;padding:0 18px;border-top:1px solid #e4e8ee;background:#fff;display:flex;align-items:center;justify-content:space-between}
-  .sidebar-bottom a{text-decoration:none;font-size:14px;font-weight:800}
-  #mainContent{
-    margin-left:var(--sw);
-    padding:40px 48px 80px 48px;
-    transition:margin-left .3s;
-    box-sizing:border-box;
-    min-width:0;
-  }
-  #mainContent > div{
-    width:100%;
-    max-width:1200px;
-    min-width:0;
-    margin:0 auto;
-    box-sizing:border-box;
-  }
-
-  .page-title{font-size:18px;font-weight:900;letter-spacing:.5px;margin-bottom:32px}
-  .stream-wrap{position:relative;background:#05070b;border-radius:24px;overflow:hidden;width:72%;max-width:820px;aspect-ratio:1.45/1;margin:0 auto 24px;display:flex;align-items:center;justify-content:center}
-  .video-crop-frame{
-    position:relative;
-    width:100%;
-    height:100%;
-    overflow:hidden;
-    background:#000;
-    border-radius:0;
-    flex:1;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .video-crop-frame video,
-  .video-crop-frame img{
-    width:100%;
-    height:100%;
-    object-fit:contain;
-    object-position:center center;
-    display:block;
-    background:#000;
-    transform:none;
-  }
-  .stream-offline{color:#9ca3af;font-size:14px;font-weight:700;text-align:center;padding:20px}
-  .stream-overlay{position:absolute;bottom:14px;left:14px;right:14px;display:flex;justify-content:space-between;align-items:center}
-  .live-badge{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:900}
-  .btn-row{display:flex;gap:10px;width:72%;max-width:820px;margin:0 auto 24px;flex-wrap:wrap}
-  .ctrl-btn{height:44px;padding:0 20px;border:1px solid #dde1ea;border-radius:12px;background:#fff;font-size:13px;font-weight:800;cursor:pointer;color:#333}
-  .ctrl-btn.active{background:#30375f;color:#fff;border-color:#30375f}
-
-  @media(max-width:900px){
-    .sidebar{display:none}
-    main{margin-left:0!important;padding:24px 18px 80px}
-    .stream-wrap{width:92%;aspect-ratio:1.35/1}
-    .video-crop-frame{width:100%;height:100%}
-    .btn-row{width:92%}
-  }
-</style>
+<link rel="stylesheet" href="{% static 'css/monitoring/camera.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -148,79 +78,10 @@
   </div>
 </main>
 
-<style>
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-</style>
+
 {% endblock %}
 
 {% block extra_js %}
-<script>
-const TANK_ID = {{ tank.id|default:1 }};
-
-// 사이드바
-function toggleSb(){
-  const sb=document.getElementById('sidebar');
-  sb.classList.toggle('collapsed');
-  const c=sb.classList.contains('collapsed');
-  document.getElementById('sbToggle').textContent=c?'›':'‹';
-  document.getElementById('mainContent').style.marginLeft=c?'44px':'var(--sw)';
-}
-setInterval(()=>document.getElementById('stream-time')&&(document.getElementById('stream-time').textContent=new Date().toLocaleTimeString('ko-KR')),1000);
-
-
-// 구역 오버레이
-let zoneOn=false;
-function toggleZone(){
-  zoneOn=!zoneOn;
-  const btn=document.getElementById('zoneBtn');
-  let cv=document.getElementById('zoneCv');
-  if(zoneOn){
-    if(!cv){cv=document.createElement('canvas');cv.id='zoneCv';cv.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:.6;';document.getElementById('videoFrame').appendChild(cv);}
-    const w=cv.parentElement.offsetWidth,h=cv.parentElement.offsetHeight;
-    cv.width=w;cv.height=h;
-    const ctx=cv.getContext('2d');
-    [{label:'TOP',y:0,h:h/3,c:'rgba(239,68,68,.15)',b:'rgba(239,68,68,.6)'},{label:'MID',y:h/3,h:h/3,c:'rgba(59,130,246,.1)',b:'rgba(59,130,246,.5)'},{label:'BOT',y:h*2/3,h:h/3,c:'rgba(16,185,129,.1)',b:'rgba(16,185,129,.5)'}].forEach(z=>{
-      ctx.fillStyle=z.c;ctx.fillRect(0,z.y,w,z.h);
-      ctx.strokeStyle=z.b;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.strokeRect(2,z.y+2,w-4,z.h-4);
-      ctx.font='bold 13px sans-serif';ctx.fillStyle=z.b;ctx.setLineDash([]);ctx.fillText(z.label,14,z.y+22);
-    });
-    btn.classList.add('active');
-  } else {cv?.remove();btn.classList.remove('active');}
-}
-function toggleFs(){const el=document.getElementById('streamWrap');if(!document.fullscreenElement)el.requestFullscreen?.();else document.exitFullscreen?.();}
-
-
-// ngrok Raspberry Pi MJPEG 라이브 스트림
-const STREAM_URL = "https://graded-reoccupy-unbounded.ngrok-free.dev/stream.mjpg";
-const liveStream = document.getElementById('liveStream');
-
-function setConnectionState(connected){
-  const dot=document.getElementById('liveDot');
-  const badge=document.getElementById('connBadge');
-  if(dot){
-    dot.style.background=connected?'#ef4444':'#6b7280';
-    dot.style.animation=connected?'pulse 1s infinite':'none';
-  }
-  if(badge){
-    badge.style.background=connected?'#e6f9f0':'#fee2e2';
-    badge.style.color=connected?'#1a7f5a':'#b91c1c';
-    badge.innerHTML=connected
-      ? '<span style="width:8px;height:8px;border-radius:50%;background:#10b981"></span>카메라 연결됨'
-      : '<span style="width:8px;height:8px;border-radius:50%;background:#ef4444"></span>카메라 연결 끊김';
-  }
-}
-
-function reconnectStream(){
-  if(!liveStream) return;
-  setConnectionState(false);
-  const sep=STREAM_URL.includes('?')?'&':'?';
-  liveStream.src=STREAM_URL+sep+'_='+Date.now();
-}
-
-if(liveStream){
-  liveStream.addEventListener('load',()=>setConnectionState(true));
-  liveStream.addEventListener('error',()=>setConnectionState(false));
-}
-
-</script>
+<div id="cameraConfig" data-tank-id="{{ tank.id|default:1 }}" hidden></div>
+<script src="{% static 'js/monitoring/camera.js' %}"></script>
 {% endblock %}
